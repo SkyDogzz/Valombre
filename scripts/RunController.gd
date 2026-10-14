@@ -2026,9 +2026,9 @@ func _update_manual_attack() -> void:
 		if ranged:
 			if target == null:
 				continue
-			player.facing = (target.position - player.position).normalized()
 			if nearest > reach:
 				continue
+			player.facing = (target.position - player.position).normalized()
 		else:
 			var mouse_direction := player.get_global_mouse_position() - player.global_position
 			if mouse_aim_active and mouse_direction.length() > 5.0:
