@@ -2,6 +2,7 @@ extends Node
 class_name RunController
 
 const ENEMY_SCRIPT := preload("res://scripts/Enemy.gd")
+const PROFILE_SCHEMA_VERSION := 2
 const WORLD_SIZE := Vector2(1500.0, 1100.0)
 const OBSTACLES := [Vector3(605, 530, 27), Vector3(898, 605, 31), Vector3(770, 415, 23), Vector3(735, 705, 24)]
 
@@ -54,6 +55,7 @@ var equipment_xp := 1.0
 var equipment_lifesteal := 0.0
 var global_pickup := false
 var player_shield := 0.0
+var cheat_infinite_life := false
 var scythe_souls := 0
 var weapon_swing_counts: Dictionary = {}
 var projectiles: Array[Dictionary] = []
@@ -72,7 +74,7 @@ var uncapped_inventory := false
 var custom_drops := false
 var selected_drop_weapons: Array[String] = []
 var selected_drop_relics: Array[String] = []
-var profile := {"schema_version": 1, "wins": 0, "bestKills": 0, "shards": 0, "run": null, "hero": "pilgrim", "weapon": "sabre", "mode": "waves", "difficulty": "insane", "singleWeapon": false, "uncappedInventory": false, "customDrops": false, "dropWeapons": [], "dropRelics": [], "bestiary": {}, "discoveredWeapons": {}, "discoveredRelics": {}, "discoveredSynergies": {}, "muted": false, "volume": 0.25, "autoPickUpgrade": true}
+var profile := {"schema_version": 2, "wins": 0, "bestKills": 0, "shards": 0, "run": null, "hero": "pilgrim", "weapon": "sabre", "mode": "waves", "difficulty": "insane", "singleWeapon": false, "uncappedInventory": false, "customDrops": false, "dropWeapons": [], "dropRelics": [], "bestiary": {}, "discoveredWeapons": {}, "discoveredRelics": {}, "discoveredSynergies": {}, "muted": false, "volume": 0.25, "autoPickUpgrade": true}
 var result_recorded := false
 var notice_text := ""
 var notice_timer := 0.0
@@ -112,6 +114,7 @@ var notice_label: Label
 var mute_toggle: CheckBox
 var volume_slider: HSlider
 var reset_button: Button
+var cheat_button: Button
 var audio_player: AudioStreamPlayer
 var sound_generator: AudioStreamGenerator
 var sound_playback: AudioStreamGeneratorPlayback
@@ -138,6 +141,7 @@ func _ready() -> void:
 	_create_interface()
 	_create_audio()
 	_create_held_weapon_sprite()
+	_create_cheat_button()
 	_update_player_visuals()
 	player.run_active = false
 
@@ -440,7 +444,7 @@ func _reset_profile() -> void:
 	var confirmation := ConfirmationDialog.new()
 	confirmation.dialog_text = "Effacer la run, les découvertes, les victoires, les éclats et toutes les options sauvegardées ?"
 	confirmation.confirmed.connect(func() -> void:
-		profile = {"schema_version": 1, "wins": 0, "bestKills": 0, "shards": 0, "run": null, "hero": "pilgrim", "weapon": "sabre", "mode": "waves", "difficulty": "insane", "singleWeapon": false, "uncappedInventory": false, "customDrops": false, "dropWeapons": [], "dropRelics": [], "bestiary": {}, "discoveredWeapons": {}, "discoveredRelics": {}, "discoveredSynergies": {}, "muted": false, "volume": 0.25, "autoPickUpgrade": true}
+		profile = {"schema_version": PROFILE_SCHEMA_VERSION, "wins": 0, "bestKills": 0, "shards": 0, "run": null, "hero": "pilgrim", "weapon": "sabre", "mode": "waves", "difficulty": "insane", "singleWeapon": false, "uncappedInventory": false, "customDrops": false, "dropWeapons": [], "dropRelics": [], "bestiary": {}, "discoveredWeapons": {}, "discoveredRelics": {}, "discoveredSynergies": {}, "muted": false, "volume": 0.25, "autoPickUpgrade": true}
 		hero_id = "pilgrim"
 		weapon_id = "sabre"
 		mode = "waves"
@@ -448,6 +452,7 @@ func _reset_profile() -> void:
 		single_weapon = false
 		uncapped_inventory = false
 		custom_drops = false
+		cheat_infinite_life = false
 		selected_drop_weapons.clear()
 		selected_drop_relics.clear()
 		_load_profile_defaults()
@@ -495,6 +500,26 @@ func _create_held_weapon_sprite() -> void:
 	held_weapon_sprite.name = "HeldWeaponSprite"
 	held_weapon_sprite.z_index = 1
 	player.add_child(held_weapon_sprite)
+
+func _create_cheat_button() -> void:
+	cheat_button = Button.new()
+	cheat_button.text = "VIE INFINIE · OFF"
+	cheat_button.position = Vector2(744.0, 12.0)
+	cheat_button.custom_minimum_size = Vector2(204.0, 34.0)
+	cheat_button.visible = false
+	cheat_button.pressed.connect(_toggle_infinite_life)
+	layer.add_child(cheat_button)
+
+func _toggle_infinite_life() -> void:
+	if state != "playing":
+		return
+	cheat_infinite_life = not cheat_infinite_life
+	_update_cheat_button()
+	_save_checkpoint(wave)
+
+func _update_cheat_button() -> void:
+	if is_instance_valid(cheat_button):
+		cheat_button.text = "VIE INFINIE · %s" % ("ON" if cheat_infinite_life else "OFF")
 
 func _update_player_visuals() -> void:
 	var avatar := player.get_node_or_null("Sprite2D") as Sprite2D
@@ -662,6 +687,7 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 	equipment_lifesteal = 0.0
 	global_pickup = false
 	player_shield = 0.0
+	cheat_infinite_life = false
 	scythe_souls = 0
 	weapon_swing_counts.clear()
 	attack_speed_multiplier = 1.0
@@ -702,6 +728,7 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 		for item in relic_inventory:
 			_mark_discovered("discoveredRelics", str(item.id))
 		player_shield = float(saved_player.get("shield", 0.0))
+		cheat_infinite_life = bool(saved_player.get("cheatInfiniteLife", false))
 		scythe_souls = int(saved_player.get("scytheSouls", 0))
 		var saved_position: Array = saved_player.get("position", [WORLD_SIZE.x * 0.5, WORLD_SIZE.y * 0.5])
 		player.position = Vector2(float(saved_position[0]), float(saved_position[1]))
@@ -780,6 +807,7 @@ func _save_checkpoint(number: int) -> void:
 		"weaponInventory": weapon_inventory.duplicate(true),
 		"inventory": relic_inventory.duplicate(true),
 		"shield": player_shield,
+		"cheatInfiniteLife": cheat_infinite_life,
 		"scytheSouls": scythe_souls,
 		"position": [player.position.x, player.position.y],
 		"facing": [player.facing.x, player.facing.y],
@@ -2058,6 +2086,8 @@ func _relic_health() -> float:
 	return total
 
 func _damage_player(amount: float) -> void:
+	if cheat_infinite_life:
+		return
 	_play_tone(90.0, 0.11, "square")
 	var incoming := maxf(1.0, amount * (1.0 - minf(0.8, defense + equipment_defense)))
 	var absorbed := minf(player_shield, incoming)
@@ -2089,6 +2119,9 @@ func _set_state(next_state: String) -> void:
 	var is_overlay := state != "playing"
 	menu_panel.visible = is_overlay
 	player.run_active = state == "playing"
+	if is_instance_valid(cheat_button):
+		cheat_button.visible = state == "playing"
+		_update_cheat_button()
 	_update_player_visuals()
 	if state != "playing":
 		inventory_open = false
@@ -2268,8 +2301,10 @@ func _load_profile() -> void:
 	var saved: Variant = JSON.parse_string(file.get_as_text())
 	if not saved is Dictionary:
 		return
-	if int(saved.get("schema_version", 1)) != 1:
+	var saved_schema: Variant = saved.get("schema_version", 1)
+	if not saved_schema is int or int(saved_schema) < 1 or int(saved_schema) > PROFILE_SCHEMA_VERSION:
 		return
+	saved = _migrate_profile(saved, int(saved_schema))
 	var auto_pick: Variant = saved.get("autoPickUpgrade", true)
 	if auto_pick is bool:
 		profile.autoPickUpgrade = auto_pick
@@ -2311,6 +2346,18 @@ func _load_profile() -> void:
 	var saved_run: Variant = saved.get("run")
 	if _checkpoint_is_valid(saved_run):
 		profile.run = saved_run
+
+func _migrate_profile(saved_profile: Dictionary, from_version: int) -> Dictionary:
+	var migrated := saved_profile.duplicate(true)
+	if from_version == 1:
+		for key in ["hero", "weapon", "mode", "difficulty", "muted", "volume", "autoPickUpgrade", "bestiary", "discoveredWeapons", "discoveredRelics", "discoveredSynergies", "singleWeapon", "uncappedInventory", "customDrops", "dropWeapons", "dropRelics"]:
+			if not migrated.has(key):
+				migrated[key] = profile[key]
+		var run: Variant = migrated.get("run")
+		if run is Dictionary and run.get("player") is Dictionary and not run.player.has("cheatInfiniteLife"):
+			run.player.cheatInfiniteLife = false
+		migrated["schema_version"] = 2
+	return migrated
 
 func _sanitize_ids(value: Variant, valid_ids: Array[String]) -> Array[String]:
 	var result: Array[String] = []
@@ -2360,11 +2407,14 @@ func _sanitize_bestiary(records: Dictionary) -> Dictionary:
 	return clean
 
 func _checkpoint_is_valid(checkpoint: Variant) -> bool:
-	if not checkpoint is Dictionary or int(checkpoint.get("version", 0)) != 1:
+	if not checkpoint is Dictionary or not (checkpoint.get("version") is int) or int(checkpoint.version) != 1:
 		return false
 	var checkpoint_mode := str(checkpoint.get("mode", ""))
-	var checkpoint_wave := int(checkpoint.get("wave", 0))
+	var checkpoint_wave_value: Variant = checkpoint.get("wave", 0)
+	var checkpoint_wave := int(checkpoint_wave_value) if checkpoint_wave_value is int else 0
 	var checkpoint_player: Variant = checkpoint.get("player", {})
+	if not (checkpoint.get("defeated", 0) is int) or int(checkpoint.get("defeated", 0)) < 0 or not (checkpoint.get("elapsedSeconds", 0) is int) or int(checkpoint.get("elapsedSeconds", 0)) < 0:
+		return false
 	if checkpoint_mode not in ["waves", "infinite"] or checkpoint_wave < 1 or (checkpoint_mode == "waves" and checkpoint_wave > catalog.content.waves.size()):
 		return false
 	if not catalog.content.difficulties.has(str(checkpoint.get("difficulty", ""))):
@@ -2396,6 +2446,10 @@ func _checkpoint_is_valid(checkpoint: Variant) -> bool:
 		var facing: Variant = checkpoint_player.facing
 		if not facing is Array or facing.size() < 2 or not _is_finite_number(facing[0]) or not _is_finite_number(facing[1]):
 			return false
+	if checkpoint_player.has("cheatInfiniteLife") and not (checkpoint_player.cheatInfiniteLife is bool):
+		return false
+	if checkpoint_player.has("scytheSouls") and (int(checkpoint_player.scytheSouls) < 0 or int(checkpoint_player.scytheSouls) > 5):
+		return false
 	var ranks: Dictionary = checkpoint_player.get("upgradeRanks", {})
 	for rank_id in ranks:
 		if not catalog.definitions.get("upgrades", []).any(func(definition: GameDefinition) -> bool: return str(definition.id) == str(rank_id)) or not _is_finite_number(ranks[rank_id]) or int(ranks[rank_id]) < 0:
@@ -2420,6 +2474,8 @@ func _checkpoint_is_valid(checkpoint: Variant) -> bool:
 			return false
 	for challenge in challenges:
 		if not challenge is Dictionary or not challenge.has("id") or not _is_finite_number(challenge.get("target")) or not _is_finite_number(challenge.get("progress")) or not (challenge.get("complete") is bool):
+			return false
+		if str(challenge.id) not in ["kills", "elites", "xp"]:
 			return false
 		if float(challenge.target) <= 0.0 or float(challenge.progress) < 0.0 or float(challenge.progress) > float(challenge.target):
 			return false
@@ -2451,6 +2507,7 @@ func _is_finite_number(value: Variant) -> bool:
 	return (value is int or value is float) and is_finite(float(value))
 
 func _save_profile() -> void:
+	profile.schema_version = PROFILE_SCHEMA_VERSION
 	var file := FileAccess.open("user://save.json", FileAccess.WRITE)
 	if file == null:
 		push_warning("Unable to save profile: %s" % FileAccess.get_open_error())

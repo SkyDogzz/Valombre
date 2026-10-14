@@ -2,7 +2,7 @@
 
 Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le guide du dépôt [`README.md`](README.md). L’objectif est une version Godot jouable dont le contenu et les règles reproduisent le snapshot web, puis dont la présentation et les contrôles atteignent la même expérience. Les tâches marquées « parité » doivent suivre le code JavaScript exporté, y compris les comportements qui ne sont pas décrits dans le JSON.
 
-**Avancement global : 36/70 tâches terminées (51,4 %).**
+**Avancement global : 39/70 tâches terminées (55,7 %).**
 
 ## Principes de portage
 
@@ -28,7 +28,7 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 - [ ] Construire une matrice de parité pour chaque fonction métier : formule d’entrée, mise à jour, sorties, effets secondaires et sauvegarde.
 - [ ] Relever précisément les règles insuffisamment résumées : dégâts par espèce, rayons de collision, séquences d’attaque, cadence, projectiles, expérience donnée par ennemi, générateur d’afflux, choix/remplacement d’équipement, niveaux cumulés de relique, synergies et ordre des multiplicateurs.
 - [ ] Comparer `CONTENT_DATA.json` au code source et consigner les divergences connues (incluant le tableau de vagues historique du README source).
-- [ ] Documenter tous les champs du checkpoint et du profil, la validation du schéma et les transitions où ils sont écrits.
+- [x] Documenter tous les champs du checkpoint et du profil, la validation du schéma et les transitions où ils sont écrits ([`docs/SAVE_SCHEMA.md`](docs/SAVE_SCHEMA.md)).
 - [ ] Relever les dimensions exactes des éléments d’interface, les libellés, les couleurs et les règles responsive depuis HTML/CSS.
 - [ ] Vérifier les empreintes SVG via le manifeste et associer chacun aux entités/éléments d’interface.
 
@@ -118,8 +118,8 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 - [ ] Recréer overlays pause, montée de niveau, butin, victoire et défaite ; navigation clavier/manette tactile et focus accessible.
 - [x] Ajouter réglage de volume/muet, reprise, nouvelle run, remise à zéro, partage de configuration URL si pertinent à l’export Godot.
 - [ ] Porter profil et checkpoint complet en `user://save.json` (ou ConfigFile), ajouter `schema_version`, validation et migration.
-- [ ] Sauvegarder aux transitions équivalentes à la source : démarrage/intermission de vague et mutations persistantes importantes.
-- [ ] Préserver une partie interrompue, sa reprise, l’option de vie infinie et la remise à zéro du profil.
+- [x] Sauvegarder aux transitions équivalentes à la source : démarrage/intermission de vague et mutations persistantes importantes.
+- [x] Préserver une partie interrompue, sa reprise, l’option de vie infinie et la remise à zéro du profil.
 
 **Critères d’acceptation :** chaque état peut être rejoint et quitté sans avancer la simulation lorsqu’elle doit être suspendue ; après fermeture/réouverture, profil et checkpoint sont restaurés ; ancienne sauvegarde invalide/corrompue ne bloque pas le démarrage.
 
