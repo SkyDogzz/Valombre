@@ -2,7 +2,7 @@
 
 Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le guide du dépôt [`README.md`](README.md). L’objectif est une version Godot jouable dont le contenu et les règles reproduisent le snapshot web, puis dont la présentation et les contrôles atteignent la même expérience. Les tâches marquées « parité » doivent suivre le code JavaScript exporté, y compris les comportements qui ne sont pas décrits dans le JSON.
 
-**Avancement global : 62/70 tâches terminées (88,6 %).** La batterie complète de tests de la phase 8 sera lancée uniquement après l’achèvement de toutes les autres tâches de la roadmap.
+**Avancement global : 63/70 tâches terminées (90,0 %).** La batterie complète de tests de la phase 8 sera lancée uniquement après l’achèvement de toutes les autres tâches de la roadmap.
 
 ## Principes de portage
 
@@ -24,7 +24,7 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 
 **But :** transformer le dump en spécification exploitable, sans modifier les règles.
 
-- [ ] Lire intégralement `config.js`, `inventory.js`, `synergies.js`, `bestiary.js`, `input.js`, `ui.js`, `hud.js`, `renderer.js`, `game.js`, `index.html` et `styles.css`.
+- [x] Lire intégralement `config.js`, `inventory.js`, `synergies.js`, `bestiary.js`, `input.js`, `ui.js`, `hud.js`, `renderer.js`, `game.js`, `index.html` et `styles.css`.
 - [x] Construire une matrice de parité pour chaque fonction métier : formule d’entrée, mise à jour, sorties, effets secondaires et sauvegarde ([`docs/PARITY_MATRIX.md`](docs/PARITY_MATRIX.md)).
 - [x] Relever précisément les règles insuffisamment résumées : dégâts par espèce, rayons de collision, séquences d’attaque, cadence, projectiles, expérience donnée par ennemi, générateur d’afflux, choix/remplacement d’équipement, niveaux cumulés de relique, synergies et ordre des multiplicateurs ([`docs/COMBAT_RULES.md`](docs/COMBAT_RULES.md)).
 - [x] Comparer `CONTENT_DATA.json` au code source et consigner les divergences connues (incluant le tableau de vagues historique du README source) ([`docs/CONTENT_PARITY.md`](docs/CONTENT_PARITY.md)).
