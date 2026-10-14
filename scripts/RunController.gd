@@ -1367,7 +1367,7 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 	skill_cooldown = 0.0
 	wave = 0
 	elapsed = 0.0
-	run_started_ticks_msec = Time.get_ticks_msec()
+	run_started_ticks_msec = 0
 	boss_after_wave_id = ""
 	base_hp = hero.health
 	bonus_max_hp = 0.0
@@ -1452,13 +1452,16 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 		player.movement_multiplier = movement_multiplier
 		player.equipment_speed = equipment_speed
 		player.position = Vector2(float(saved_position[0]), float(saved_position[1]))
-	if has_run_seed_override:
+	else:
+		run_started_ticks_msec = Time.get_ticks_msec()
+	if not checkpoint.is_empty():
+		# The source checkpoint stores neither PRNG state nor pending spawns. Resume
+		# with a fresh run seed, just as its Math.random-based runtime does.
+		run_rng_seed = int(Time.get_ticks_usec())
+		rng.seed = run_rng_seed
+	elif has_run_seed_override:
 		run_rng_seed = run_seed_override
 		rng.seed = run_rng_seed
-	elif checkpoint.has("rngSeed") and checkpoint.has("waveRngState"):
-		run_rng_seed = int(checkpoint.rngSeed)
-		rng.seed = run_rng_seed
-		rng.state = int(checkpoint.waveRngState)
 	else:
 		rng.randomize()
 		run_rng_seed = rng.seed
