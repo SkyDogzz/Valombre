@@ -43,6 +43,7 @@ var boss_dash_stop_distance := 0.0
 var boss_dash_width := 40.0
 var boss_charge_width := 38.0
 var telegraph_range := 330.0
+var leap_visual_height := 0.0
 var sprite: Sprite2D
 var elite_label: Label
 
@@ -61,6 +62,7 @@ func configure(record_kind: String, definition: Dictionary, is_elite: bool = fal
 	var texture_size := sprite.texture.get_size()
 	sprite.scale = Vector2(sprite_size / texture_size.x, sprite_size / texture_size.y)
 	sprite.position.y = -sprite_size * 0.28
+	sprite.position.x = 0.0
 	add_child(sprite)
 	elite_label = Label.new()
 	elite_label.position = Vector2(-50.0, sprite.position.y - sprite_size * 0.5 - 14.0)
@@ -76,9 +78,19 @@ func update_elite_label() -> void:
 	elite_label.add_theme_color_override("font_color", elite_color)
 	elite_label.visible = not elite_name.is_empty()
 
+func update_visuals() -> void:
+	if is_instance_valid(sprite):
+		var sprite_size := sprite.texture.get_size().y * sprite.scale.y
+		sprite.position.y = -sprite_size * 0.28 - leap_visual_height
+	queue_redraw()
+
 func _draw() -> void:
 	var aim := aim_position - position
 	var aim_direction := aim.normalized() if aim.length_squared() > 0.001 else Vector2.RIGHT
+	var leap_progress := 1.0 - clampf(dash_time_left / 0.24, 0.0, 1.0) if kind == "leaper" and dash_time_left > 0.0 else 0.0
+	draw_set_transform(Vector2(0.0, 8.0), 0.0, Vector2(1.2 - leap_progress * 0.25, 0.5 - leap_progress * 0.12))
+	draw_circle(Vector2.ZERO, radius, Color(0.05, 0.055, 0.05, 0.67))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	if dash_time_left > 0.0:
 		var dash_back := -dash_direction.normalized()
 		draw_line(dash_back * radius * 1.8, dash_back * radius * 0.25, Color(1.0, 0.46, 0.29, 0.7), radius * 0.8)

@@ -1340,7 +1340,9 @@ func _update_enemies(delta: float) -> void:
 		if enemy.slow_time <= 0.0:
 			enemy.slow_factor = 1.0
 		enemy.visual_phase += delta * 3.0
-		enemy.queue_redraw()
+		var leap_progress := 1.0 - clampf(enemy.dash_time_left / 0.24, 0.0, 1.0) if enemy.kind == "leaper" and enemy.dash_time_left > 0.0 else 0.0
+		enemy.leap_visual_height = sin(leap_progress * PI) * 28.0
+		enemy.update_visuals()
 		enemy.attack_timer -= delta * attack_speed
 		if enemy.dash_time_left > 0.0:
 			_advance_enemy_dash(enemy, delta)
