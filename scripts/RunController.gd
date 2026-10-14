@@ -2122,6 +2122,8 @@ func _update_projectiles(delta: float) -> void:
 				if player.invulnerability <= 0.0:
 					_damage_player(float(projectile.damage))
 				_remove_projectile(index)
+				if state != "playing":
+					return
 				continue
 			if float(projectile.life) <= 0.0 or _projectile_out_of_bounds(node.position, float(projectile.radius)):
 				_remove_projectile(index)
