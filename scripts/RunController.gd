@@ -150,6 +150,7 @@ var audio_player: AudioStreamPlayer
 var sound_generator: AudioStreamGenerator
 var sound_playback: AudioStreamGeneratorPlayback
 var sound_phase := 0.0
+var damage_number_font: SystemFont
 var held_weapon_sprite: Sprite2D
 var secondary_weapon_sprites: Dictionary = {}
 var mouse_aim_active := false
@@ -159,6 +160,9 @@ var combat_effects: ValombreCombatEffects
 
 func _ready() -> void:
 	_configure_gamepad_inputs()
+	damage_number_font = SystemFont.new()
+	damage_number_font.font_names = PackedStringArray(["Georgia", "Times New Roman"])
+	damage_number_font.font_weight = 700
 	main = get_parent()
 	arena = main.get_node("Arena")
 	player = arena.get_node("Player")
@@ -2224,6 +2228,7 @@ func _spawn_damage_number(position: Vector2, damage: int) -> void:
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_font_override("font", damage_number_font)
 	label.add_theme_color_override("font_color", Color("f5dda0"))
 	label.add_theme_color_override("font_outline_color", Color("17130e"))
 	label.add_theme_constant_override("outline_size", 3)
