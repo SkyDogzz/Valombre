@@ -2406,6 +2406,26 @@ func _set_state(next_state: String) -> void:
 	if state in ["levelUp", "loot"]:
 		for child in menu_column.get_children():
 			child.visible = child == title_label or child == status_label or child == start_button or (state == "levelUp" and child in upgrade_buttons) or (state == "loot" and child in loot_buttons)
+	call_deferred("_focus_state_action", state)
+
+func _focus_state_action(target_state: String) -> void:
+	if state != target_state:
+		return
+	if target_state == "playing":
+		get_viewport().gui_release_focus()
+		return
+	var target: Control
+	match target_state:
+		"levelUp":
+			if not upgrade_buttons.is_empty():
+				target = upgrade_buttons[0]
+		"loot":
+			if not loot_buttons.is_empty():
+				target = loot_buttons[0]
+		_:
+			target = start_button
+	if is_instance_valid(target) and target.is_visible_in_tree() and target.focus_mode != Control.FOCUS_NONE:
+		target.grab_focus()
 
 func _update_hud() -> void:
 	if not is_instance_valid(hud):
