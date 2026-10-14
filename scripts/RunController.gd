@@ -2487,13 +2487,13 @@ func _update_drops(delta: float) -> void:
 				hp = minf(max_hp, hp + max_hp - old_max_hp)
 				if pending_upgrades > 0:
 					_show_level_up()
-					return
 			if state != "playing":
-				return
+				break
 		elif float(drop.life) <= 0.0:
 			node.queue_free()
 			drops.remove_at(index)
-	if bomb_combo_pickups > 0 and state == "playing":
+	if bomb_combo_pickups > 0:
+		_mark_discovered("discoveredSynergies", "bombe-magnet")
 		var bomb_damage := float(catalog.content.weapons.bombe.ghoulDamage) * _weapon_scale("bombe") * minf(4.0, 1.4 + (bomb_combo_pickups - 1) * 0.55)
 		_detonate_projectile({"explosion_radius": 92.0, "damage": bomb_damage, "weapon": "bombe", "special_blast": true, "pickup_combo": true}, player.position)
 

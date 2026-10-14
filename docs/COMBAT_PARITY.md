@@ -35,6 +35,7 @@ Après les étapes communes jusqu’aux effets de kill, le boss désactive l’�
 - La vague spéciale de faux touche si `distance <= rayon de vague + rayon ennemi`; son balayage direct garde la portée propre de l’arme.
 - Les dagues spectrales et la nova de givre multiplient leurs dégâts de base par `getWeaponCombatStats().damageMultiplier` (niveau/spécial de l’arme et synergie), puis `damageEnemy` applique les multiplicateurs de dégâts, d’équipement et de niveau du joueur. Ils ne passent pas d’identifiant d’arme à `damageEnemy`, ce qui évite de déclencher une deuxième synergie de kill.
 - L’explosion de collecte de la synergie aimant utilise un rayon de 92, les dégâts de l’arme bombe avec la mise à l’échelle du joueur et le signal spécial d’explosion. Elle n’ajoute pas la brûlure secondaire (`pickupCombo`).
+- La collecte parcourt les drops en ordre inverse. Si un ramassage ouvre l’écran de niveau ou de butin, le source arrête les autres collectes de la frame, puis résout quand même l’explosion agrégée de synergie aimant; il découvre alors `bombe-magnet`. Godot interrompt aussi la boucle, mais doit laisser cette explosion et cette découverte s’exécuter avant de terminer la frame.
 
 ## Points de contrôle dans le code
 
