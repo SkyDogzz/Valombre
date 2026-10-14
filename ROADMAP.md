@@ -2,7 +2,7 @@
 
 Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le guide du dépôt [`README.md`](README.md). L’objectif est une version Godot jouable dont le contenu et les règles reproduisent le snapshot web, puis dont la présentation et les contrôles atteignent la même expérience. Les tâches marquées « parité » doivent suivre le code JavaScript exporté, y compris les comportements qui ne sont pas décrits dans le JSON.
 
-**Avancement global : 50/70 tâches terminées (71,4 %).**
+**Avancement global : 51/70 tâches terminées (72,9 %).**
 
 ## Principes de portage
 
@@ -127,7 +127,7 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 
 **But :** retrouver la lisibilité et l’ambiance du navigateur.
 
-- [ ] Importer et assigner les SVG héros, ennemis/boss, icônes d’objets et armes tenues.
+- [x] Importer et assigner les SVG héros, ennemis/boss, icônes d’objets et armes tenues. Les 44 fichiers du dump sont présents dans `assets/` ; `Enemy.configure`, l’interface et les sprites d’armes les chargent par chemin.
 - [x] Reproduire le fond forêt/ruines, décor secondaire, éclairage et vignette, sans réduire la lisibilité des attaques.
 - [ ] Porter nombres de dégâts, orbes XP, drops, projectiles, arcs électriques, impacts, flashes, zones télégraphiées, givre, explosions, particules et secousses si présentes dans la source.
 - [ ] Reprendre palette, cadres, typographie et proportions UI du CSS ; adapter le layout sans couper le HUD en 16:9, fenêtre redimensionnée et écran étroit.
