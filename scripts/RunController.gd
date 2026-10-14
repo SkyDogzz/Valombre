@@ -1576,13 +1576,23 @@ func _enemy_drop_xp(position: Vector2, value: float, weapon_xp_multiplier := 1.0
 	var node := Sprite2D.new()
 	node.texture = load("res://assets/xp.svg")
 	node.scale = Vector2(0.18, 0.18)
-	node.position = position + Vector2(rng.randf_range(-15, 15), rng.randf_range(-15, 15))
+	node.position = _drop_spawn_position(position)
 	arena.add_child(node)
 	var xp_multiplier := equipment_xp * weapon_xp_multiplier
-	drops.append({"node": node, "type": "xp", "value": value * xp_multiplier, "life": 18.0})
+	var lifetime := float(catalog.content.config.drops.get("lifetime", 18.0))
+	drops.append({"node": node, "type": "xp", "value": value * xp_multiplier, "life": lifetime})
+
+func _drop_spawn_position(position: Vector2) -> Vector2:
+	var angle := rng.randf_range(0.0, TAU)
+	var distance := rng.randf_range(12.0, 30.0)
+	return Vector2(
+		clampf(position.x + cos(angle) * distance, 12.0, WORLD_SIZE.x - 12.0),
+		clampf(position.y + sin(angle) * distance, 12.0, WORLD_SIZE.y - 12.0)
+	)
 
 func _roll_enemy_item_drop(position: Vector2) -> void:
 	var difficulty: Dictionary = catalog.content.difficulties.get(difficulty_id, {})
+	var lifetime := float(catalog.content.config.drops.get("lifetime", 18.0))
 	var drop_roll := rng.randf()
 	var potion_chance := float(catalog.content.config.drops.get("potionChance", 0.08)) * float(difficulty.get("itemDrop", 1.0))
 	var equipment_chance := float(catalog.content.config.drops.get("relicChance", 0.22)) * float(difficulty.get("itemDrop", 1.0))
@@ -1590,56 +1600,70 @@ func _roll_enemy_item_drop(position: Vector2) -> void:
 		var potion := Sprite2D.new()
 		potion.texture = load("res://assets/relics/heart.svg")
 		potion.scale = Vector2(0.17, 0.17)
-		potion.position = position
+		potion.position = _drop_spawn_position(position)
 		arena.add_child(potion)
-		drops.append({"node": potion, "type": "potion", "life": 18.0})
+		drops.append({"node": potion, "type": "potion", "life": lifetime})
 	elif drop_roll < potion_chance + equipment_chance:
-		var choices: Array[String] = []
+		var weapon_choices: Array[String] = []
 		for definition: GameDefinition in catalog.definitions.get("weapons", []):
 			var id := str(definition.id)
 			var owned := _owned_weapon(id)
 			var allowed := (not single_weapon or id == weapon_id) and (not custom_drops or selected_drop_weapons.has(id))
 			if allowed and (owned.is_empty() or not bool(owned.special)):
-				choices.append("weapon:%s" % definition.id)
+				weapon_choices.append(id)
+		var relic_choices: Array[String] = []
 		for relic: Dictionary in catalog.content.relics:
 			var owned_relic := _owned_relic(str(relic.id))
 			if (not custom_drops or selected_drop_relics.has(str(relic.id))) and (owned_relic.is_empty() or int(owned_relic.level) < 5):
-				choices.append("relic:%s" % relic.id)
-		if not choices.is_empty():
-			var parts := choices[rng.randi_range(0, choices.size() - 1)].split(":")
-			var loot_type := str(parts[0])
-			var loot_id := str(parts[1])
+				relic_choices.append(str(relic.id))
+		var drop_types: Array[String] = []
+		if not weapon_choices.is_empty():
+			drop_types.append("weapon")
+		if not relic_choices.is_empty():
+			drop_types.append("relic")
+		if not drop_types.is_empty():
+			var loot_type := drop_types[rng.randi_range(0, drop_types.size() - 1)]
+			var loot_choices := weapon_choices if loot_type == "weapon" else relic_choices
+			var loot_id := loot_choices[rng.randi_range(0, loot_choices.size() - 1)]
 			var loot_node := Sprite2D.new()
-			loot_node.texture = load("res://assets/weapons/%s.svg" % loot_id) if loot_type == "weapon" else load("res://assets/relics/%s.svg" % loot_id)
+			loot_node.texture = load("res://assets/weapons/category.svg") if loot_type == "weapon" else load("res://assets/relics/category.svg")
 			loot_node.scale = Vector2(0.17, 0.17)
-			loot_node.position = position + Vector2(rng.randf_range(-20, 20), rng.randf_range(-20, 20))
+			loot_node.position = _drop_spawn_position(position)
 			arena.add_child(loot_node)
-			drops.append({"node": loot_node, "type": loot_type, "id": loot_id, "life": 18.0})
+			drops.append({"node": loot_node, "type": loot_type, "id": loot_id, "life": lifetime})
 
 func _update_drops(delta: float) -> void:
 	var bomb_combo_pickups := 0
 	for index in range(drops.size() - 1, -1, -1):
 		var drop: Dictionary = drops[index]
-		drop.life -= delta
-		if not is_instance_valid(drop.node) or drop.life <= 0.0:
-			drop.node.queue_free()
+		var node: Variant = drop.get("node")
+		if not is_instance_valid(node):
 			drops.remove_at(index)
 			continue
-		var distance: float = player.position.distance_to(drop.node.position)
-		if distance <= pickup_range or global_pickup:
-			var pull := player.position.direction_to(drop.node.position) * minf(240.0 * delta, distance)
-			drop.node.position -= pull
-		if player.position.distance_to(drop.node.position) <= 22.0:
+		if not global_pickup:
+			drop.life -= delta
+		var distance: float = player.position.distance_to(node.position)
+		if distance > 22.0 and (distance < pickup_range or global_pickup):
+			var pull_speed := player.move_speed * movement_multiplier * equipment_speed * 1.2
+			var step := minf(distance, pull_speed * delta)
+			node.position += node.position.direction_to(player.position) * step
+		if player.position.distance_to(node.position) <= 22.0:
 			if global_pickup:
 				bomb_combo_pickups += 1
 			if str(drop.get("type", "xp")) == "weapon":
+				_play_tone(790.0, 0.16, "triangle")
 				_pick_weapon(str(drop.id))
 			elif str(drop.get("type", "xp")) == "relic":
+				_play_tone(790.0, 0.16, "triangle")
 				_pick_relic(str(drop.id))
 			elif str(drop.get("type", "xp")) == "potion":
-				hp = minf(max_hp, hp + 32.0)
+				var potion_heal := float(catalog.content.config.drops.get("potionHeal", 32))
+				hp = minf(max_hp, hp + potion_heal)
+				_play_tone(620.0, 0.12)
+				_show_notice("Fiole écarlate · +%d PV" % int(potion_heal), false)
 			else:
 				xp += float(drop.value)
+				_play_tone(790.0, 0.12, "sine")
 			drop.node.queue_free()
 			drops.remove_at(index)
 			if str(drop.get("type", "xp")) == "xp":
@@ -1657,6 +1681,9 @@ func _update_drops(delta: float) -> void:
 					return
 			if state != "playing":
 				return
+		elif float(drop.life) <= 0.0:
+			node.queue_free()
+			drops.remove_at(index)
 	if bomb_combo_pickups > 0 and state == "playing":
 		var bomb_damage := float(catalog.content.weapons.bombe.ghoulDamage) * _weapon_scale("bombe") * minf(4.0, 1.4 + (bomb_combo_pickups - 1) * 0.55)
 		_detonate_projectile({"radius": 92.0, "damage": bomb_damage, "weapon": "bombe"}, player.position)
@@ -2065,12 +2092,13 @@ func _set_inventory_lock(group: String, item_id: String, enabled: bool) -> void:
 	item.locked = enabled
 	_save_checkpoint(wave)
 
-func _show_notice(message: String) -> void:
+func _show_notice(message: String, play_sound := true) -> void:
 	notice_text = message
 	notice_timer = 1.8
 	if is_instance_valid(notice_label):
 		notice_label.text = message
-	_play_tone(510.0, 0.035)
+	if play_sound:
+		_play_tone(510.0, 0.035)
 
 func _build_pause_catalog() -> void:
 	if not is_instance_valid(pause_catalog_list):
