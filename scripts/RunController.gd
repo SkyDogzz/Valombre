@@ -1444,7 +1444,12 @@ func _start_wave(number: int) -> void:
 		var count := int(entry.get("count", 1))
 		for spawn_index in count:
 			pending_spawns.append({"kind": str(entry.kind), "elite": entry.kind != "boss" and (spawn_index + 1) % (18 if mode == "infinite" else 24) == 0, "boss_id": entry.get("boss_id", "guardian")})
-	spawn_clock = 1.0 if number == 1 else 0.62
+	if number == 1:
+		spawn_clock = 1.0
+	elif mode == "infinite":
+		spawn_clock = maxf(0.12, 0.62 * pow(0.7, elapsed / 60.0))
+	else:
+		spawn_clock = 0.62
 	swarm_timer = rng.randf_range(14.0, 26.0) if rng.randf() < 0.38 else -1.0
 	intermission = 0.0
 	status_label.text = "Vague %d" % number
@@ -1543,7 +1548,7 @@ func _update_spawns(delta: float) -> void:
 		occupied += float(enemy.get_meta("spawn_weight", 1.0))
 	var pending_index := -1
 	for index in pending_spawns.size():
-		var weight := 10.0 if pending_spawns[index].kind == "boss" else float(catalog.content.config.enemies.get(pending_spawns[index].kind, {}).get("weight", 1.0))
+		var weight := 10.0 if pending_spawns[index].kind == "boss" else float(catalog.content.config.enemies.get(pending_spawns[index].kind, {}).get("weight", 1.0)) + (1.0 if bool(pending_spawns[index].get("elite", false)) else 0.0)
 		if occupied + weight <= capacity:
 			pending_index = index
 			break
