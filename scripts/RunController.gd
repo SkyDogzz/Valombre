@@ -230,7 +230,7 @@ func _input(event: InputEvent) -> void:
 	if state not in ["levelUp", "loot"]:
 		return
 	if state == "levelUp" and ((event is InputEventKey and event.pressed) or event is InputEventMouseMotion or event is InputEventMouseButton):
-		auto_pick_remaining = 3.0
+		_restart_auto_pick_timer()
 	var direction := 0
 	if event.is_action_pressed("move_down") or event.is_action_pressed("move_right"):
 		direction = 1
