@@ -2,7 +2,7 @@
 
 Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le guide du dépôt [`README.md`](README.md). L’objectif est une version Godot jouable dont le contenu et les règles reproduisent le snapshot web, puis dont la présentation et les contrôles atteignent la même expérience. Les tâches marquées « parité » doivent suivre le code JavaScript exporté, y compris les comportements qui ne sont pas décrits dans le JSON.
 
-**Avancement global : 44/70 tâches terminées (62,9 %).**
+**Avancement global : 46/70 tâches terminées (65,7 %).**
 
 ## Principes de portage
 
@@ -74,7 +74,7 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 - [x] Ajouter les huit espèces avec leurs comportements, temps de télégraphie, déplacements, projectiles, dégâts et collision.
 - [x] Ajouter les trois affixes élites, leurs multiplicateurs, couleurs/signalement et conséquences de récompense.
 - [x] Porter la charge de cendre de la Sentinelle, l’esquive (570, 0,18 s, 0,24 s d’invulnérabilité, 2,6 s de recharge) et leurs collisions.
-- [ ] Respecter l’ordre exact des événements : impacts multiples, mort, XP, synergie, vol de vie, butin, défis et progression bestiaire.
+- [x] Respecter l’ordre exact des événements : impacts multiples, mort, XP, synergie, vol de vie, butin, défis et progression bestiaire ([`docs/COMBAT_PARITY.md`](docs/COMBAT_PARITY.md)).
 
 **Critères d’acceptation :** les mêmes entrées et cibles causent les mêmes impacts attendus pour chaque arme ; projectiles et zones respectent obstacles et limites ; télégraphes précèdent leurs attaques ; élites appliquent PV/vitesse/dégâts et attribution d’XP corrects.
 
