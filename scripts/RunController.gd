@@ -1816,6 +1816,7 @@ func _update_auto_attack() -> void:
 		var manual := Input.is_action_pressed("attack")
 		var level_scale := 1.0 + 0.18 * (int(owned.level) - 1)
 		var reach := (float(weapon.get("range", 108.0)) + range_bonus + equipment_range) * float(_synergy_data(id).get("rangeMultiplier", 1.0))
+		var automatic_target := target != null and nearest < reach
 		if float(weapon_cooldowns.get(id, 0.0)) > 0.0:
 			continue
 		if manual:
@@ -1826,7 +1827,7 @@ func _update_auto_attack() -> void:
 		var swing_count := int(weapon_swing_counts.get(id, 0)) + 1
 		var special_finisher := bool(owned.special) and swing_count % 3 == 0
 		var aim := player.facing
-		if manual and mouse_aim_active:
+		if manual and not ranged and not automatic_target and mouse_aim_active:
 			var mouse_direction := player.get_global_mouse_position() - player.global_position
 			if mouse_direction.length() > 5.0:
 				aim = mouse_direction.normalized()
