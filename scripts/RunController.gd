@@ -759,7 +759,6 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 	player.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	_update_player_visuals()
 	player.facing = Vector2.DOWN
-	player.skill_dash_time = 0.0
 	xp = 0.0
 	next_xp = 5.0
 	level = 1
@@ -2348,20 +2347,38 @@ func _damage_player(amount: float) -> bool:
 	return true
 
 func _use_hero_skill() -> void:
-	if hero_id != "sentinel" or skill_cooldown > 0.0:
+	if skill_cooldown > 0.0:
 		return
-	skill_cooldown = 5.0
+	var hero: Dictionary = catalog.content.heroes.get(hero_id, {})
+	if str(hero.get("special", "")) != "charge":
+		return
+	_play_tone(105.0, 0.18, "sawtooth")
+	skill_cooldown = float(hero.get("cooldown", 5.0))
 	var forward := player.facing
-	for enemy in enemies:
+	var charge_distance := float(hero.get("chargeDistance", 190.0))
+	var start := player.position
+	for step in range(12, int(charge_distance) + 1, 12):
+		if _position_blocked(start + forward * float(step), 11.0):
+			charge_distance = float(step - 12)
+			break
+	var hit_count := 0
+	for enemy in enemies.duplicate():
 		var offset := enemy.position - player.position
 		var forward_distance := offset.dot(forward)
 		var side_distance := absf(offset.cross(forward))
-		if forward_distance >= 0.0 and forward_distance <= 190.0 and side_distance <= 34.0:
-			_damage_enemy(enemy, 58.0, weapon_id)
-	player.skill_dash_direction = forward
-	player.skill_dash_speed = 190.0 / 0.42
-	player.skill_dash_time = 0.42
-	player.invulnerability = 0.32
+		if forward_distance > 0.0 and forward_distance < charge_distance and side_distance < float(hero.get("chargeWidth", 34.0)):
+			_damage_enemy(enemy, float(hero.get("chargeDamage", 58.0)), "")
+			hit_count += 1
+	player.position = Vector2(
+		clampf(start.x + forward.x * charge_distance, 35.0, WORLD_SIZE.x - 35.0),
+		clampf(start.y + forward.y * charge_distance, 35.0, WORLD_SIZE.y - 35.0)
+	)
+	player.invulnerability = maxf(player.invulnerability, float(hero.get("chargeInvulnerability", 0.32)))
+	var notice := str(hero.get("specialName", "Capacité spéciale"))
+	if hit_count > 0:
+		notice += " · %d touché%s" % [hit_count, "s" if hit_count > 1 else ""]
+	_show_notice(notice, false)
+	_update_hud()
 
 func _set_state(next_state: String) -> void:
 	state = next_state

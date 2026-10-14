@@ -15,9 +15,6 @@ var dodge_invulnerability := 0.24
 var dodge_recharge := 2.6
 var movement_multiplier := 1.0
 var touch_move_vector := Vector2.ZERO
-var skill_dash_time := 0.0
-var skill_dash_speed := 0.0
-var skill_dash_direction := Vector2.DOWN
 
 func _draw() -> void:
 	if dodge_time <= 0.0:
@@ -39,11 +36,7 @@ func _physics_process(delta: float) -> void:
 		dodge_time = dodge_duration
 		dodge_cooldown = dodge_recharge
 		invulnerability = maxf(invulnerability, dodge_invulnerability)
-	if skill_dash_time > 0.0:
-		var skill_step := minf(delta, skill_dash_time)
-		velocity = skill_dash_direction * skill_dash_speed * skill_step / delta
-		skill_dash_time -= skill_step
-	elif dodge_time > 0.0:
+	if dodge_time > 0.0:
 		var step := minf(delta, dodge_time)
 		velocity = dodge_direction * dodge_speed * movement_multiplier * step / delta
 		dodge_time -= step
