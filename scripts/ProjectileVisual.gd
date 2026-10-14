@@ -10,7 +10,8 @@ var piercing := false
 
 func _draw() -> void:
 	draw_line(Vector2(-radius * 3.0, 0.0), Vector2(-radius * 0.25, 0.0), _with_alpha(tint, 0.72), maxf(2.0, radius * 0.65))
-	draw_circle(Vector2.ZERO, radius + 3.0, _with_alpha(tint, 0.10))
+	draw_circle(Vector2.ZERO, radius + 8.0, _with_alpha(tint, 0.06))
+	draw_circle(Vector2.ZERO, radius + 4.0, _with_alpha(tint, 0.14))
 	draw_circle(Vector2.ZERO, radius + 1.0, _with_alpha(tint, 0.24))
 	if explosive:
 		draw_circle(Vector2.ZERO, radius + 1.0, tint)
