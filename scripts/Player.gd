@@ -143,7 +143,7 @@ func advance(delta: float) -> void:
 		Input.get_axis("move_up", "move_down")
 	)
 	var direction := keyboard_direction + touch_move_vector
-	if direction.length_squared() > 1.0:
+	if direction != Vector2.ZERO:
 		direction = direction.normalized()
 	if Input.is_action_just_pressed("dodge") and dodge_cooldown <= 0.0:
 		dodge_direction = keyboard_direction.normalized() if keyboard_direction != Vector2.ZERO else facing
