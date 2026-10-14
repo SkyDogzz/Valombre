@@ -182,7 +182,6 @@ func _ready() -> void:
 	combat_effects = ValombreCombatEffects.new()
 	combat_effects.name = "CombatEffects"
 	combat_effects.z_index = 3
-	combat_effects.set_process(false)
 	arena.add_child(combat_effects)
 	player.dodge_started.connect(func(position: Vector2) -> void: _spawn_burst(position, Color("d9c18a"), 8))
 	catalog = main.catalog
@@ -3447,7 +3446,7 @@ func _set_state(next_state: String) -> void:
 	if is_instance_valid(particle_layer):
 		particle_layer.set_process(false)
 	if is_instance_valid(combat_effects):
-		combat_effects.set_process(false)
+		combat_effects.set_process(true)
 	if is_instance_valid(touch_controls):
 		if state != "playing":
 			touch_controls.release_all()

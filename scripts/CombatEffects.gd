@@ -56,6 +56,9 @@ func advance(delta: float) -> void:
 			lightning_arcs[index] = arc
 	queue_redraw()
 
+func _process(_delta: float) -> void:
+	queue_redraw()
+
 func _draw() -> void:
 	for arc in lightning_arcs:
 		_draw_lightning_arc(arc)
