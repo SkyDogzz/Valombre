@@ -136,8 +136,6 @@ func _draw_scythe_swing(progress: float, reach: float) -> void:
 func advance(delta: float) -> void:
 	if not run_active:
 		return
-	invulnerability = maxf(0.0, invulnerability - delta)
-	dodge_cooldown = maxf(0.0, dodge_cooldown - delta)
 	var keyboard_direction := Vector2(
 		Input.get_axis("move_left", "move_right"),
 		Input.get_axis("move_up", "move_down")
@@ -151,6 +149,8 @@ func advance(delta: float) -> void:
 		dodge_cooldown = dodge_recharge
 		invulnerability = maxf(invulnerability, dodge_invulnerability)
 		dodge_started.emit(global_position)
+	invulnerability = maxf(0.0, invulnerability - delta)
+	dodge_cooldown = maxf(0.0, dodge_cooldown - delta)
 	if dodge_time > 0.0:
 		var step := minf(delta, dodge_time)
 		global_position += dodge_direction * dodge_speed * movement_multiplier * equipment_speed * step
