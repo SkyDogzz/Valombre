@@ -25,6 +25,14 @@ Le code source appelle les progrès d’élite avec les types `elite` et `elites
 
 Après les étapes communes jusqu’aux effets de kill, le boss désactive l’état de boss actif, attribue la récompense et crée l’orbe d’XP. En mode infini, il octroie un Éclat et lance l’intermission ; en campagne, il termine la run en victoire. Le chemin boss ne tire pas le butin aléatoire ordinaire.
 
+## Dégâts des armes et projectiles
+
+- Un coup d’arme applique les multiplicateurs globaux du joueur, des reliques, du niveau du joueur, du niveau/spécial de l’arme et de sa synergie. La vitesse de relique affecte le déplacement et l’aimantation, pas la cadence d’attaque.
+- Une cible automatique doit être strictement à portée (`distance < portée`). Une attaque manuelle à distance accepte la cible à la limite (`distance <= portée`); une attaque manuelle de mêlée peut amorcer un coup sans cible.
+- Les projectiles touchent si `distance < rayon ennemi + rayon projectile`. Les obstacles les arrêtent; les bombes explosent à l’impact ou à l’arrêt.
+- Les dagues spectrales et les dégâts de nova de givre appliquent les bonus globaux du joueur, de relique, de niveau joueur et de synergie. Ils ne prennent pas les bonus de niveau/spécial de l’arme, comme le montrent les formules fournies à `damageEnemy` par le dump.
+- L’explosion de collecte de la synergie aimant utilise un rayon de 92, les dégâts de l’arme bombe avec la mise à l’échelle du joueur et le signal spécial d’explosion. Elle n’ajoute pas la brûlure secondaire (`pickupCombo`).
+
 ## Points de contrôle dans le code
 
 - Source : `damageEnemy` et `kill` dans `dump/project/src/game.js`.

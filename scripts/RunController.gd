@@ -1640,7 +1640,7 @@ func _update_projectiles(delta: float) -> void:
 		for enemy in enemies:
 			if projectile.get("hit_targets", []).has(enemy):
 				continue
-			if enemy.position.distance_to(node.position) <= enemy.radius + float(projectile.radius):
+			if enemy.position.distance_to(node.position) < enemy.radius + float(projectile.radius):
 				hit_target = enemy
 				break
 		if hit_target:
