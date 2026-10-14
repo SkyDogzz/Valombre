@@ -331,8 +331,7 @@ func _process(delta: float) -> void:
 			return
 	_process_weapon_effects(simulation_delta)
 	_update_damage_zones(simulation_delta)
-	_update_projectiles(simulation_delta)
-	if state != "playing":
+	if _update_projectiles(simulation_delta):
 		return
 	_update_player_visuals()
 	_update_drops(simulation_delta)
@@ -2264,7 +2263,7 @@ func _process_weapon_effects(delta: float) -> void:
 			visual.queue_free()
 		weapon_effects.remove_at(index)
 
-func _update_projectiles(delta: float) -> void:
+func _update_projectiles(delta: float) -> bool:
 	for index in range(projectiles.size() - 1, -1, -1):
 		var projectile: Dictionary = projectiles[index]
 		var node: Node2D = projectile.node
@@ -2276,7 +2275,7 @@ func _update_projectiles(delta: float) -> void:
 					_damage_player(float(projectile.damage))
 				_remove_projectile(index)
 				if state != "playing":
-					return
+					return true
 				continue
 			if float(projectile.life) <= 0.0 or _projectile_out_of_bounds(node.position, float(projectile.radius)):
 				_remove_projectile(index)
@@ -2320,6 +2319,7 @@ func _update_projectiles(delta: float) -> void:
 			if projectile.explosive:
 				_detonate_projectile(projectile, node.position)
 			_remove_projectile(index)
+	return false
 
 func _chain_lightning(first: ValombreEnemy, projectile: Dictionary) -> void:
 	var current := first
