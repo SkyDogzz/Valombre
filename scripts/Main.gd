@@ -5,12 +5,13 @@ const WORLD_SIZE := Vector2(1500.0, 1100.0)
 
 var catalog := ContentCatalog.new()
 
-func _ready() -> void:
+func _enter_tree() -> void:
 	if not catalog.load_content():
 		push_error("Content validation failed: %s" % "; ".join(catalog.validation_errors))
+
+func _ready() -> void:
 	_configure_player()
 	_build_camera()
-	_build_hud()
 
 func _configure_player() -> void:
 	var player: ValombrePlayer = $Arena/Player
@@ -33,15 +34,3 @@ func _build_camera() -> void:
 	camera.limit_top = 0
 	camera.limit_right = int(WORLD_SIZE.x)
 	camera.limit_bottom = int(WORLD_SIZE.y)
-
-func _build_hud() -> void:
-	var layer := CanvasLayer.new()
-	var label := Label.new()
-	label.position = Vector2(20, 16)
-	label.text = "LES CENDRES DE VALOMBRE\nWASD / flèches — se déplacer"
-	label.add_theme_color_override("font_color", Color("eee2c5"))
-	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
-	label.add_theme_constant_override("shadow_offset_x", 2)
-	label.add_theme_constant_override("shadow_offset_y", 2)
-	layer.add_child(label)
-	add_child(layer)
