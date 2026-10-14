@@ -88,6 +88,11 @@ var overlay_backdrop: ColorRect
 var title_label: Label
 var status_label: Label
 var loot_preview: TextureRect
+var hero_preview_panel: PanelContainer
+var hero_preview: HBoxContainer
+var hero_preview_icon: TextureRect
+var hero_preview_name: Label
+var hero_preview_details: Label
 var picker_labels: Array[Label] = []
 var hero_picker: OptionButton
 var weapon_picker: OptionButton
@@ -316,6 +321,38 @@ func _create_interface() -> void:
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(subtitle)
 	hero_picker = _add_picker(column, "Héros", ["Le Pèlerin", "La Sentinelle"])
+	hero_preview_panel = PanelContainer.new()
+	var hero_preview_style := StyleBoxFlat.new()
+	hero_preview_style.bg_color = Color("10110edb")
+	hero_preview_style.border_color = Color("4b4539")
+	hero_preview_style.set_border_width_all(1)
+	hero_preview_style.content_margin_left = 10.0
+	hero_preview_style.content_margin_right = 10.0
+	hero_preview_style.content_margin_top = 8.0
+	hero_preview_style.content_margin_bottom = 8.0
+	hero_preview_panel.add_theme_stylebox_override("panel", hero_preview_style)
+	hero_preview = HBoxContainer.new()
+	hero_preview.add_theme_constant_override("separation", 12)
+	hero_preview.alignment = BoxContainer.ALIGNMENT_CENTER
+	hero_preview_icon = TextureRect.new()
+	hero_preview_icon.custom_minimum_size = Vector2(48.0, 56.0)
+	hero_preview_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	hero_preview_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	hero_preview.add_child(hero_preview_icon)
+	var hero_copy := VBoxContainer.new()
+	hero_copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hero_preview_name = Label.new()
+	hero_preview_name.add_theme_font_size_override("font_size", 15)
+	hero_preview_name.add_theme_color_override("font_color", Color("e5d3ad"))
+	hero_copy.add_child(hero_preview_name)
+	hero_preview_details = Label.new()
+	hero_preview_details.add_theme_font_size_override("font_size", 10)
+	hero_preview_details.add_theme_color_override("font_color", Color("a9a18f"))
+	hero_preview_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hero_copy.add_child(hero_preview_details)
+	hero_preview.add_child(hero_copy)
+	hero_preview_panel.add_child(hero_preview)
+	column.add_child(hero_preview_panel)
 	weapon_picker = _add_picker(column, "Arme de départ", [])
 	for weapon in catalog.definitions.get("weapons", []):
 		weapon_picker.add_item(weapon.display_name)
@@ -326,7 +363,9 @@ func _create_interface() -> void:
 			weapon_picker.select(index)
 			break
 	hero_picker.item_selected.connect(func(index: int) -> void:
-		profile.hero = "sentinel" if index == 1 else "pilgrim"
+		hero_id = "sentinel" if index == 1 else "pilgrim"
+		profile.hero = hero_id
+		_refresh_hero_preview()
 		_save_profile()
 	)
 	weapon_picker.item_selected.connect(func(index: int) -> void:
@@ -648,6 +687,18 @@ func _create_held_weapon_sprite() -> void:
 	held_weapon_sprite.z_index = 1
 	player.add_child(held_weapon_sprite)
 
+func _refresh_hero_preview() -> void:
+	if not is_instance_valid(hero_preview_panel):
+		return
+	var hero: Dictionary = catalog.content.heroes.get(hero_id, {})
+	if hero.is_empty():
+		return
+	var portrait_path := "res://assets/%s.svg" % ("sentinel" if hero_id == "sentinel" else "hero")
+	hero_preview_icon.texture = load(portrait_path)
+	hero_preview_name.text = str(hero.get("name", hero_id)).to_upper()
+	var skill := str(hero.get("specialName", "Aucune capacité spéciale"))
+	hero_preview_details.text = "%s\n%d PV · %d vitesse\n%s" % [str(hero.get("className", "")), int(hero.get("health", 0)), int(hero.get("speed", 0)), skill]
+
 func _create_cheat_button() -> void:
 	cheat_button = Button.new()
 	cheat_button.text = "VIE INFINIE · OFF"
@@ -849,6 +900,7 @@ func _on_new_run_pressed() -> void:
 		if str(weapon_picker.get_item_metadata(index)) == weapon_id:
 			weapon_picker.select(index)
 			break
+	_refresh_hero_preview()
 	_save_profile()
 	_set_state("title")
 
@@ -2919,6 +2971,8 @@ func _set_state(next_state: String) -> void:
 	if state in ["levelUp", "loot"]:
 		for child in menu_column.get_children():
 			child.visible = child == title_label or child == status_label or (state == "loot" and child == loot_preview) or child == start_button or (state == "levelUp" and child in upgrade_buttons) or (state == "loot" and child in loot_buttons)
+	_refresh_hero_preview()
+	hero_preview_panel.visible = state == "title" and not (profile.get("run") is Dictionary)
 	loot_preview.visible = state == "loot" and loot_preview.texture != null
 	call_deferred("_focus_state_action", state)
 
