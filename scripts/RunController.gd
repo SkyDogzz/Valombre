@@ -111,6 +111,14 @@ var weapon_drop_menu: MenuButton
 var relic_drop_menu: MenuButton
 var drop_filter_row: HBoxContainer
 var hud: Label
+var hero_name_hud: Label
+var hero_class_hud: Label
+var weapon_name_hud: Label
+var hero_stats_hud: Label
+var wave_title_hud: Label
+var wave_detail_hud: Label
+var difficulty_hud: Label
+var inventory_button: Button
 var inventory_panel: PanelContainer
 var inventory_list: VBoxContainer
 var inventory_open := false
@@ -245,9 +253,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_set_state("playing")
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("inventory") and state == "playing":
-		inventory_open = not inventory_open
-		inventory_panel.visible = inventory_open
-		_refresh_inventory_panel()
+		_toggle_inventory_panel()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("special") and state == "playing":
 		_use_hero_skill()
@@ -489,13 +495,82 @@ func _create_interface() -> void:
 	pause_catalog_list = VBoxContainer.new()
 	pause_catalog_list.custom_minimum_size.x = 520
 	pause_catalog.add_child(pause_catalog_list)
+	var hero_card := Panel.new()
+	hero_card.position = Vector2(16.0, 14.0)
+	hero_card.size = Vector2(290.0, 112.0)
+	var hero_card_style := StyleBoxFlat.new()
+	hero_card_style.bg_color = Color("10110edb")
+	hero_card_style.border_color = Color("4b4539")
+	hero_card_style.set_border_width_all(1)
+	hero_card.add_theme_stylebox_override("panel", hero_card_style)
+	layer.add_child(hero_card)
+	var portrait_panel := Panel.new()
+	portrait_panel.position = Vector2(12.0, 10.0)
+	portrait_panel.size = Vector2(39.0, 39.0)
+	var portrait_style := StyleBoxFlat.new()
+	portrait_style.bg_color = Color("302b22")
+	portrait_style.border_color = Color("94764d")
+	portrait_style.set_border_width_all(1)
+	portrait_panel.add_theme_stylebox_override("panel", portrait_style)
+	hero_card.add_child(portrait_panel)
+	var portrait := Label.new()
+	portrait.text = "♙"
+	portrait.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	portrait.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	portrait.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	portrait.add_theme_font_size_override("font_size", 21)
+	portrait.add_theme_color_override("font_color", Color("e2c995"))
+	portrait_panel.add_child(portrait)
+	hero_name_hud = _make_hud_label(Vector2(62.0, 7.0), Vector2(210.0, 17.0), 12, Color("e5d3ad"))
+	hero_class_hud = _make_hud_label(Vector2(62.0, 23.0), Vector2(210.0, 14.0), 9, Color("8d8878"))
+	weapon_name_hud = _make_hud_label(Vector2(62.0, 38.0), Vector2(210.0, 14.0), 9, Color("d6bb81"))
+	hero_stats_hud = _make_hud_label(Vector2(62.0, 87.0), Vector2(215.0, 14.0), 9, Color("a6a08f"))
+	hero_card.add_child(hero_name_hud)
+	hero_card.add_child(hero_class_hud)
+	hero_card.add_child(weapon_name_hud)
+	hero_card.add_child(hero_stats_hud)
 	shield_bar = _create_hud_bar(Vector2(18, 18), Vector2(130, 5), Color("8cb7c5"), Color("176a9b"), Color("59c9ff"))
 	health_bar = _create_hud_bar(Vector2(18, 27), Vector2(130, 5), Color("c44c3b"), Color("772d27"), Color("c44c3b"))
 	xp_bar = _create_hud_bar(Vector2(18, 36), Vector2(130, 5), Color("b686c8"), Color("74468f"), Color("d9a2ff"))
+	shield_bar.position = Vector2(78.0, 68.0)
+	shield_bar.size = Vector2(130.0, 7.0)
+	health_bar.position = Vector2(78.0, 77.0)
+	health_bar.size = Vector2(130.0, 7.0)
+	xp_bar.position = Vector2(78.0, 86.0)
+	xp_bar.size = Vector2(130.0, 7.0)
+	var wave_card := Panel.new()
+	wave_card.position = Vector2(784.0, 14.0)
+	wave_card.size = Vector2(160.0, 74.0)
+	var wave_card_style := StyleBoxFlat.new()
+	wave_card_style.bg_color = Color("10110edb")
+	wave_card_style.border_color = Color("4b4539")
+	wave_card_style.set_border_width_all(1)
+	wave_card.add_theme_stylebox_override("panel", wave_card_style)
+	layer.add_child(wave_card)
+	wave_title_hud = _make_hud_label(Vector2(10.0, 8.0), Vector2(140.0, 20.0), 12, Color("dfc38c"))
+	wave_title_hud.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	wave_detail_hud = _make_hud_label(Vector2(10.0, 28.0), Vector2(140.0, 14.0), 9, Color("8e897a"))
+	wave_detail_hud.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	difficulty_hud = _make_hud_label(Vector2(10.0, 49.0), Vector2(140.0, 14.0), 9, Color("d6bb81"))
+	difficulty_hud.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	wave_card.add_child(wave_title_hud)
+	wave_card.add_child(wave_detail_hud)
+	wave_card.add_child(difficulty_hud)
+	inventory_button = Button.new()
+	inventory_button.text = "ARMES & RELIQUES · TAB"
+	inventory_button.position = Vector2(784.0, 96.0)
+	inventory_button.size = Vector2(160.0, 24.0)
+	inventory_button.custom_minimum_size = inventory_button.size
+	inventory_button.add_theme_font_size_override("font_size", 8)
+	_style_hud_button(inventory_button)
+	inventory_button.pressed.connect(_toggle_inventory_panel)
+	layer.add_child(inventory_button)
 	hud = Label.new()
-	hud.position = Vector2(18, 52)
-	hud.add_theme_font_size_override("font_size", 11)
-	hud.add_theme_color_override("font_color", Color("eee2c5"))
+	hud.position = Vector2(16, 136)
+	hud.size = Vector2(500, 42)
+	hud.add_theme_font_size_override("font_size", 9)
+	hud.add_theme_color_override("font_color", Color("a6a08f"))
+	hud.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hud.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
 	hud.add_theme_constant_override("shadow_offset_x", 2)
 	hud.add_theme_constant_override("shadow_offset_y", 2)
@@ -581,6 +656,36 @@ func _create_hud_bar(bar_position: Vector2, bar_size: Vector2, tint: Color, grad
 	bar.add_theme_stylebox_override("fill", fill)
 	layer.add_child(bar)
 	return bar
+
+func _make_hud_label(label_position: Vector2, label_size: Vector2, font_size: int, tint: Color) -> Label:
+	var label := Label.new()
+	label.position = label_position
+	label.size = label_size
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", tint)
+	label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.9))
+	label.add_theme_constant_override("shadow_offset_y", 1)
+	return label
+
+func _style_hud_button(button: Button) -> void:
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color("10110edb")
+	normal.border_color = Color("4b4539")
+	normal.set_border_width_all(1)
+	button.add_theme_stylebox_override("normal", normal)
+	var hover := StyleBoxFlat.new()
+	hover.bg_color = Color("25241e")
+	hover.border_color = Color("d6ad68")
+	hover.set_border_width_all(1)
+	button.add_theme_stylebox_override("hover", hover)
+	var pressed := StyleBoxFlat.new()
+	pressed.bg_color = Color("514027")
+	pressed.border_color = Color("d6ad68")
+	pressed.set_border_width_all(1)
+	button.add_theme_stylebox_override("pressed", pressed)
+	button.add_theme_color_override("font_color", Color("d6bb81"))
+	button.add_theme_color_override("font_hover_color", Color("ead8a7"))
 
 func _create_gradient_fill(start_color: Color, end_color: Color) -> StyleBoxTexture:
 	var gradient := Gradient.new()
@@ -763,8 +868,11 @@ func _refresh_weapon_preview() -> void:
 func _create_cheat_button() -> void:
 	cheat_button = Button.new()
 	cheat_button.text = "VIE INFINIE · OFF"
-	cheat_button.position = Vector2(744.0, 12.0)
-	cheat_button.custom_minimum_size = Vector2(204.0, 34.0)
+	cheat_button.position = Vector2(784.0, 124.0)
+	cheat_button.size = Vector2(160.0, 22.0)
+	cheat_button.custom_minimum_size = cheat_button.size
+	cheat_button.add_theme_font_size_override("font_size", 8)
+	_style_hud_button(cheat_button)
 	cheat_button.visible = false
 	cheat_button.pressed.connect(_toggle_infinite_life)
 	layer.add_child(cheat_button)
@@ -779,6 +887,13 @@ func _toggle_infinite_life() -> void:
 func _update_cheat_button() -> void:
 	if is_instance_valid(cheat_button):
 		cheat_button.text = "VIE INFINIE · %s" % ("ON" if cheat_infinite_life else "OFF")
+
+func _toggle_inventory_panel() -> void:
+	if state != "playing":
+		return
+	inventory_open = not inventory_open
+	inventory_panel.visible = inventory_open
+	_refresh_inventory_panel()
 
 func _update_player_visuals() -> void:
 	player.hammer_swing_progress = -1.0
@@ -3004,6 +3119,8 @@ func _set_state(next_state: String) -> void:
 	if is_instance_valid(cheat_button):
 		cheat_button.visible = state == "playing"
 		_update_cheat_button()
+	if is_instance_valid(inventory_button):
+		inventory_button.visible = state == "playing"
 	_update_player_visuals()
 	if state != "playing":
 		inventory_open = false
@@ -3123,24 +3240,42 @@ func _update_hud() -> void:
 			challenge_text = "%s %d/%d" % [challenge.label, int(challenge.progress), int(challenge.target)]
 			break
 	var difficulty_names := {"insane": "Insane", "nightmare": "Cauchemar", "cataclysm": "Cataclysme"}
+	var hero_data: Dictionary = catalog.content.heroes.get(hero_id, {})
+	var weapon_data: Dictionary = catalog.content.weapons.get(weapon_id, {})
+	var owned_weapon := _owned_weapon(weapon_id)
+	hero_name_hud.text = str(hero_data.get("name", hero_id)).to_upper()
+	hero_class_hud.text = str(hero_data.get("className", ""))
+	weapon_name_hud.text = "Départ · %s · niv. %d%s" % [str(weapon_data.get("name", weapon_id)), int(owned_weapon.get("level", 1)), " · spéciale" if bool(owned_weapon.get("special", false)) else ""]
+	hero_stats_hud.text = "PV %d/%d · B %d   XP %d/%d   NIV. %d" % [ceili(hp), ceili(max_hp), ceili(player_shield), int(xp), int(next_xp), level]
 	var capacity := 10.0 * float(catalog.content.difficulties[difficulty_id].spawnCapacity)
 	if mode == "infinite":
 		capacity = minf(200.0, 10.0 + floorf(elapsed / 60.0 * 24.0)) * float(catalog.content.difficulties[difficulty_id].spawnCapacity)
 	var occupied := 0.0
 	for enemy in enemies:
 		occupied += float(enemy.get_meta("spawn_weight", 1.0))
-	hud.text = "%s · PV %d/%d · Bouclier %d\nNiveau %d · XP %d/%d\nVague %d · %s · %s\nDéfi : %s\nEnnemis %0.1f/%0.0f · Éliminations %d\nArsenal %d/5 · Reliques %d/5" % ["LA SENTINELLE" if hero_id == "sentinel" else "LE PÈLERIN", ceili(hp), ceili(max_hp), ceili(player_shield), level, int(xp), int(next_xp), wave, difficulty_names.get(difficulty_id, difficulty_id), objective, challenge_text, occupied, capacity, defeated, weapon_inventory.size(), relic_inventory.size()]
+	var active_boss: ValombreEnemy
+	for enemy in enemies:
+		if enemy.kind == "boss":
+			active_boss = enemy
+			break
+	wave_title_hud.text = str(active_boss.get_meta("display_name", "Boss")) if active_boss else ("Survie infinie · Vague %d" % wave if mode == "infinite" and wave > 0 else "Vague %d / %d" % [wave, catalog.content.waves.size()] if wave > 0 else "La forêt sommeille")
+	if active_boss:
+		wave_detail_hud.text = "Affrontez %s" % str(active_boss.get_meta("display_name", "le boss")).to_lower()
+	elif intermission > 0.0:
+		wave_detail_hud.text = "Prochaine vague dans %d s" % ceili(intermission)
+	elif wave > 0:
+		var remaining := enemies.size() + pending_spawns.size()
+		wave_detail_hud.text = "%d créature%s restante%s" % [remaining, "" if remaining == 1 else "s", "" if remaining == 1 else "s"]
+	else:
+		wave_detail_hud.text = "Prêt à partir"
+	difficulty_hud.text = "DIFFICULTÉ · %s" % str(difficulty_names.get(difficulty_id, "Insane")).to_upper()
+	hud.text = "Objectif · %s    Défi · %s\nEnnemis %0.1f/%0.0f · Éliminations %d    Arsenal %d/5 · Reliques %d/5" % [objective, challenge_text, occupied, capacity, defeated, weapon_inventory.size(), relic_inventory.size()]
 	var dodge_text := "Prête" if player.dodge_cooldown <= 0.0 else "Recharge %0.1f s" % player.dodge_cooldown
 	var ability_text := "Esquive · %s" % dodge_text
 	if hero_id == "sentinel":
 		ability_text += "    Charge de cendre · %s" % ("Prête" if skill_cooldown <= 0.0 else "Recharge %0.1f s" % skill_cooldown)
 	ability_label.text = ability_text
 	notice_label.text = notice_text if notice_timer > 0.0 else ""
-	var active_boss: ValombreEnemy
-	for enemy in enemies:
-		if enemy.kind == "boss":
-			active_boss = enemy
-			break
 	boss_bar.visible = active_boss != null
 	boss_name_label.visible = active_boss != null
 	if active_boss:
