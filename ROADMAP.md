@@ -2,7 +2,7 @@
 
 Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le guide du dépôt [`README.md`](README.md). L’objectif est une version Godot jouable dont le contenu et les règles reproduisent le snapshot web, puis dont la présentation et les contrôles atteignent la même expérience. Les tâches marquées « parité » doivent suivre le code JavaScript exporté, y compris les comportements qui ne sont pas décrits dans le JSON.
 
-**Avancement global : 60/70 tâches terminées (85,7 %).**
+**Avancement global : 61/70 tâches terminées (87,1 %).**
 
 ## Principes de portage
 
@@ -129,7 +129,7 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 
 - [x] Importer et assigner les SVG héros, ennemis/boss, icônes d’objets et armes tenues. Les 44 fichiers du dump sont présents dans `assets/` ; `Enemy.configure`, l’interface et les sprites d’armes les chargent par chemin.
 - [x] Reproduire le fond forêt/ruines, décor secondaire, éclairage et vignette, sans réduire la lisibilité des attaques.
-- [ ] Porter nombres de dégâts, orbes XP, drops, projectiles, arcs électriques, impacts, flashes, zones télégraphiées, givre, explosions, particules et secousses si présentes dans la source.
+- [x] Porter nombres de dégâts, orbes XP, drops, projectiles, arcs électriques, impacts, flashes, zones télégraphiées, givre, explosions et particules; le dump ne contient pas de secousse caméra.
 - [x] Reprendre palette, cadres, typographie et proportions UI du CSS ; adapter le layout sans couper le HUD en 16:9, fenêtre redimensionnée et écran étroit.
 - [x] Créer les sons synthétiques absents de l’archive avec génération audio Godot ; reproduire les formes d’onde, l’enveloppe, les clics de boutons et les sons de combat/collecte, avec respect du volume et du muet.
 - [ ] Comparer des captures avec le canvas web 960×540 pour composition, contraste, taille des sprites et superposition des UI.
