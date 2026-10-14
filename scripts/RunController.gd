@@ -175,6 +175,25 @@ func _notification(what: int) -> void:
 	if is_instance_valid(player):
 		player.touch_move_vector = Vector2.ZERO
 
+func _input(event: InputEvent) -> void:
+	if state not in ["levelUp", "loot"]:
+		return
+	if state == "levelUp" and ((event is InputEventKey and event.pressed) or event is InputEventMouseMotion or event is InputEventMouseButton):
+		auto_pick_remaining = 3.0
+	var direction := 0
+	if event.is_action_pressed("move_down") or event.is_action_pressed("move_right"):
+		direction = 1
+	elif event.is_action_pressed("move_up") or event.is_action_pressed("move_left"):
+		direction = -1
+	if direction == 0:
+		return
+	var choices: Array[Button] = upgrade_buttons if state == "levelUp" else loot_buttons
+	if choices.is_empty():
+		return
+	var current := choices.find(get_viewport().gui_get_focus_owner())
+	choices[posmod(current + direction, choices.size())].grab_focus()
+	get_viewport().set_input_as_handled()
+
 func _configure_gamepad_inputs() -> void:
 	_add_gamepad_axis("move_left", JOY_AXIS_LEFT_X, -1.0)
 	_add_gamepad_axis("move_right", JOY_AXIS_LEFT_X, 1.0)
@@ -220,8 +239,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("special") and state == "playing":
 		_use_hero_skill()
-	elif state == "levelUp" and ((event is InputEventKey and event.pressed) or event is InputEventMouseMotion or event is InputEventMouseButton):
-		auto_pick_remaining = 3.0
 
 func _process(delta: float) -> void:
 	if state == "levelUp" and auto_pick_remaining >= 0.0:
