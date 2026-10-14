@@ -3212,6 +3212,7 @@ func _set_state(next_state: String) -> void:
 			title_label.text = "LA CHASSE ATTEND"
 			status_label.text = "Échap ou le bouton ci-dessous pour reprendre · Tab : arsenal"
 			start_button.text = "Reprendre la chasse"
+			new_run_button.text = "Abandonner et recommencer"
 		"levelUp":
 			title_label.text = "UNE NOUVELLE FORCE"
 			status_label.text = "Choisissez une amélioration."
@@ -3251,8 +3252,9 @@ func _set_state(next_state: String) -> void:
 		pause_catalog.visible = state == "paused"
 		if state == "paused":
 			start_button.visible = true
+			new_run_button.visible = true
 			for child in menu_column.get_children():
-				child.visible = child == eyebrow_label or child == pause_catalog or child == title_label or child == start_button
+				child.visible = child == eyebrow_label or child == pause_catalog or child == title_label or child == start_button or child == new_run_button
 			_build_pause_catalog()
 		else:
 			for child in menu_column.get_children():
