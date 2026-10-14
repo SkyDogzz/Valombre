@@ -3403,7 +3403,7 @@ func _progress_challenges(target: String) -> void:
 				profile.run.runChallenges = run_challenges.duplicate(true)
 				profile.run.waveObjective = {"type": objective_type, "target": objective_target, "progress": objective_progress, "complete": objective_complete}
 			_save_checkpoint(wave)
-			status_label.text = "Défi accompli · +1 Éclat"
+			_show_notice("Défi accompli · +1 Éclat", false)
 		elif profile.get("run") is Dictionary:
 			profile.run.runChallenges = run_challenges.duplicate(true)
 			profile.run.waveObjective = {"type": objective_type, "target": objective_target, "progress": objective_progress, "complete": objective_complete}
