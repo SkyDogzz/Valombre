@@ -92,15 +92,22 @@ func _draw_effect(effect: Dictionary) -> void:
 				draw_line(center + Vector2(cos(angle), sin(angle)) * wave_radius * 0.72, center + Vector2(cos(angle), sin(angle)) * wave_radius, Color(1.0, 0.90, 0.63, alpha), 2.0)
 		"hammer_shockwave":
 			draw_arc(center, radius * progress, 0.0, TAU, 48, Color(1.0, 0.94, 0.74, 0.82 * (1.0 - progress)), 4.0 * (1.0 - progress) + 1.0)
-		"sabre_burst", "frost_nova", "scythe_wave":
-			var tint := Color("a3f4ff") if kind == "frost_nova" else Color("c9f09e") if kind == "scythe_wave" else Color("ffc16a")
+		"sabre_burst", "frost_nova":
+			var tint := Color("a3f4ff") if kind == "frost_nova" else Color("ffc16a")
 			var wave_radius := radius * progress
 			draw_circle(center, wave_radius, _with_alpha(tint, 0.10 * (1.0 - progress)))
 			draw_arc(center, wave_radius, 0.0, TAU, 48, _with_alpha(tint, 1.0 - progress), 4.0 * (1.0 - progress) + 1.0)
-			var ray_count := 8 + int(effect.get("souls", 0)) * 2 if kind == "scythe_wave" else 8
-			for ray in ray_count:
-				var angle := float(ray) / float(ray_count) * TAU + progress * 0.35
+			for ray in 8:
+				var angle := float(ray) / 8.0 * TAU + progress * 0.25
 				draw_line(center + Vector2(cos(angle), sin(angle)) * wave_radius * 0.55, center + Vector2(cos(angle), sin(angle)) * wave_radius, _with_alpha(tint, 1.0 - progress), 2.0)
+		"scythe_wave":
+			var wave_radius := radius * progress
+			var tint := Color("c9f09e")
+			draw_arc(center, wave_radius, 0.0, TAU, 48, _with_alpha(tint, 1.0 - progress), 5.0 * (1.0 - progress) + 1.0)
+			var ray_count := 8 + int(effect.get("souls", 0)) * 2
+			for ray in ray_count:
+				var angle := float(ray) / float(ray_count) * TAU + progress * 0.4
+				draw_line(center + Vector2(cos(angle), sin(angle)) * wave_radius * 0.72, center + Vector2(cos(angle), sin(angle)) * wave_radius, _with_alpha(tint, 1.0 - progress), 2.0)
 		"bomb_explosion":
 			var reach := radius * (1.0 - pow(1.0 - progress, 3.0))
 			var special := bool(effect.get("special", false))
