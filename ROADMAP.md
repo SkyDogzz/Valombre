@@ -54,7 +54,7 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 
 - [x] Construire la clairière : fond, limites, ruines, arbres/débris décoratifs, teinte générale et vignette.
 - [x] Reproduire monde 1500×1100, caméra 960×540 de référence, suivi du joueur et bornes caméra.
-- [x] Ajouter les quatre obstacles aux coordonnées/rayons du dump. Les obstacles bloquent aussi les projectiles.
+- [x] Ajouter les quatre obstacles aux coordonnées/rayons du dump. Ils bloquent les entités et les charges ; les projectiles suivent la fonction source `isBlocked`, qui ne teste que les limites du monde.
 - [x] Porter le mouvement `CharacterBody2D` ou équivalent en conservant la vitesse exacte et la normalisation diagonale.
 - [x] Reproduire le glissement le long des obstacles et des limites avec le mouvement physique de Godot.
 - [ ] Ajouter les deux héros, leurs animations/poses, états de dégâts et orientation ; porter les statistiques et la compétence de la Sentinelle.
@@ -76,7 +76,7 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 - [x] Porter la charge de cendre de la Sentinelle, l’esquive (570, 0,18 s, 0,24 s d’invulnérabilité, 2,6 s de recharge) et leurs collisions.
 - [x] Respecter l’ordre exact des événements : impacts multiples, mort, XP, synergie, vol de vie, butin, défis et progression bestiaire ([`docs/COMBAT_PARITY.md`](docs/COMBAT_PARITY.md)).
 
-**Critères d’acceptation :** les mêmes entrées et cibles causent les mêmes impacts attendus pour chaque arme ; projectiles et zones respectent obstacles et limites ; télégraphes précèdent leurs attaques ; élites appliquent PV/vitesse/dégâts et attribution d’XP corrects.
+**Critères d’acceptation :** les mêmes entrées et cibles causent les mêmes impacts attendus pour chaque arme ; projectiles et zones respectent les limites et le comportement d’obstacle défini dans `game.js` ; télégraphes précèdent leurs attaques ; élites appliquent PV/vitesse/dégâts et attribution d’XP corrects.
 
 ## Phase 4 — Vagues, boss et boucle de run
 

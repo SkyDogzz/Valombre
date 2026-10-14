@@ -1799,6 +1799,10 @@ func _position_blocked(position: Vector2, radius: float) -> bool:
 			return true
 	return false
 
+func _projectile_out_of_bounds(position: Vector2, radius: float) -> bool:
+	var edge := float(catalog.content.config.enemies.get("edge", 60.0))
+	return position.x < edge + radius or position.x > WORLD_SIZE.x - edge - radius or position.y < edge + radius or position.y > WORLD_SIZE.y - edge - radius
+
 func _update_auto_attack() -> void:
 	for owned in weapon_inventory:
 		if state != "playing":
@@ -2054,7 +2058,7 @@ func _update_projectiles(delta: float) -> void:
 					_damage_player(float(projectile.damage))
 				_remove_projectile(index)
 				continue
-			if float(projectile.life) <= 0.0 or _position_blocked(node.position, float(projectile.radius)):
+			if float(projectile.life) <= 0.0 or _projectile_out_of_bounds(node.position, float(projectile.radius)):
 				_remove_projectile(index)
 			continue
 		var step := float(projectile.speed) * delta
@@ -2097,7 +2101,7 @@ func _update_projectiles(delta: float) -> void:
 				continue
 			_remove_projectile(index)
 			continue
-		if projectile.remaining <= 0.0 or _position_blocked(node.position, float(projectile.radius)):
+		if projectile.remaining <= 0.0 or _projectile_out_of_bounds(node.position, float(projectile.radius)):
 			if projectile.explosive:
 				_detonate_projectile(projectile, node.position)
 			_remove_projectile(index)
