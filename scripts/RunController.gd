@@ -73,6 +73,8 @@ var selected_drop_weapons: Array[String] = []
 var selected_drop_relics: Array[String] = []
 var profile := {"schema_version": 1, "wins": 0, "bestKills": 0, "shards": 0, "run": null, "singleWeapon": false, "uncappedInventory": false, "customDrops": false, "dropWeapons": [], "dropRelics": [], "bestiary": {}, "discoveredWeapons": {}, "discoveredRelics": {}, "discoveredSynergies": {}}
 var result_recorded := false
+var notice_text := ""
+var notice_timer := 0.0
 
 var layer: CanvasLayer
 var menu_panel: PanelContainer
@@ -101,9 +103,11 @@ var auto_pick_toggle: CheckBox
 var auto_pick_remaining := -1.0
 var upgrade_choices: Array[GameDefinition] = []
 var upgrade_buttons: Array[Button] = []
+var loot_buttons: Array[Button] = []
 var menu_column: VBoxContainer
 var boss_bar: ProgressBar
 var boss_name_label: Label
+var notice_label: Label
 
 func _ready() -> void:
 	main = get_parent()
@@ -150,6 +154,7 @@ func _process(delta: float) -> void:
 			return
 	if state != "playing":
 		return
+	notice_timer = maxf(0.0, notice_timer - delta)
 	elapsed += delta
 	weapon_cooldown = maxf(0.0, weapon_cooldown - delta)
 	for id in weapon_cooldowns.keys():
@@ -254,6 +259,12 @@ func _create_interface() -> void:
 	hud.add_theme_constant_override("shadow_offset_x", 2)
 	hud.add_theme_constant_override("shadow_offset_y", 2)
 	layer.add_child(hud)
+	notice_label = Label.new()
+	notice_label.position = Vector2(250, 460)
+	notice_label.size = Vector2(460, 30)
+	notice_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	notice_label.add_theme_color_override("font_color", Color("f2d89b"))
+	layer.add_child(notice_label)
 	boss_name_label = Label.new()
 	boss_name_label.position = Vector2(300, 15)
 	boss_name_label.size = Vector2(360, 24)
@@ -1238,7 +1249,7 @@ func _enemy_drop_xp(position: Vector2, value: float, allow_item_drop := true) ->
 			var id := str(definition.id)
 			var owned := _owned_weapon(id)
 			var allowed := (not single_weapon or id == weapon_id) and (not custom_drops or selected_drop_weapons.has(id))
-			if allowed and (owned.is_empty() or int(owned.level) < 5 or not bool(owned.special)):
+			if allowed and (owned.is_empty() or not bool(owned.special)):
 				choices.append("weapon:%s" % definition.id)
 		for relic: Dictionary in catalog.content.relics:
 			var owned_relic := _owned_relic(str(relic.id))
@@ -1294,6 +1305,8 @@ func _update_drops(delta: float) -> void:
 				if pending_upgrades > 0:
 					_show_level_up()
 					return
+			if state != "playing":
+				return
 	if bomb_combo_pickups > 0 and state == "playing":
 		var bomb_damage := float(catalog.content.weapons.bombe.ghoulDamage) * _weapon_scale("bombe") * minf(4.0, 1.4 + (bomb_combo_pickups - 1) * 0.55)
 		_detonate_projectile({"radius": 92.0, "damage": bomb_damage, "weapon": "bombe"}, player.position)
@@ -1305,6 +1318,7 @@ func _show_level_up() -> void:
 		if is_instance_valid(button):
 			button.queue_free()
 	upgrade_buttons.clear()
+	_clear_loot_buttons()
 	var choices: Array[GameDefinition] = []
 	var pool: Array = catalog.definitions.upgrades.filter(func(item: GameDefinition) -> bool: return int(upgrade_ranks.get(str(item.id), 0)) < int(item.values.get("maxRanks", 10)))
 	if pool.is_empty():
@@ -1354,10 +1368,86 @@ func _apply_upgrade(definition: GameDefinition) -> void:
 		_show_level_up()
 	else:
 		_set_state("playing")
+		_clear_upgrade_buttons()
 
 func _restart_auto_pick_timer() -> void:
 	if state == "levelUp" and bool(profile.get("autoPickUpgrade", true)):
 		auto_pick_remaining = 3.0
+
+func _clear_upgrade_buttons() -> void:
+	for button in upgrade_buttons:
+		if is_instance_valid(button):
+			button.queue_free()
+	upgrade_buttons.clear()
+	upgrade_choices.clear()
+
+func _clear_loot_buttons() -> void:
+	for button in loot_buttons:
+		if is_instance_valid(button):
+			button.queue_free()
+	loot_buttons.clear()
+
+func _show_loot_choices(item_name: String, description: String, group: String, item: Dictionary, candidates: Array[Dictionary]) -> void:
+	_clear_upgrade_buttons()
+	_clear_loot_buttons()
+	var previous_synergies: Array[String] = []
+	for synergy: Dictionary in catalog.content.synergies:
+		if _synergy_active(str(synergy.weaponId)):
+			previous_synergies.append(str(synergy.id))
+	_set_state("loot")
+	status_label.text = "%s : %s. Choisissez un objet à remplacer, ou passez." % [item_name, description]
+	var items := weapon_inventory if group == "weapons" else relic_inventory
+	for candidate in candidates:
+		var item_id := str(candidate.id)
+		var button := Button.new()
+		if group == "weapons":
+			var definition := _find_definition("weapons", item_id)
+			var synergy_detail := _synergy_description(item_id)
+			button.text = "Remplacer %s · niveau %d%s" % [definition.display_name if definition else item_id, int(candidate.level), " · " + synergy_detail if not synergy_detail.is_empty() else ""]
+		else:
+			var synergy_detail := _synergy_description(str(candidate.id))
+			button.text = "Remplacer %s · niveau %d%s" % [str(candidate.get("name", item_id)), int(candidate.level), " · " + synergy_detail if not synergy_detail.is_empty() else ""]
+		button.pressed.connect(func() -> void:
+			var slot := items.find(candidate)
+			if slot >= 0:
+				var replaced_name := str(candidate.get("name", candidate.id)) if group == "relics" else str(_find_definition("weapons", item_id).display_name)
+				items[slot] = item.duplicate(true)
+				if group == "weapons":
+					_mark_discovered("discoveredWeapons", str(item.id))
+					if str(candidate.id) == weapon_id:
+						weapon_id = str(item.id)
+					weapon_cooldowns.erase(item_id)
+					weapon_cooldowns[str(item.id)] = 0.0
+				else:
+					_mark_discovered("discoveredRelics", str(item.id))
+				_refresh_relic_stats()
+				_save_checkpoint(wave)
+				_show_notice("%s remplace %s" % [item_name, replaced_name])
+				var activated: Array[String] = []
+				for synergy: Dictionary in catalog.content.synergies:
+					if _synergy_active(str(synergy.weaponId)) and not previous_synergies.has(str(synergy.id)):
+						activated.append(str(synergy.name))
+				if not activated.is_empty():
+					_show_notice("Synergie activée · %s" % activated[0])
+			_set_state("playing")
+			_clear_loot_buttons()
+		)
+		menu_column.add_child(button)
+		loot_buttons.append(button)
+	var pass_button := Button.new()
+	pass_button.text = "Passer cet équipement"
+	pass_button.pressed.connect(func() -> void:
+		_set_state("playing")
+		_clear_loot_buttons()
+	)
+	menu_column.add_child(pass_button)
+	loot_buttons.append(pass_button)
+
+func _synergy_description(item_id: String) -> String:
+	for synergy: Dictionary in catalog.content.synergies:
+		if str(synergy.weaponId) == item_id or str(synergy.relicId) == item_id:
+			return str(synergy.get("description", ""))
+	return ""
 
 func _owned_weapon(id: String) -> Dictionary:
 	for item in weapon_inventory:
@@ -1372,57 +1462,51 @@ func _owned_relic(id: String) -> Dictionary:
 	return {}
 
 func _pick_weapon(id: String) -> void:
-	_mark_discovered("discoveredWeapons", id)
 	var owned := _owned_weapon(id)
 	if not owned.is_empty():
 		if int(owned.level) < 5:
 			owned.level = int(owned.level) + 1
 		elif not bool(owned.special):
 			owned.special = true
-			status_label.text = "%s spéciale obtenue" % _find_definition("weapons", id).display_name
+			_show_notice("%s spéciale obtenue !" % _find_definition("weapons", id).display_name)
 		else:
+			_show_notice("Cette arme est déjà au maximum")
 			return
 		weapon_cooldowns[id] = 0.0
+		_mark_discovered("discoveredWeapons", id)
 		_refresh_relic_stats()
+		if int(owned.level) < 5:
+			_show_notice("%s · niveau %d" % [_find_definition("weapons", id).display_name, int(owned.level)])
+		elif bool(owned.special):
+			_show_notice("%s spéciale obtenue !" % _find_definition("weapons", id).display_name)
 		return
 	var entry := {"id": id, "level": 1, "special": false, "locked": false}
 	if uncapped_inventory or weapon_inventory.size() < 5:
 		weapon_inventory.append(entry)
+		_mark_discovered("discoveredWeapons", id)
 		_refresh_relic_stats()
+		_show_notice("%s ajoutée à l’arsenal · niveau 1" % _find_definition("weapons", id).display_name)
 		return
 	var choices: Array[Dictionary] = []
 	for item in weapon_inventory:
 		if not bool(item.get("locked", false)):
 			choices.append(item)
 	if choices.is_empty():
+		_show_notice("Arsenal plein · toutes les armes sont verrouillées")
 		return
-	_set_state("loot")
-	var column: VBoxContainer = menu_panel.get_child(0)
-	for item in choices:
-		var button := Button.new()
-		button.text = "Remplacer %s · niveau %d" % [_find_definition("weapons", str(item.id)).display_name, int(item.level)]
-		button.pressed.connect(func() -> void:
-			weapon_inventory.erase(item)
-			weapon_inventory.append(entry)
-			if str(item.id) == weapon_id:
-				weapon_id = id
-			weapon_cooldowns.erase(str(item.id))
-			_refresh_relic_stats()
-			_set_state("playing")
-		)
-		column.add_child(button)
-	var pass_button := Button.new()
-	pass_button.text = "Passer cette arme"
-	pass_button.pressed.connect(func() -> void: _set_state("playing"))
-	column.add_child(pass_button)
+	var definition := _find_definition("weapons", id)
+	_show_loot_choices(definition.display_name if definition else id, str(definition.values.get("description", "")) if definition else "", "weapons", entry, choices)
 
 func _pick_relic(id: String) -> void:
-	_mark_discovered("discoveredRelics", id)
 	var owned := _owned_relic(id)
 	if not owned.is_empty():
 		if int(owned.level) < 5:
 			owned.level = int(owned.level) + 1
+			_mark_discovered("discoveredRelics", id)
 			_refresh_relic_stats()
+			_show_notice("%s · niveau %d" % [str(owned.get("name", id)), int(owned.level)])
+		else:
+			_show_notice("%s niveau maximum" % str(owned.get("name", id)))
 		return
 	var entry: Dictionary = {}
 	for relic: Dictionary in catalog.content.relics:
@@ -1435,30 +1519,18 @@ func _pick_relic(id: String) -> void:
 	entry.locked = false
 	if uncapped_inventory or relic_inventory.size() < 5:
 		relic_inventory.append(entry)
+		_mark_discovered("discoveredRelics", id)
 		_refresh_relic_stats()
+		_show_notice("%s équipée · niveau 1" % str(entry.get("name", id)))
 		return
 	var choices: Array[Dictionary] = []
 	for item in relic_inventory:
 		if not bool(item.get("locked", false)):
 			choices.append(item)
 	if choices.is_empty():
+		_show_notice("Sacoche pleine · toutes les reliques sont verrouillées")
 		return
-	_set_state("loot")
-	var column: VBoxContainer = menu_panel.get_child(0)
-	for item in choices:
-		var button := Button.new()
-		button.text = "Remplacer %s · niveau %d" % [str(item.get("name", item.id)), int(item.level)]
-		button.pressed.connect(func() -> void:
-			relic_inventory.erase(item)
-			relic_inventory.append(entry)
-			_refresh_relic_stats()
-			_set_state("playing")
-		)
-		column.add_child(button)
-	var pass_button := Button.new()
-	pass_button.text = "Passer cette relique"
-	pass_button.pressed.connect(func() -> void: _set_state("playing"))
-	column.add_child(pass_button)
+	_show_loot_choices(str(entry.get("name", id)), str(entry.get("description", "")), "relics", entry, choices)
 
 func _refresh_relic_stats() -> void:
 	equipment_damage = 1.0
@@ -1642,6 +1714,12 @@ func _set_inventory_lock(group: String, item_id: String, enabled: bool) -> void:
 	item.locked = enabled
 	_save_checkpoint(wave)
 
+func _show_notice(message: String) -> void:
+	notice_text = message
+	notice_timer = 1.8
+	if is_instance_valid(notice_label):
+		notice_label.text = message
+
 func _build_pause_catalog() -> void:
 	if not is_instance_valid(pause_catalog_list):
 		return
@@ -1755,6 +1833,8 @@ func _set_state(next_state: String) -> void:
 		inventory_open = false
 		if is_instance_valid(inventory_panel):
 			inventory_panel.visible = false
+	if state != "loot":
+		_clear_loot_buttons()
 	match state:
 		"title":
 			title_label.text = "LES CENDRES DE VALOMBRE"
@@ -1816,6 +1896,9 @@ func _set_state(next_state: String) -> void:
 			for control in [hero_picker, weapon_picker, mode_picker, difficulty_picker, single_weapon_toggle, uncapped_inventory_toggle, custom_drops_toggle, auto_pick_toggle, drop_filter_row]:
 				control.visible = show_setup_after_pause
 			new_run_button.visible = state == "title" and (profile.get("run") is Dictionary)
+	if state in ["levelUp", "loot"]:
+		for child in menu_column.get_children():
+			child.visible = child == title_label or child == status_label or child == start_button or (state == "levelUp" and child in upgrade_buttons) or (state == "loot" and child in loot_buttons)
 
 func _update_hud() -> void:
 	if not is_instance_valid(hud):
@@ -1827,6 +1910,7 @@ func _update_hud() -> void:
 			challenge_text = "%s %d/%d" % [challenge.label, int(challenge.progress), int(challenge.target)]
 			break
 	hud.text = "PV %d/%d · Bouclier %d\nNiveau %d · XP %d/%d\nVague %d · %s · %s\nDéfi : %s\nÉliminations %d · Arsenal %d/5 · Reliques %d/5" % [ceili(hp), ceili(max_hp), ceili(player_shield), level, int(xp), int(next_xp), wave, difficulty_id.capitalize(), objective, challenge_text, defeated, weapon_inventory.size(), relic_inventory.size()]
+	notice_label.text = notice_text if notice_timer > 0.0 else ""
 	var active_boss: ValombreEnemy
 	for enemy in enemies:
 		if enemy.kind == "boss":
