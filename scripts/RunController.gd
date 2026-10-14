@@ -3254,7 +3254,7 @@ func _set_state(next_state: String) -> void:
 			start_button.visible = true
 			new_run_button.visible = true
 			for child in menu_column.get_children():
-				child.visible = child == eyebrow_label or child == pause_catalog or child == title_label or child == start_button or child == new_run_button
+				child.visible = child == eyebrow_label or child == pause_catalog or child == title_label or child == status_label or child == start_button or child == new_run_button
 			_build_pause_catalog()
 		else:
 			for child in menu_column.get_children():
