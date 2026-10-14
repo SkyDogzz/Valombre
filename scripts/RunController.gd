@@ -1473,7 +1473,7 @@ func _update_auto_attack() -> void:
 			_add_combat_effect({"kind": "scythe_wave", "position": player.position, "radius": reach * 1.08, "souls": released, "life": 0.42, "max_life": 0.42})
 			_play_tone(190.0, 0.1, "sawtooth")
 			for enemy in enemies.duplicate():
-				if enemy.position.distance_to(player.position) <= reach * 1.08:
+				if enemy.position.distance_to(player.position) <= reach * 1.08 + enemy.radius:
 					_damage_enemy(enemy, float(weapon.ghoulDamage) * damage_scale * (0.32 + released * 0.42), id)
 
 func _weapon_base_damage(weapon: Dictionary, enemy: ValombreEnemy) -> float:
