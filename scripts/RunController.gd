@@ -2018,6 +2018,54 @@ func _update_drops(delta: float) -> void:
 		var bomb_damage := float(catalog.content.weapons.bombe.ghoulDamage) * _weapon_scale("bombe") * minf(4.0, 1.4 + (bomb_combo_pickups - 1) * 0.55)
 		_detonate_projectile({"explosion_radius": 92.0, "damage": bomb_damage, "weapon": "bombe", "special_blast": true, "pickup_combo": true}, player.position)
 
+func _make_upgrade_choice_button(title: String, detail: String) -> Button:
+	var button := Button.new()
+	button.text = ""
+	button.custom_minimum_size.y = 68.0
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color("211f19")
+	normal.border_color = Color("61543d")
+	normal.set_border_width_all(1)
+	normal.content_margin_left = 12.0
+	normal.content_margin_right = 12.0
+	normal.content_margin_top = 8.0
+	normal.content_margin_bottom = 8.0
+	button.add_theme_stylebox_override("normal", normal)
+	var hover := normal.duplicate() as StyleBoxFlat
+	hover.bg_color = Color("30291d")
+	hover.border_color = Color("d0ae69")
+	button.add_theme_stylebox_override("hover", hover)
+	var focus := hover.duplicate() as StyleBoxFlat
+	focus.set_border_width_all(2)
+	button.add_theme_stylebox_override("focus", focus)
+	var pressed := normal.duplicate() as StyleBoxFlat
+	pressed.bg_color = Color("3a3020")
+	button.add_theme_stylebox_override("pressed", pressed)
+	var copy := VBoxContainer.new()
+	copy.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	copy.offset_left = 12.0
+	copy.offset_top = 7.0
+	copy.offset_right = -12.0
+	copy.offset_bottom = -7.0
+	copy.alignment = BoxContainer.ALIGNMENT_CENTER
+	copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.add_child(copy)
+	var heading := Label.new()
+	heading.text = title
+	heading.add_theme_font_size_override("font_size", 15)
+	heading.add_theme_color_override("font_color", Color("ead7ae"))
+	heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	copy.add_child(heading)
+	var description := Label.new()
+	description.text = detail
+	description.add_theme_font_size_override("font_size", 10)
+	description.add_theme_color_override("font_color", Color("a9a18f"))
+	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	description.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	copy.add_child(description)
+	return button
+
 func _show_level_up() -> void:
 	_play_tone(460.0, 0.12, "sine")
 	_set_state("levelUp")
@@ -2039,8 +2087,11 @@ func _show_level_up() -> void:
 	upgrade_choices = choices.duplicate()
 	auto_pick_remaining = 3.0 if bool(profile.get("autoPickUpgrade", true)) else -1.0
 	for definition in choices:
-		var button := Button.new()
-		button.text = "%s · %s\nRang %d/%d · prochain bonus %s" % [definition.display_name, definition.values.get("description", ""), upgrade_ranks.get(str(definition.id), 0), definition.values.get("maxRanks", 10), _format_upgrade_bonus(definition)]
+		var rank := int(upgrade_ranks.get(str(definition.id), 0))
+		var max_ranks := int(definition.values.get("maxRanks", 10))
+		var detail := "%s · Prochain rang : +%s (%d/%d)" % [str(definition.values.get("description", "")), _format_upgrade_bonus(definition), rank, max_ranks]
+		var button := _make_upgrade_choice_button(definition.display_name, detail)
+		button.tooltip_text = "%s : %s · prochain rang +%s (%d/%d)" % [definition.display_name, str(definition.values.get("description", "")), _format_upgrade_bonus(definition), rank, max_ranks]
 		button.pressed.connect(_apply_upgrade.bind(definition))
 		button.focus_entered.connect(_restart_auto_pick_timer)
 		button.mouse_entered.connect(_restart_auto_pick_timer)
