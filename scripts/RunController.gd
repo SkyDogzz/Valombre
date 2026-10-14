@@ -758,7 +758,7 @@ func _make_hud_label(label_position: Vector2, label_size: Vector2, font_size: in
 func _update_overlay_layout() -> void:
 	if not is_instance_valid(menu_panel) or not is_instance_valid(overlay_scroll):
 		return
-	var viewport_height := get_viewport_rect().size.y
+	var viewport_height: float = get_viewport().get_visible_rect().size.y
 	var maximum_height := maxf(160.0, viewport_height - 24.0)
 	menu_panel.custom_maximum_size.y = maximum_height
 	overlay_scroll.custom_maximum_size.y = maximum_height
@@ -770,7 +770,7 @@ func _update_hud_layout() -> void:
 	var compact := window_width <= 640.0
 	var ui_scale := window_width / 960.0 if compact else 1.0
 	var scale_factor := 1.0 / maxf(0.1, ui_scale) if compact else 1.0
-	var logical_width := get_viewport_rect().size.x
+	var logical_width: float = get_viewport().get_visible_rect().size.x
 	hero_hud_card.size = Vector2(200.0, 58.0) * scale_factor if compact else Vector2(290.0, 112.0)
 	hero_hud_portrait.position = Vector2(6.0, 5.0) * scale_factor if compact else Vector2(12.0, 10.0)
 	hero_hud_portrait.size = Vector2(27.0, 27.0) * scale_factor if compact else Vector2(39.0, 39.0)
@@ -831,8 +831,8 @@ func _update_hud_layout() -> void:
 			if is_instance_valid(inventory_list_control):
 				inventory_list_control.custom_minimum_size.x = inventory_width - (20.0 if compact else 16.0)
 	if is_instance_valid(pause_catalog):
-		var pause_width := minf(520.0, get_viewport_rect().size.x - 32.0)
-		pause_catalog.custom_minimum_size = Vector2(maxf(0.0, pause_width), minf(330.0, get_viewport_rect().size.y - 24.0))
+		var pause_width := minf(520.0, get_viewport().get_visible_rect().size.x - 32.0)
+		pause_catalog.custom_minimum_size = Vector2(maxf(0.0, pause_width), minf(330.0, get_viewport().get_visible_rect().size.y - 24.0))
 		if is_instance_valid(pause_catalog_list):
 			pause_catalog_list.custom_minimum_size.x = maxf(0.0, pause_width - 16.0)
 
@@ -1595,7 +1595,7 @@ func _update_spawns(delta: float) -> void:
 			pending_index = index
 			break
 	if spawn_clock <= 0.0 and pending_index >= 0:
-		var spawn := pending_spawns.pop_at(pending_index)
+		var spawn: Dictionary = pending_spawns.pop_at(pending_index)
 		_spawn_enemy(str(spawn.kind), bool(spawn.get("elite", false)), str(spawn.get("boss_id", "guardian")))
 		spawn_clock = 0.12 if spawn.get("swarm", false) else maxf(0.12, 0.62 * pow(0.7, elapsed / 60.0)) if mode == "infinite" else 0.62
 
@@ -1708,7 +1708,7 @@ func _update_enemies(delta: float) -> void:
 				break
 			continue
 		var to_player := player.position - enemy.position
-		var camera_center := player.get_node("Camera2D").get_screen_center_position()
+		var camera_center: Vector2 = player.get_node("Camera2D").get_screen_center_position()
 		var visible_rect := Rect2(camera_center - Vector2(480.0, 270.0), Vector2(960.0, 540.0))
 		if visible_rect.has_point(enemy.position):
 			_discover_bestiary("boss:%s" % enemy.boss_id if enemy.kind == "boss" else enemy.kind, enemy.elite_id if enemy.elite else "")
@@ -1971,8 +1971,8 @@ func _update_auto_attack() -> void:
 		_play_tone(155.0, 0.045, "triangle")
 		var attack_hit := false
 		for enemy in enemies.duplicate():
-			var offset := enemy.position - player.position
-			var distance := offset.length()
+			var offset: Vector2 = enemy.position - player.position
+			var distance: float = offset.length()
 			var in_shape := false
 			if bool(weapon.get("circular", false)):
 				in_shape = distance < reach
@@ -1981,7 +1981,7 @@ func _update_auto_attack() -> void:
 				var closest := player.position + player.facing * along
 				in_shape = enemy.position.distance_to(closest) < 18.0 + enemy.radius + (8.0 if id == "lance" and special_finisher else 0.0)
 			else:
-				var alignment := offset.normalized().dot(player.facing) if distance > 0.0 else 1.0
+				var alignment: float = offset.normalized().dot(player.facing) if distance > 0.0 else 1.0
 				in_shape = distance < reach and alignment > float(weapon.get("arc", -1.0))
 			if in_shape:
 				attack_hit = true
@@ -2074,8 +2074,8 @@ func _update_manual_attack() -> void:
 		_play_tone(155.0, 0.045, "triangle")
 		var attack_hit := false
 		for enemy in enemies.duplicate():
-			var offset := enemy.position - player.position
-			var distance := offset.length()
+			var offset: Vector2 = enemy.position - player.position
+			var distance: float = offset.length()
 			var in_shape := false
 			if bool(weapon.get("circular", false)):
 				in_shape = distance < reach
@@ -2084,7 +2084,7 @@ func _update_manual_attack() -> void:
 				var closest := player.position + player.facing * along
 				in_shape = enemy.position.distance_to(closest) < 18.0 + enemy.radius + (8.0 if id == "lance" and special_finisher else 0.0)
 			else:
-				var alignment := offset.normalized().dot(player.facing) if distance > 0.0 else 1.0
+				var alignment: float = offset.normalized().dot(player.facing) if distance > 0.0 else 1.0
 				in_shape = distance < reach and alignment > float(weapon.get("arc", -1.0))
 			if not in_shape:
 				continue
@@ -2209,7 +2209,7 @@ func _process_weapon_effects(delta: float) -> void:
 				weapon_effects[index] = effect
 				continue
 			for enemy in enemies.duplicate():
-				var away := enemy.position - effect.position
+				var away: Vector2 = enemy.position - effect.position
 				if away.length() <= float(effect.radius) and away.length() > 0.0:
 					_move_enemy_with_bounds(enemy, away.normalized() * 76.0)
 			_add_combat_effect({"kind": "hammer_shockwave", "position": effect.position, "radius": float(effect.radius), "delay": 0.12, "life": 0.28, "max_life": 0.28})
@@ -2227,9 +2227,9 @@ func _process_weapon_effects(delta: float) -> void:
 			var forward := Vector2(cos(float(effect.angle)), sin(float(effect.angle)))
 			var weapon: Dictionary = catalog.content.weapons[str(effect.weapon)]
 			for enemy in enemies.duplicate():
-				var offset := enemy.position - effect.position
-				var distance := offset.length()
-				var facing := offset.normalized().dot(forward) if distance > 0.0 else 1.0
+				var offset: Vector2 = enemy.position - effect.position
+				var distance: float = offset.length()
+				var facing: float = offset.normalized().dot(forward) if distance > 0.0 else 1.0
 				if distance <= float(effect.outer) and (bool(effect.full_circle) or facing > float(effect.arc)):
 					_damage_enemy(enemy, _weapon_base_damage(weapon, enemy) * float(effect.damage_scale), str(effect.weapon))
 					if not bool(effect.full_circle) and enemies.has(enemy) and enemy.hp > 0.0 and distance > 0.0:
@@ -2394,8 +2394,8 @@ func _detonate_projectile(projectile: Dictionary, center: Vector2) -> void:
 	_spawn_burst(center, Color("ffe18a") if bool(projectile.get("special_blast", false)) else Color("ff9a4e"), 16)
 	_add_combat_effect({"kind": "bomb_explosion", "position": center, "radius": radius, "special": bool(projectile.get("special_blast", false)), "life": 0.38, "max_life": 0.38})
 	for enemy in enemies.duplicate():
-		var offset := enemy.position - center
-		var distance := offset.length()
+		var offset: Vector2 = enemy.position - center
+		var distance: float = offset.length()
 		if distance <= radius + enemy.radius:
 			_damage_enemy(enemy, float(projectile.damage), str(projectile.weapon))
 			if is_instance_valid(enemy) and enemy.hp > 0.0 and distance > 0.0:
@@ -2551,7 +2551,7 @@ func _enemy_drop_xp(position: Vector2, value: float, weapon_xp_multiplier := 1.0
 	arena.add_child(node)
 	var xp_multiplier := equipment_xp * weapon_xp_multiplier
 	var lifetime := float(catalog.content.config.drops.get("lifetime", 18.0))
-		drops.append({"node": node, "position": drop_position, "type": "xp", "value": value * xp_multiplier, "life": lifetime})
+	drops.append({"node": node, "position": drop_position, "type": "xp", "value": value * xp_multiplier, "life": lifetime})
 
 func _drop_spawn_position(position: Vector2) -> Vector2:
 	var angle := rng.randf_range(0.0, TAU)
@@ -3426,8 +3426,8 @@ func _use_hero_skill() -> void:
 			break
 	var hit_count := 0
 	for enemy in enemies.duplicate():
-		var offset := enemy.position - player.position
-		var forward_distance := offset.dot(forward)
+		var offset: Vector2 = enemy.position - player.position
+		var forward_distance: float = offset.dot(forward)
 		var side_distance := absf(offset.cross(forward))
 		if forward_distance > 0.0 and forward_distance < charge_distance and side_distance < float(hero.get("chargeWidth", 34.0)):
 			_damage_enemy(enemy, float(hero.get("chargeDamage", 58.0)), "")

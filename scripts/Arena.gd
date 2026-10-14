@@ -60,7 +60,7 @@ func _draw_props() -> void:
 func _draw_obstacles() -> void:
 	for obstacle in OBSTACLES:
 		var center := Vector2(obstacle.x, obstacle.y)
-		var radius := obstacle.z
+		var radius: float = obstacle.z
 		_draw_ellipse(center + Vector2(0, 8), Vector2(radius * 1.3, radius * 0.55), Color("161712"))
 		draw_circle(center, radius, Color("4a4737"))
 		draw_circle(center - Vector2(radius * 0.3, radius * 0.35), radius * 0.55, Color("66604a"))

@@ -89,11 +89,11 @@ func _draw_dagger_swing(progress: float, reach: float) -> void:
 	var forward := facing.normalized()
 	var side_vector := Vector2(-forward.y, forward.x)
 	for side in [-1.0, 1.0]:
-		var start := forward * 8.0 + side_vector * side * 5.0
-		var finish := forward * (8.0 + extension) + side_vector * side * 5.0
+		var start: Vector2 = forward * 8.0 + side_vector * side * 5.0
+		var finish: Vector2 = forward * (8.0 + extension) + side_vector * side * 5.0
 		draw_line(start, finish, Color(0.66, 1.0, 0.86, 0.38), 7.0, true)
 		draw_line(start, finish, Color("effff4"), 3.5, true)
-		var tip := forward * (12.0 + extension) + side_vector * side * 5.0
+		var tip: Vector2 = forward * (12.0 + extension) + side_vector * side * 5.0
 		var tip_points := PackedVector2Array([
 			tip + forward * 3.0,
 			tip - forward * 4.0 + side_vector * 3.0,
