@@ -138,11 +138,12 @@ func advance(delta: float) -> void:
 		return
 	invulnerability = maxf(0.0, invulnerability - delta)
 	dodge_cooldown = maxf(0.0, dodge_cooldown - delta)
-	var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down") + touch_move_vector
+	var keyboard_direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	var direction := keyboard_direction + touch_move_vector
 	if direction.length_squared() > 1.0:
 		direction = direction.normalized()
 	if Input.is_action_just_pressed("dodge") and dodge_cooldown <= 0.0:
-		dodge_direction = direction.normalized() if direction != Vector2.ZERO else facing
+		dodge_direction = keyboard_direction.normalized() if keyboard_direction != Vector2.ZERO else facing
 		dodge_time = dodge_duration
 		dodge_cooldown = dodge_recharge
 		invulnerability = maxf(invulnerability, dodge_invulnerability)
