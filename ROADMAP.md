@@ -2,7 +2,7 @@
 
 Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le guide du dépôt [`README.md`](README.md). L’objectif est une version Godot jouable dont le contenu et les règles reproduisent le snapshot web, puis dont la présentation et les contrôles atteignent la même expérience. Les tâches marquées « parité » doivent suivre le code JavaScript exporté, y compris les comportements qui ne sont pas décrits dans le JSON.
 
-**Avancement global : 49/70 tâches terminées (70,0 %).**
+**Avancement global : 50/70 tâches terminées (71,4 %).**
 
 ## Principes de portage
 
@@ -57,7 +57,7 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 - [x] Ajouter les quatre obstacles aux coordonnées/rayons du dump. Ils bloquent les entités et les charges ; les projectiles suivent la fonction source `isBlocked`, qui ne teste que les limites du monde.
 - [x] Porter le mouvement `CharacterBody2D` ou équivalent en conservant la vitesse exacte et la normalisation diagonale.
 - [x] Reproduire le glissement le long des obstacles et des limites avec le mouvement physique de Godot.
-- [ ] Ajouter les deux héros, leurs animations/poses, états de dégâts et orientation ; porter les statistiques et la compétence de la Sentinelle.
+- [x] Ajouter les deux héros, leurs poses source statiques, états de dégâts et orientation ; porter les statistiques et la compétence de la Sentinelle. Le dump fournit un SVG par héros, sans feuilles d’animation supplémentaires ; le port anime l’arme, oriente l’attaque et reprend le clignotement d’invulnérabilité.
 - [x] Déclarer actions InputMap pour directions, attaque, capacité, esquive, pause, inventaire ; gérer relâchement au changement de focus.
 - [x] Créer les commandes tactiles adaptées à écran étroit et écran tactile : joystick et boutons d’action, dimensionnés et placés comme dans le CSS de référence.
 
