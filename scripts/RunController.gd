@@ -160,6 +160,7 @@ var held_weapon_sprite: Sprite2D
 var secondary_weapon_sprites: Dictionary = {}
 var mouse_aim_active := false
 var manual_attack_requested := false
+var reset_simulation_clock := false
 var touch_controls: ValombreTouchControls
 var particle_layer: ValombreParticleLayer
 var combat_effects: ValombreCombatEffects
@@ -205,6 +206,9 @@ func _ready() -> void:
 	player.run_active = false
 
 func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		reset_simulation_clock = true
+		return
 	if what != NOTIFICATION_APPLICATION_FOCUS_OUT:
 		return
 	for action in ["move_left", "move_right", "move_up", "move_down", "attack", "special", "dodge", "pause", "inventory"]:
@@ -305,6 +309,9 @@ func _process(delta: float) -> void:
 	if state != "playing":
 		return
 	var simulation_delta := minf(delta, 0.04) * (1.25 if mode == "infinite" else 1.0)
+	if reset_simulation_clock:
+		simulation_delta = 0.0
+		reset_simulation_clock = false
 	player.advance(simulation_delta)
 	notice_timer = maxf(0.0, notice_timer - simulation_delta)
 	weapon_cooldown = maxf(0.0, weapon_cooldown - simulation_delta)

@@ -2,7 +2,7 @@
 
 Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le guide du dépôt [`README.md`](README.md). L’objectif est une version Godot jouable dont le contenu et les règles reproduisent le snapshot web, puis dont la présentation et les contrôles atteignent la même expérience. Les tâches marquées « parité » doivent suivre le code JavaScript exporté, y compris les comportements qui ne sont pas décrits dans le JSON.
 
-**Avancement global : 61/70 tâches terminées (87,1 %).**
+**Avancement global : 61/70 tâches terminées (87,1 %).** La batterie complète de tests de la phase 8 sera lancée uniquement après l’achèvement de toutes les autres tâches de la roadmap.
 
 ## Principes de portage
 
