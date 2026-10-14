@@ -2438,7 +2438,10 @@ func _update_drops(delta: float) -> void:
 		var drop_position: Vector2 = drop.get("position", node.position)
 		var distance: float = player.position.distance_to(drop_position)
 		var pulled := false
-		if distance > 22.0 and (distance < pickup_range or global_pickup):
+		var pull_time := float(drop.get("pull_time", 0.0))
+		if distance > 22.0 and (distance < pickup_range or global_pickup or pull_time > 0.0):
+			pull_time += delta
+			drop.pull_time = pull_time
 			var pull_speed := player.move_speed * movement_multiplier * equipment_speed * 1.2
 			var step := minf(distance, pull_speed * delta)
 			var previous_position := drop_position
@@ -2452,6 +2455,7 @@ func _update_drops(delta: float) -> void:
 		drop.position = drop_position
 		var bob := sin(float(Time.get_ticks_msec()) / 180.0 + drop_position.x) * 3.0 if not pulled else 0.0
 		node.position = drop_position + Vector2(0.0, bob)
+		drops[index] = drop
 		if player.position.distance_to(drop_position) <= 22.0:
 			if global_pickup:
 				bomb_combo_pickups += 1
