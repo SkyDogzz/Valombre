@@ -33,13 +33,13 @@ La sauvegarde persistante est le JSON `user://save.json`, écrit par `RunControl
 
 `player` contient `hero`, `weapon`, `hp`, `maxHp`, `xp`, `nextXp`, `level`, `damageMultiplier`, `attackSpeedMultiplier`, `rangeBonus`, `movementMultiplier`, `defense`, `bonusMaxHp`, `projectileSize`, `projectileSpeed`, `pickupRangeMultiplier`, `upgradeRanks`, `weaponInventory`, `inventory` (reliques), `shield`, `cheatInfiniteLife`, `scytheSouls`, `position` et `facing`. Chaque objet d'inventaire contient son identifiant et ses propriétés d'état, notamment niveau/verrouillage et, pour une arme, l'état spécial.
 
-Le checkpoint reprend les valeurs persistantes du joueur et de la progression, pas les entités ennemies, projectiles, minuteries de combat ni effets temporaires en cours. La reprise reconstruit la vague à partir du checkpoint.
+Le checkpoint reprend les valeurs persistantes du joueur et de la progression, pas les entités ennemies, projectiles, minuteries de combat ni effets temporaires en cours. La reprise reconstruit la vague à partir du checkpoint. Si l’inventaire n’est pas débridé, la reprise conserve au plus cinq armes et cinq reliques, comme le jeu source.
 
 ## Validation et migration
 
 Un profil absent, illisible, non objet JSON, de version non entière, antérieure à 1 ou supérieure à 2 est ignoré et les valeurs par défaut restent actives. La migration v1→v2 copie le profil, complète les préférences et collections manquantes avec les défauts, ajoute `player.cheatInfiniteLife: false` aux anciennes runs et inscrit la version 2. Le profil migré est écrit lors de la prochaine mutation sauvegardée.
 
-Les compteurs persistants doivent être des entiers non négatifs; les booléens et volumes doivent avoir leur type attendu (volume fini puis borné à `[0, 1]`). Héros, armes, modes, difficultés et identifiants sont filtrés contre le catalogue courant. Les découvertes inconnues ou non vraies sont supprimées. Les lignes du bestiaire doivent avoir des éliminations entières non négatives et un booléen de découverte. Le checkpoint n'est accepté que si sa version, vague, mode, difficulté, joueur, position, inventaires, rangs, objectif et défis sont valides; sinon la run sauvegardée est abandonnée sans empêcher le chargement du profil.
+Les compteurs persistants doivent être des entiers non négatifs; les booléens et volumes doivent avoir leur type attendu (volume fini puis borné à `[0, 1]`). Héros, armes, modes, difficultés et identifiants sont filtrés contre le catalogue courant. Les découvertes inconnues ou non vraies sont supprimées. Les lignes du bestiaire doivent avoir des éliminations entières non négatives et un booléen de découverte. Le checkpoint n'est accepté que si sa version, vague, mode, difficulté, joueur, position, inventaires, objectif et défis sont valides; sinon la run sauvegardée est abandonnée sans empêcher le chargement du profil. À la reprise, les rangs d'amélioration sont normalisés dans `[0, 10]`; si l'ancien checkpoint ne contient pas ces rangs, ceux des multiplicateurs sauvegardés sont inférés comme dans la source.
 
 ## Écritures
 

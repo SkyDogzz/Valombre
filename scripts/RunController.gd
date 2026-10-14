@@ -841,9 +841,12 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 		projectile_size_multiplier = float(saved_player.get("projectileSize", 1.0))
 		projectile_speed_multiplier = float(saved_player.get("projectileSpeed", 1.0))
 		pickup_range_multiplier = float(saved_player.get("pickupRangeMultiplier", 1.0))
-		upgrade_ranks = saved_player.get("upgradeRanks", upgrade_ranks).duplicate(true)
+		upgrade_ranks = _normalize_upgrade_ranks(saved_player)
 		weapon_inventory = saved_player.get("weaponInventory", weapon_inventory).duplicate(true)
 		relic_inventory = saved_player.get("inventory", []).duplicate(true)
+		if not uncapped_inventory:
+			weapon_inventory.resize(mini(weapon_inventory.size(), int(catalog.content.config.drops.maxWeapons)))
+			relic_inventory.resize(mini(relic_inventory.size(), int(catalog.content.config.drops.maxRelics)))
 		for item in weapon_inventory:
 			_mark_discovered("discoveredWeapons", str(item.id))
 		for item in relic_inventory:
@@ -2846,10 +2849,6 @@ func _checkpoint_is_valid(checkpoint: Variant) -> bool:
 		return false
 	if checkpoint_player.has("scytheSouls") and (int(checkpoint_player.scytheSouls) < 0 or int(checkpoint_player.scytheSouls) > 5):
 		return false
-	var ranks: Dictionary = checkpoint_player.get("upgradeRanks", {})
-	for rank_id in ranks:
-		if not catalog.definitions.get("upgrades", []).any(func(definition: GameDefinition) -> bool: return str(definition.id) == str(rank_id)) or not _is_finite_number(ranks[rank_id]) or int(ranks[rank_id]) < 0:
-			return false
 	var challenges: Variant = checkpoint.get("runChallenges", [])
 	if not challenges is Array:
 		return false
@@ -2898,6 +2897,23 @@ func _checkpoint_is_valid(checkpoint: Variant) -> bool:
 		if relic.has("locked") and not (relic.locked is bool):
 			return false
 	return true
+
+func _normalize_upgrade_ranks(saved_player: Dictionary) -> Dictionary:
+	var rank_keys := ["damage", "attackSpeed", "range", "projectileSize", "projectileSpeed", "movementSpeed", "health", "defense", "pickupRange"]
+	var has_rank_dictionary: bool = saved_player.get("upgradeRanks", {}) is Dictionary
+	var ranks: Dictionary = saved_player.get("upgradeRanks", {}) if has_rank_dictionary else {}
+	if not has_rank_dictionary:
+		ranks = {
+			"damage": clampi(roundi(log(maxf(1.0, float(saved_player.get("damageMultiplier", 1.0)))) / log(1.2)), 0, 10),
+			"attackSpeed": clampi(roundi(log(maxf(1.0, float(saved_player.get("attackSpeedMultiplier", 1.0)))) / log(1.2)), 0, 10),
+			"range": clampi(roundi(float(saved_player.get("rangeBonus", 0.0)) / 18.0), 0, 10),
+			"projectileSize": clampi(roundi(log(maxf(1.0, float(saved_player.get("projectileSize", 1.0)))) / log(1.25)), 0, 10),
+			"projectileSpeed": clampi(roundi(log(maxf(1.0, float(saved_player.get("projectileSpeed", 1.0)))) / log(1.2)), 0, 10),
+		}
+	for key in rank_keys:
+		var value: Variant = ranks.get(key, 0)
+		ranks[key] = clampi(int(value), 0, 10) if _is_finite_number(value) and float(value) == float(int(value)) else 0
+	return ranks
 
 func _is_finite_number(value: Variant) -> bool:
 	return (value is int or value is float) and is_finite(float(value))
