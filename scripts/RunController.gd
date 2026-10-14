@@ -66,7 +66,7 @@ var objective_progress := 0
 var objective_target := 12
 var objective_complete := false
 var run_challenges: Array[Dictionary] = []
-var profile := {"schema_version": 1, "wins": 0, "bestKills": 0, "shards": 0}
+var profile := {"schema_version": 1, "wins": 0, "bestKills": 0, "shards": 0, "run": null}
 var result_recorded := false
 
 var layer: CanvasLayer
@@ -79,6 +79,7 @@ var weapon_picker: OptionButton
 var mode_picker: OptionButton
 var difficulty_picker: OptionButton
 var start_button: Button
+var new_run_button: Button
 var hud: Label
 var boss_bar: ProgressBar
 var boss_name_label: Label
@@ -166,6 +167,10 @@ func _create_interface() -> void:
 	start_button.text = "Entrer dans la forêt"
 	start_button.pressed.connect(_on_start_pressed)
 	column.add_child(start_button)
+	new_run_button = Button.new()
+	new_run_button.text = "Nouvelle run"
+	new_run_button.pressed.connect(_on_new_run_pressed)
+	column.add_child(new_run_button)
 	status_label = Label.new()
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -211,13 +216,34 @@ func _on_start_pressed() -> void:
 		return
 	if state == "playing":
 		return
+	var checkpoint: Variant = profile.get("run")
+	if checkpoint is Dictionary:
+		var saved_player: Dictionary = checkpoint.get("player", {})
+		hero_id = str(saved_player.get("hero", "pilgrim"))
+		weapon_id = str(saved_player.get("weapon", "sabre"))
+		mode = str(checkpoint.get("mode", "waves"))
+		difficulty_id = str(checkpoint.get("difficulty", "insane"))
+		hero_picker.select(1 if hero_id == "sentinel" else 0)
+		mode_picker.select(1 if mode == "infinite" else 0)
+		difficulty_picker.select(["insane", "nightmare", "cataclysm"].find(difficulty_id))
+		for index in weapon_picker.item_count:
+			if str(weapon_picker.get_item_metadata(index)) == weapon_id:
+				weapon_picker.select(index)
+				break
+		_start_run(checkpoint)
+		return
 	hero_id = "sentinel" if hero_picker.selected == 1 else "pilgrim"
 	mode = "infinite" if mode_picker.selected == 1 else "waves"
 	difficulty_id = ["insane", "nightmare", "cataclysm"][difficulty_picker.selected]
 	weapon_id = str(weapon_picker.get_item_metadata(weapon_picker.selected))
 	_start_run()
 
-func _start_run() -> void:
+func _on_new_run_pressed() -> void:
+	profile.run = null
+	_save_profile()
+	_set_state("title")
+
+func _start_run(checkpoint: Dictionary = {}) -> void:
 	for enemy in enemies:
 		enemy.queue_free()
 	for drop in drops:
@@ -281,8 +307,50 @@ func _start_run() -> void:
 	pickup_range_multiplier = 1.0
 	upgrade_ranks = {"damage": 0, "attackSpeed": 0, "range": 0, "projectileSize": 0, "projectileSpeed": 0, "movementSpeed": 0, "health": 0, "defense": 0, "pickupRange": 0}
 	pending_upgrades = 0
+	run_challenges = [
+		{"id": "kills", "label": "Vaincre 50 créatures", "target": 50, "progress": 0, "complete": false},
+		{"id": "elites", "label": "Vaincre 5 élites", "target": 5, "progress": 0, "complete": false},
+		{"id": "xp", "label": "Ramasser 20 orbes d’XP", "target": 20, "progress": 0, "complete": false},
+	]
+	result_recorded = false
+	if not checkpoint.is_empty():
+		var saved_player: Dictionary = checkpoint.get("player", {})
+		mode = str(checkpoint.get("mode", mode))
+		difficulty_id = str(checkpoint.get("difficulty", difficulty_id))
+		xp = float(saved_player.get("xp", 0.0))
+		next_xp = float(saved_player.get("nextXp", 5.0))
+		level = int(saved_player.get("level", 1))
+		defeated = int(checkpoint.get("defeated", 0))
+		damage_multiplier = float(saved_player.get("damageMultiplier", 1.0))
+		attack_speed_multiplier = float(saved_player.get("attackSpeedMultiplier", 1.0))
+		range_bonus = float(saved_player.get("rangeBonus", 0.0))
+		movement_multiplier = float(saved_player.get("movementMultiplier", 1.0))
+		defense = float(saved_player.get("defense", 0.0))
+		bonus_max_hp = float(saved_player.get("bonusMaxHp", 0.0))
+		projectile_size_multiplier = float(saved_player.get("projectileSize", 1.0))
+		projectile_speed_multiplier = float(saved_player.get("projectileSpeed", 1.0))
+		pickup_range_multiplier = float(saved_player.get("pickupRangeMultiplier", 1.0))
+		upgrade_ranks = saved_player.get("upgradeRanks", upgrade_ranks).duplicate(true)
+		weapon_inventory = saved_player.get("weaponInventory", weapon_inventory).duplicate(true)
+		relic_inventory = saved_player.get("inventory", []).duplicate(true)
+		player_shield = float(saved_player.get("shield", 0.0))
+		scythe_souls = int(saved_player.get("scytheSouls", 0))
+		var saved_position: Array = saved_player.get("position", [WORLD_SIZE.x * 0.5, WORLD_SIZE.y * 0.5])
+		player.position = Vector2(float(saved_position[0]), float(saved_position[1]))
+		var saved_facing: Array = saved_player.get("facing", [0.0, 1.0])
+		player.facing = Vector2(float(saved_facing[0]), float(saved_facing[1])).normalized()
+		elapsed = float(checkpoint.get("elapsedSeconds", 0))
+		var saved_challenges: Variant = checkpoint.get("runChallenges", [])
+		if saved_challenges is Array:
+			run_challenges = saved_challenges.duplicate(true)
+		_refresh_relic_stats()
+		hp = float(saved_player.get("hp", max_hp))
+		max_hp = maxf(max_hp, float(saved_player.get("maxHp", max_hp)))
+		hp = minf(hp, max_hp)
+		player.movement_multiplier = movement_multiplier
+		player.position = Vector2(float(saved_position[0]), float(saved_position[1]))
 	rng.randomize()
-	_start_wave(1)
+	_start_wave(int(checkpoint.get("wave", 1)))
 	_set_state("playing")
 
 func _start_wave(number: int) -> void:
@@ -291,12 +359,6 @@ func _start_wave(number: int) -> void:
 	objective_target = [12, 8, 1][(number - 1) % 3]
 	objective_progress = 0
 	objective_complete = false
-	run_challenges = [
-		{"id": "kills", "label": "Vaincre 50 créatures", "target": 50, "progress": 0, "complete": false},
-		{"id": "elites", "label": "Vaincre 5 élites", "target": 5, "progress": 0, "complete": false},
-		{"id": "xp", "label": "Ramasser 20 orbes d’XP", "target": 20, "progress": 0, "complete": false},
-	]
-	result_recorded = false
 	if mode == "infinite" and number > 4:
 		wave_groups = [
 			{"kind": "ghoul", "count": 35 + number * 6},
@@ -320,6 +382,45 @@ func _start_wave(number: int) -> void:
 	swarm_timer = rng.randf_range(14.0, 26.0) if rng.randf() < 0.38 else -1.0
 	intermission = 0.0
 	status_label.text = "Vague %d" % number
+	_save_checkpoint(number)
+
+func _save_checkpoint(number: int) -> void:
+	var saved_player := {
+		"hero": hero_id,
+		"weapon": weapon_id,
+		"hp": hp,
+		"maxHp": max_hp,
+		"xp": xp,
+		"nextXp": next_xp,
+		"level": level,
+		"damageMultiplier": damage_multiplier,
+		"attackSpeedMultiplier": attack_speed_multiplier,
+		"rangeBonus": range_bonus,
+		"movementMultiplier": movement_multiplier,
+		"defense": defense,
+		"bonusMaxHp": bonus_max_hp,
+		"projectileSize": projectile_size_multiplier,
+		"projectileSpeed": projectile_speed_multiplier,
+		"pickupRangeMultiplier": pickup_range_multiplier,
+		"upgradeRanks": upgrade_ranks.duplicate(true),
+		"weaponInventory": weapon_inventory.duplicate(true),
+		"inventory": relic_inventory.duplicate(true),
+		"shield": player_shield,
+		"scytheSouls": scythe_souls,
+		"position": [player.position.x, player.position.y],
+		"facing": [player.facing.x, player.facing.y],
+	}
+	profile.run = {
+		"version": 1,
+		"mode": mode,
+		"difficulty": difficulty_id,
+		"wave": number,
+		"player": saved_player,
+		"defeated": defeated,
+		"runChallenges": run_challenges.duplicate(true),
+		"elapsedSeconds": int(elapsed),
+	}
+	_save_profile()
 
 func _update_spawns(delta: float) -> void:
 	if swarm_timer > 0.0:
@@ -864,7 +965,7 @@ func _damage_enemy(enemy: ValombreEnemy, amount: float, _weapon: String) -> void
 			enemies.erase(enemy)
 			if mode == "infinite":
 				profile.shards = int(profile.shards) + 1
-				_save_profile()
+				_save_checkpoint(wave + 1)
 				intermission = 3.0
 			else:
 				_finish_run("victory")
@@ -999,7 +1100,7 @@ func _show_level_up() -> void:
 	_set_state("levelUp")
 	var column: VBoxContainer = menu_panel.get_child(0)
 	for child in column.get_children():
-		if child is Button and child != start_button:
+		if child is Button and child != start_button and child != new_run_button:
 			child.queue_free()
 	var choices: Array[GameDefinition] = []
 	var pool: Array = catalog.definitions.upgrades.filter(func(item: GameDefinition) -> bool: return int(upgrade_ranks.get(str(item.id), 0)) < int(item.values.get("maxRanks", 10)))
@@ -1247,8 +1348,9 @@ func _set_state(next_state: String) -> void:
 	match state:
 		"title":
 			title_label.text = "LES CENDRES DE VALOMBRE"
-			status_label.text = "Victoires : %d · Éclats : %d · Meilleur score : %d créatures\nChoisissez votre héros, votre arme, le mode et la difficulté.\nWASD / flèches · E capacité · Maj esquive · Échap pause" % [profile.wins, profile.shards, profile.bestKills]
-			start_button.text = "Entrer dans la forêt"
+			var title_instructions := "Une run interrompue peut être reprise ou abandonnée." if profile.get("run") is Dictionary else "Choisissez votre héros, votre arme, le mode et la difficulté."
+			status_label.text = "Victoires : %d · Éclats : %d · Meilleur score : %d créatures\n%s\nWASD / flèches · E capacité · Maj esquive · Échap pause" % [profile.wins, profile.shards, profile.bestKills, title_instructions]
+			start_button.text = "Reprendre · vague %d" % int(profile.run.get("wave", 1)) if profile.get("run") is Dictionary else "Entrer dans la forêt"
 		"paused":
 			title_label.text = "LA CHASSE ATTEND"
 			status_label.text = "Échap pour reprendre"
@@ -1271,15 +1373,17 @@ func _set_state(next_state: String) -> void:
 			start_button.text = "Rejouer"
 	if state not in ["levelUp", "loot"]:
 		start_button.visible = true
-		hero_picker.visible = state == "title"
-		weapon_picker.visible = state == "title"
-		mode_picker.visible = state == "title"
-		difficulty_picker.visible = state == "title"
+		var show_setup := state == "title" and not (profile.get("run") is Dictionary)
+		hero_picker.visible = show_setup
+		weapon_picker.visible = show_setup
+		mode_picker.visible = show_setup
+		difficulty_picker.visible = show_setup
+		new_run_button.visible = state == "title" and (profile.get("run") is Dictionary)
 		status_label.visible = state != "playing"
 		for picker_label in picker_labels:
-			picker_label.visible = state == "title"
+			picker_label.visible = show_setup
 		for child in menu_panel.get_child(0).get_children():
-			if child is Button and child != start_button:
+			if child is Button and child != start_button and child != new_run_button:
 				child.queue_free()
 
 func _update_hud() -> void:
@@ -1321,6 +1425,8 @@ func _format_upgrade_bonus(definition: GameDefinition) -> String:
 
 func _progress_objective(target: String) -> void:
 	_progress_challenges(target)
+	if target == "kills" and defeated > 0 and defeated % 10 == 0:
+		_save_checkpoint(wave)
 	if objective_type != target or objective_complete:
 		return
 	objective_progress = mini(objective_target, objective_progress + 1)
@@ -1335,6 +1441,10 @@ func _progress_challenges(target: String) -> void:
 		if str(challenge.id) != challenge_id or bool(challenge.complete):
 			continue
 		challenge.progress = mini(int(challenge.target), int(challenge.progress) + 1)
+		if profile.get("run") is Dictionary:
+			profile.run.runChallenges = run_challenges.duplicate(true)
+			profile.run.defeated = defeated
+			profile.run.elapsedSeconds = int(elapsed)
 		if int(challenge.progress) >= int(challenge.target):
 			challenge.complete = true
 			profile.shards = int(profile.shards) + 1
@@ -1349,6 +1459,7 @@ func _finish_run(result: String) -> void:
 	if result == "victory":
 		profile.wins = int(profile.wins) + 1
 		profile.shards = int(profile.shards) + 1
+	profile.run = null
 	_save_profile()
 	_set_state(result)
 
@@ -1374,6 +1485,44 @@ func _load_profile() -> void:
 		var value: Variant = saved.get(key, 0)
 		if value is int and value >= 0:
 			profile[key] = value
+	var saved_run: Variant = saved.get("run")
+	if _checkpoint_is_valid(saved_run):
+		profile.run = saved_run
+
+func _checkpoint_is_valid(checkpoint: Variant) -> bool:
+	if not checkpoint is Dictionary or int(checkpoint.get("version", 0)) != 1:
+		return false
+	var checkpoint_mode := str(checkpoint.get("mode", ""))
+	var checkpoint_wave := int(checkpoint.get("wave", 0))
+	var checkpoint_player: Variant = checkpoint.get("player", {})
+	if checkpoint_mode not in ["waves", "infinite"] or checkpoint_wave < 1 or (checkpoint_mode == "waves" and checkpoint_wave > catalog.content.waves.size()):
+		return false
+	if not catalog.content.difficulties.has(str(checkpoint.get("difficulty", ""))):
+		return false
+	if not checkpoint_player is Dictionary:
+		return false
+	if not catalog.content.heroes.has(str(checkpoint_player.get("hero", ""))) or not catalog.content.weapons.has(str(checkpoint_player.get("weapon", ""))):
+		return false
+	var weapons: Variant = checkpoint_player.get("weaponInventory", [])
+	var relics: Variant = checkpoint_player.get("inventory", [])
+	var saved_position: Variant = checkpoint_player.get("position", [])
+	if not weapons is Array or not relics is Array or not saved_position is Array or saved_position.size() < 2:
+		return false
+	if not (checkpoint_player.get("upgradeRanks", {}) is Dictionary):
+		return false
+	var challenges: Variant = checkpoint.get("runChallenges", [])
+	if not challenges is Array:
+		return false
+	for challenge in challenges:
+		if not challenge is Dictionary:
+			return false
+	for item in weapons:
+		if not item is Dictionary or not catalog.content.weapons.has(str(item.get("id", ""))):
+			return false
+	for relic in relics:
+		if not relic is Dictionary or not catalog.content.relics.any(func(entry: Dictionary) -> bool: return str(entry.id) == str(relic.get("id", ""))):
+			return false
+	return true
 
 func _save_profile() -> void:
 	var file := FileAccess.open("user://save.json", FileAccess.WRITE)
