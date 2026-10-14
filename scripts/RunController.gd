@@ -84,6 +84,7 @@ var notice_timer := 0.0
 
 var layer: CanvasLayer
 var menu_panel: PanelContainer
+var overlay_backdrop: ColorRect
 var title_label: Label
 var status_label: Label
 var picker_labels: Array[Label] = []
@@ -265,7 +266,19 @@ func _create_interface() -> void:
 	main.add_child(layer)
 	menu_panel = PanelContainer.new()
 	menu_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	menu_panel.custom_minimum_size = Vector2(430, 0)
+	menu_panel.custom_minimum_size = Vector2(390, 0)
+	var dialog_style := StyleBoxFlat.new()
+	dialog_style.bg_color = Color("1b1b17")
+	dialog_style.border_color = Color("796443")
+	dialog_style.set_border_width_all(1)
+	dialog_style.content_margin_left = 30.0
+	dialog_style.content_margin_right = 30.0
+	dialog_style.content_margin_top = 28.0
+	dialog_style.content_margin_bottom = 24.0
+	dialog_style.shadow_color = Color(0.0, 0.0, 0.0, 0.73)
+	dialog_style.shadow_size = 18
+	dialog_style.shadow_offset = Vector2(0.0, 12.0)
+	menu_panel.add_theme_stylebox_override("panel", dialog_style)
 	layer.add_child(menu_panel)
 	var column := VBoxContainer.new()
 	menu_column = column
@@ -424,6 +437,13 @@ func _create_interface() -> void:
 	touch_controls.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	touch_controls.visible = false
 	layer.add_child(touch_controls)
+	overlay_backdrop = ColorRect.new()
+	overlay_backdrop.color = Color(0.043, 0.047, 0.035, 0.72)
+	overlay_backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay_backdrop.visible = false
+	layer.add_child(overlay_backdrop)
+	layer.move_child(menu_panel, layer.get_child_count() - 1)
 	status_label.visible = false
 	_set_state("title")
 	_update_hud()
@@ -2483,6 +2503,7 @@ func _set_state(next_state: String) -> void:
 	state = next_state
 	var is_overlay := state != "playing"
 	menu_panel.visible = is_overlay
+	overlay_backdrop.visible = is_overlay
 	if is_instance_valid(particle_layer):
 		particle_layer.set_process(state == "playing")
 	if is_instance_valid(combat_effects):
