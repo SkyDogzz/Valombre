@@ -407,16 +407,29 @@ func _create_interface() -> void:
 	notice_label.add_theme_color_override("font_color", Color("f2d89b"))
 	layer.add_child(notice_label)
 	boss_name_label = Label.new()
-	boss_name_label.position = Vector2(300, 15)
-	boss_name_label.size = Vector2(360, 24)
+	boss_name_label.position = Vector2(290, 82)
+	boss_name_label.size = Vector2(380, 13)
 	boss_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	boss_name_label.add_theme_color_override("font_color", Color("eee2c5"))
+	boss_name_label.add_theme_font_size_override("font_size", 10)
+	boss_name_label.add_theme_color_override("font_color", Color("ead8b4"))
+	boss_name_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.9))
+	boss_name_label.add_theme_constant_override("shadow_offset_y", 2)
 	layer.add_child(boss_name_label)
 	boss_bar = ProgressBar.new()
-	boss_bar.position = Vector2(300, 40)
-	boss_bar.size = Vector2(360, 13)
+	boss_bar.position = Vector2(290, 100)
+	boss_bar.size = Vector2(380, 9)
 	boss_bar.show_percentage = false
-	boss_bar.modulate = Color("bc594b")
+	var boss_track := StyleBoxFlat.new()
+	boss_track.bg_color = Color("17120f")
+	boss_track.border_color = Color("6b4a39")
+	boss_track.set_border_width_all(1)
+	boss_track.shadow_color = Color(0.0, 0.0, 0.0, 0.75)
+	boss_track.shadow_size = 4
+	boss_track.shadow_offset = Vector2(0.0, 2.0)
+	boss_bar.add_theme_stylebox_override("background", boss_track)
+	var boss_fill := StyleBoxFlat.new()
+	boss_fill.bg_color = Color("b74634")
+	boss_bar.add_theme_stylebox_override("fill", boss_fill)
 	layer.add_child(boss_bar)
 	boss_name_label.visible = false
 	boss_bar.visible = false
@@ -2650,7 +2663,7 @@ func _update_hud() -> void:
 	boss_bar.visible = active_boss != null
 	boss_name_label.visible = active_boss != null
 	if active_boss:
-		boss_name_label.text = str(active_boss.get_meta("display_name", "Boss"))
+		boss_name_label.text = str(active_boss.get_meta("display_name", "Boss")).to_upper()
 		boss_bar.max_value = active_boss.max_hp
 		boss_bar.value = active_boss.hp
 
