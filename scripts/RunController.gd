@@ -109,8 +109,12 @@ var upgrade_buttons: Array[Button] = []
 var loot_buttons: Array[Button] = []
 var menu_column: VBoxContainer
 var boss_bar: ProgressBar
+var health_bar: ProgressBar
+var shield_bar: ProgressBar
+var xp_bar: ProgressBar
 var boss_name_label: Label
 var notice_label: Label
+var ability_label: Label
 var mute_toggle: CheckBox
 var volume_slider: HSlider
 var reset_button: Button
@@ -318,13 +322,23 @@ func _create_interface() -> void:
 	pause_catalog_list = VBoxContainer.new()
 	pause_catalog_list.custom_minimum_size.x = 520
 	pause_catalog.add_child(pause_catalog_list)
+	shield_bar = _create_hud_bar(Vector2(18, 18), Vector2(220, 6), Color("8cb7c5"))
+	health_bar = _create_hud_bar(Vector2(18, 27), Vector2(220, 8), Color("c44c3b"))
+	xp_bar = _create_hud_bar(Vector2(18, 38), Vector2(220, 6), Color("b686c8"))
 	hud = Label.new()
-	hud.position = Vector2(18, 48)
+	hud.position = Vector2(18, 52)
+	hud.add_theme_font_size_override("font_size", 11)
 	hud.add_theme_color_override("font_color", Color("eee2c5"))
 	hud.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
 	hud.add_theme_constant_override("shadow_offset_x", 2)
 	hud.add_theme_constant_override("shadow_offset_y", 2)
 	layer.add_child(hud)
+	ability_label = Label.new()
+	ability_label.position = Vector2(18, 500)
+	ability_label.size = Vector2(460, 24)
+	ability_label.add_theme_font_size_override("font_size", 10)
+	ability_label.add_theme_color_override("font_color", Color("d8c9a8"))
+	layer.add_child(ability_label)
 	notice_label = Label.new()
 	notice_label.position = Vector2(250, 460)
 	notice_label.size = Vector2(460, 30)
@@ -346,18 +360,28 @@ func _create_interface() -> void:
 	boss_name_label.visible = false
 	boss_bar.visible = false
 	inventory_panel = PanelContainer.new()
-	inventory_panel.position = Vector2(18, 92)
-	inventory_panel.custom_minimum_size = Vector2(360, 0)
+	inventory_panel.position = Vector2(620, 90)
+	inventory_panel.custom_minimum_size = Vector2(320, 0)
 	inventory_panel.visible = false
 	layer.add_child(inventory_panel)
 	var inventory_scroll := ScrollContainer.new()
-	inventory_scroll.custom_minimum_size = Vector2(360, 360)
+	inventory_scroll.custom_minimum_size = Vector2(320, 360)
 	inventory_panel.add_child(inventory_scroll)
 	inventory_list = VBoxContainer.new()
-	inventory_list.custom_minimum_size.x = 340
+	inventory_list.custom_minimum_size.x = 300
 	inventory_scroll.add_child(inventory_list)
 	status_label.visible = false
 	_set_state("title")
+	_update_hud()
+
+func _create_hud_bar(bar_position: Vector2, bar_size: Vector2, tint: Color) -> ProgressBar:
+	var bar := ProgressBar.new()
+	bar.position = bar_position
+	bar.size = bar_size
+	bar.show_percentage = false
+	bar.modulate = tint
+	layer.add_child(bar)
+	return bar
 
 func _add_picker(parent: VBoxContainer, label_text: String, choices: Array) -> OptionButton:
 	var label := Label.new()
@@ -2202,13 +2226,33 @@ func _set_state(next_state: String) -> void:
 func _update_hud() -> void:
 	if not is_instance_valid(hud):
 		return
-	var objective := "%s %d/%d" % [objective_type, mini(objective_progress, objective_target), objective_target]
+	if is_instance_valid(health_bar):
+		health_bar.max_value = maxf(1.0, max_hp)
+		health_bar.value = clampf(hp, 0.0, max_hp)
+		shield_bar.max_value = maxf(1.0, max_hp)
+		shield_bar.value = clampf(player_shield, 0.0, max_hp)
+		xp_bar.max_value = maxf(1.0, next_xp)
+		xp_bar.value = clampf(xp, 0.0, next_xp)
+	var objective_names := {"kills": "Éliminations", "xp": "Orbes d’XP", "elite": "Élites"}
+	var objective := "%s %d/%d" % [objective_names.get(objective_type, objective_type), mini(objective_progress, objective_target), objective_target]
 	var challenge_text := "Défis terminés"
 	for challenge in run_challenges:
 		if not bool(challenge.complete):
 			challenge_text = "%s %d/%d" % [challenge.label, int(challenge.progress), int(challenge.target)]
 			break
-	hud.text = "PV %d/%d · Bouclier %d\nNiveau %d · XP %d/%d\nVague %d · %s · %s\nDéfi : %s\nÉliminations %d · Arsenal %d/5 · Reliques %d/5" % [ceili(hp), ceili(max_hp), ceili(player_shield), level, int(xp), int(next_xp), wave, difficulty_id.capitalize(), objective, challenge_text, defeated, weapon_inventory.size(), relic_inventory.size()]
+	var difficulty_names := {"insane": "Insane", "nightmare": "Cauchemar", "cataclysm": "Cataclysme"}
+	var capacity := 10.0 * float(catalog.content.difficulties[difficulty_id].spawnCapacity)
+	if mode == "infinite":
+		capacity = minf(200.0, 10.0 + floorf(elapsed / 60.0 * 24.0)) * float(catalog.content.difficulties[difficulty_id].spawnCapacity)
+	var occupied := 0.0
+	for enemy in enemies:
+		occupied += float(enemy.get_meta("spawn_weight", 1.0))
+	hud.text = "%s · PV %d/%d · Bouclier %d\nNiveau %d · XP %d/%d\nVague %d · %s · %s\nDéfi : %s\nEnnemis %0.1f/%0.0f · Éliminations %d\nArsenal %d/5 · Reliques %d/5" % ["LA SENTINELLE" if hero_id == "sentinel" else "LE PÈLERIN", ceili(hp), ceili(max_hp), ceili(player_shield), level, int(xp), int(next_xp), wave, difficulty_names.get(difficulty_id, difficulty_id), objective, challenge_text, occupied, capacity, defeated, weapon_inventory.size(), relic_inventory.size()]
+	var dodge_text := "Prête" if player.dodge_cooldown <= 0.0 else "Recharge %0.1f s" % player.dodge_cooldown
+	var ability_text := "Esquive · %s" % dodge_text
+	if hero_id == "sentinel":
+		ability_text += "    Charge de cendre · %s" % ("Prête" if skill_cooldown <= 0.0 else "Recharge %0.1f s" % skill_cooldown)
+	ability_label.text = ability_text
 	notice_label.text = notice_text if notice_timer > 0.0 else ""
 	var active_boss: ValombreEnemy
 	for enemy in enemies:

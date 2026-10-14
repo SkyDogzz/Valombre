@@ -2,7 +2,7 @@
 
 Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le guide du dépôt [`README.md`](README.md). L’objectif est une version Godot jouable dont le contenu et les règles reproduisent le snapshot web, puis dont la présentation et les contrôles atteignent la même expérience. Les tâches marquées « parité » doivent suivre le code JavaScript exporté, y compris les comportements qui ne sont pas décrits dans le JSON.
 
-**Avancement global : 39/70 tâches terminées (55,7 %).**
+**Avancement global : 40/70 tâches terminées (57,1 %).**
 
 ## Principes de portage
 
@@ -113,7 +113,7 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 **But :** porter les écrans et la continuité entre sessions.
 
 - [x] Recréer écran titre, options de départ, sélecteurs, catégories de butin et options run.
-- [ ] Créer HUD : PV, bouclier, XP/niveau, vague, difficulté, objectif, capacité, barre de boss et notifications.
+- [x] Créer HUD : PV, bouclier, XP/niveau, vague, difficulté, objectif, capacité, barre de boss et notifications.
 - [x] Porter panneau Tab avec équipement, reliques, synergies, bestiaire/découvertes et défis.
 - [ ] Recréer overlays pause, montée de niveau, butin, victoire et défaite ; navigation clavier/manette tactile et focus accessible.
 - [x] Ajouter réglage de volume/muet, reprise, nouvelle run, remise à zéro, partage de configuration URL si pertinent à l’export Godot.
