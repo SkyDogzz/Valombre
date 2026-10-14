@@ -4,7 +4,6 @@ class_name RunController
 const ENEMY_SCRIPT := preload("res://scripts/Enemy.gd")
 const PROFILE_SCHEMA_VERSION := 2
 const WORLD_SIZE := Vector2(1500.0, 1100.0)
-const OBSTACLES := [Vector3(605, 530, 27), Vector3(898, 605, 31), Vector3(770, 415, 23), Vector3(735, 705, 24)]
 
 var main: Node2D
 var arena: Arena
@@ -1600,7 +1599,7 @@ func _update_enemies(delta: float) -> void:
 func _update_contact_enemy(enemy: ValombreEnemy, delta: float, direction: Vector2) -> void:
 	var reach := enemy.radius + 24.0
 	if enemy.position.distance_to(player.position) > reach:
-		_move_enemy_around_obstacles(enemy, direction * enemy.speed * enemy.slow_factor * delta)
+		_move_enemy_with_bounds(enemy, direction * enemy.speed * enemy.slow_factor * delta)
 		return
 	if enemy.attack_timer <= 0.0:
 		enemy.attack_timer = float(catalog.content.config.enemies.attackCooldown)
@@ -1620,13 +1619,13 @@ func _update_charger(enemy: ValombreEnemy, delta: float, attack_speed: float, di
 			if along > 0.0 and along < float(spec.range) and across < 30.0 and player.invulnerability <= 0.0:
 				_damage_player(enemy.damage)
 			var amount := float(spec.chargeSpeed) * float(catalog.content.difficulties[difficulty_id].speed) * 0.45
-			_move_enemy_around_obstacles(enemy, (dash / dash_length) * amount)
+			_move_enemy_with_bounds(enemy, (dash / dash_length) * amount)
 			enemy.attack_timer = float(spec.attackCooldown)
 	elif enemy.attack_timer <= 0.0 and distance < float(spec.range):
 		enemy.aim_position = player.position
 		enemy.telegraph = float(spec.windup)
 	else:
-		_move_enemy_around_obstacles(enemy, direction * enemy.speed * enemy.slow_factor * delta)
+		_move_enemy_with_bounds(enemy, direction * enemy.speed * enemy.slow_factor * delta)
 
 func _update_leaper(enemy: ValombreEnemy, delta: float, attack_speed: float, distance: float, direction: Vector2) -> void:
 	var spec: Dictionary = catalog.content.config.enemies.leaper
@@ -1648,14 +1647,14 @@ func _update_leaper(enemy: ValombreEnemy, delta: float, attack_speed: float, dis
 		enemy.aim_position = player.position
 		enemy.telegraph = float(spec.windup)
 	elif distance > enemy.radius + 24.0:
-		_move_enemy_around_obstacles(enemy, direction * enemy.speed * enemy.slow_factor * delta)
+		_move_enemy_with_bounds(enemy, direction * enemy.speed * enemy.slow_factor * delta)
 
 func _update_caster(enemy: ValombreEnemy, delta: float, attack_speed: float, distance: float, direction: Vector2) -> void:
 	var spec: Dictionary = catalog.content.config.enemies[enemy.kind]
 	if distance < float(spec.range) * 0.72:
-		_move_enemy_around_obstacles(enemy, -direction * enemy.speed * enemy.slow_factor * delta)
+		_move_enemy_with_bounds(enemy, -direction * enemy.speed * enemy.slow_factor * delta)
 	elif distance > float(spec.range):
-		_move_enemy_around_obstacles(enemy, direction * enemy.speed * enemy.slow_factor * delta)
+		_move_enemy_with_bounds(enemy, direction * enemy.speed * enemy.slow_factor * delta)
 	if enemy.telegraph > 0.0:
 		enemy.telegraph = maxf(0.0, enemy.telegraph - delta * attack_speed)
 		if enemy.telegraph <= 0.0:
@@ -1689,9 +1688,9 @@ func _update_boss(enemy: ValombreEnemy, delta: float, attack_speed: float, to_pl
 		return
 	if enemy.boss_behavior == "volley":
 		if distance < 210.0:
-			_move_enemy_around_obstacles(enemy, -direction * enemy.speed * enemy.slow_factor * delta)
+			_move_enemy_with_bounds(enemy, -direction * enemy.speed * enemy.slow_factor * delta)
 		elif distance > 330.0:
-			_move_enemy_around_obstacles(enemy, direction * enemy.speed * enemy.slow_factor * delta)
+			_move_enemy_with_bounds(enemy, direction * enemy.speed * enemy.slow_factor * delta)
 		if enemy.telegraph > 0.0:
 			enemy.telegraph = maxf(0.0, enemy.telegraph - delta * attack_speed)
 			if enemy.telegraph <= 0.0:
@@ -1725,7 +1724,7 @@ func _update_boss(enemy: ValombreEnemy, delta: float, attack_speed: float, to_pl
 		enemy.aim_position = player.position
 		enemy.telegraph = float(spec.telegraph)
 	elif distance > enemy.radius + 85.0:
-		_move_enemy_around_obstacles(enemy, direction * enemy.speed * enemy.slow_factor * delta)
+		_move_enemy_with_bounds(enemy, direction * enemy.speed * enemy.slow_factor * delta)
 
 func _fire_enemy_fan(enemy: ValombreEnemy, count: int, spread: float, speed: float, damage: float, lifetime: float, tint: String, projectile_radius: float = 7.0) -> void:
 	var base_angle := (enemy.aim_position - enemy.position).angle()
@@ -1746,7 +1745,7 @@ func _advance_enemy_dash(enemy: ValombreEnemy, delta: float) -> void:
 	var step_length := minf(enemy.dash_distance_left, enemy.dash_distance_left * delta / maxf(enemy.dash_time_left, delta))
 	var start := enemy.position
 	var step := enemy.dash_direction * step_length
-	_move_enemy_around_obstacles(enemy, step)
+	_move_enemy_with_bounds(enemy, step)
 	var finish := enemy.position
 	if not enemy.dash_landing_damage and not enemy.dash_hit and player.invulnerability <= 0.0 and _distance_to_segment(player.position, start, finish) < enemy.dash_width + 12.0:
 		_damage_player(enemy.dash_damage)
@@ -1771,7 +1770,7 @@ func _distance_to_segment(point: Vector2, start: Vector2, finish: Vector2) -> fl
 	var t := clampf((point - start).dot(segment) / length_squared, 0.0, 1.0) if length_squared > 0.0 else 0.0
 	return point.distance_to(start + segment * t)
 
-func _move_enemy_around_obstacles(enemy: ValombreEnemy, step: Vector2) -> void:
+func _move_enemy_with_bounds(enemy: ValombreEnemy, step: Vector2) -> void:
 	var distance := step.length()
 	var angle := step.angle()
 	var avoid_side := float(enemy.get_meta("avoid_side", 0.0))
@@ -1787,16 +1786,13 @@ func _move_enemy_around_obstacles(enemy: ValombreEnemy, step: Vector2) -> void:
 		var candidate := enemy.position + Vector2(cos(angle + float(offset)), sin(angle + float(offset))) * distance
 		candidate.x = clampf(candidate.x, 60.0, WORLD_SIZE.x - 60.0)
 		candidate.y = clampf(candidate.y, 60.0, WORLD_SIZE.y - 60.0)
-		if not _position_blocked(candidate, enemy.radius):
+		if not _position_out_of_bounds(candidate, enemy.radius):
 			enemy.position = candidate
 			return
 
-func _position_blocked(position: Vector2, radius: float) -> bool:
+func _position_out_of_bounds(position: Vector2, radius: float) -> bool:
 	if position.x < 60.0 + radius or position.y < 60.0 + radius or position.x > WORLD_SIZE.x - 60.0 - radius or position.y > WORLD_SIZE.y - 60.0 - radius:
 		return true
-	for obstacle in OBSTACLES:
-		if position.distance_to(Vector2(obstacle.x, obstacle.y)) < obstacle.z + radius:
-			return true
 	return false
 
 func _projectile_out_of_bounds(position: Vector2, radius: float) -> bool:
@@ -1987,7 +1983,7 @@ func _process_weapon_effects(delta: float) -> void:
 			for enemy in enemies.duplicate():
 				var away := enemy.position - effect.position
 				if away.length() <= float(effect.radius) and away.length() > 0.0:
-					_move_enemy_around_obstacles(enemy, away.normalized() * 76.0)
+					_move_enemy_with_bounds(enemy, away.normalized() * 76.0)
 			_add_combat_effect({"kind": "hammer_shockwave", "position": effect.position, "radius": float(effect.radius), "delay": 0.12, "life": 0.28, "max_life": 0.28})
 			_play_tone(120.0, 0.09)
 			weapon_effects.remove_at(index)
@@ -2009,7 +2005,7 @@ func _process_weapon_effects(delta: float) -> void:
 				if distance <= float(effect.outer) and (bool(effect.full_circle) or facing > float(effect.arc)):
 					_damage_enemy(enemy, _weapon_base_damage(weapon, enemy) * float(effect.damage_scale), str(effect.weapon))
 					if not bool(effect.full_circle) and enemies.has(enemy) and enemy.hp > 0.0 and distance > 0.0:
-						_move_enemy_around_obstacles(enemy, offset.normalized() * 26.0)
+						_move_enemy_with_bounds(enemy, offset.normalized() * 26.0)
 				if state != "playing":
 					break
 			if bool(effect.full_circle):
@@ -2165,7 +2161,7 @@ func _detonate_projectile(projectile: Dictionary, center: Vector2) -> void:
 		if distance <= radius + enemy.radius:
 			_damage_enemy(enemy, float(projectile.damage), str(projectile.weapon))
 			if is_instance_valid(enemy) and enemy.hp > 0.0 and distance > 0.0:
-				_move_enemy_around_obstacles(enemy, offset.normalized() * 24.0)
+				_move_enemy_with_bounds(enemy, offset.normalized() * 24.0)
 		if state != "playing":
 			break
 	if bool(projectile.get("special_blast", false)) and not bool(projectile.get("pickup_combo", false)):
@@ -3172,7 +3168,7 @@ func _use_hero_skill() -> void:
 	var charge_distance := float(hero.get("chargeDistance", 190.0))
 	var start := player.position
 	for step in range(12, int(charge_distance) + 1, 12):
-		if _position_blocked(start + forward * float(step), 11.0):
+		if _position_out_of_bounds(start + forward * float(step), 11.0):
 			charge_distance = float(step - 12)
 			break
 	var hit_count := 0

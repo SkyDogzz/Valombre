@@ -30,6 +30,7 @@ func _configure_player() -> void:
 	player.position = WORLD_SIZE * 0.5
 	player.move_speed = float(catalog.section("config").get("player", {}).get("speed", PLAYER_SPEED))
 	player.world_size = WORLD_SIZE
+	player.world_edge = float(catalog.section("config").get("enemies", {}).get("edge", 60.0)) + 11.0
 	var shape: CollisionShape2D = $Arena/Player/CollisionShape2D
 	var capsule := CircleShape2D.new()
 	capsule.radius = 12.0

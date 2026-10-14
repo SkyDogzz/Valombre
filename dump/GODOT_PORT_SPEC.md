@@ -19,7 +19,7 @@ Le code de référence reste la source d’autorité pour les détails qui ne so
 - Boucle : sélectionner héros/arme/mode/difficulté → survivre à des vagues → gagner XP et équipement → vaincre les boss → consulter le résultat et recommencer.
 - Monde : clairière de ruines forestières, palette terreuse sombre, éclairage/vignette, sprites SVG et effets dessinés en temps réel.
 - Fenêtre de référence : canvas 960×540, monde 1500×1100, caméra suivant le joueur et bornée aux limites.
-- Obstacles circulaires bloquants : (605,530,r=27), (898,605,r=31), (770,415,r=23), (735,705,r=24). Ils bloquent mouvement et projectiles ; entités glissent le long des limites.
+- Obstacles circulaires décoratifs : (605,530,r=27), (898,605,r=31), (770,415,r=23), (735,705,r=24). Le code source ne teste que les limites du monde pour le mouvement et les projectiles.
 
 ## États de jeu
 
@@ -90,7 +90,7 @@ Total actuel : **381 ennemis ordinaires prévus**, avec plafond de 10 vivants av
 
 - Mode infini : après les quatre compositions initiales, les groupes sont recalculés par vague ; les comptes augmentent avec le numéro de vague, avec caps par type. Santé, vitesse, dégâts, cadence, projectiles et capacité évoluent avec progression/difficulté. Capacité max 200 et croissance par minute configurées.
 - Afflux : chance 0,38, intervalle aléatoire 14–26 s, taille de base 26, +2 par vague jusqu’à 62, espacement 0,12 s. Types pondérés à partir des groupes.
-- Intermission de 3 s ; apparition initiale après 1 s, délai normal 0,62 s ; apparaissent à 350–540 unités du joueur, en tentant plusieurs positions hors obstacles.
+- Intermission de 3 s ; apparition initiale après 1 s, délai normal 0,62 s ; apparaissent à 350–540 unités du joueur, en tentant plusieurs positions dans les limites du monde (les obstacles sont décoratifs).
 - Objectif de vague cyclique : éliminer 12, ramasser 8 XP, éliminer 1 élite ; récompense +18 % PV max en soin.
 - Défis de run : 50 kills, 5 élites, 20 orbes XP ; chacun rapporte un Éclat persistant.
 - Vague infinie chaque cinquième niveau : boss. En infini, boss vaincu = +1 Éclat, run continue.
@@ -149,6 +149,6 @@ Boucle principale `update(dt)` dans `src/game.js`; les ennemis, projectiles, dro
 
 1. Il s’agit d’un dump du jeu web existant et d’une spécification de portage, pas encore d’une copie jouable dans Godot.
 2. Le README racine contient des tableaux numériques plus anciens ; utiliser le JSON et le code copié comme vérité.
-3. Pour une parité stricte, porter les séquences et formules depuis le code, puis comparer les mêmes scénarios : attaques de chaque arme, collisions d’obstacles, spawns/élites, choix/remplacement, synergies, boss, sauvegarde/reprise, clavier/tactile.
+3. Pour une parité stricte, porter les séquences et formules depuis le code, puis comparer les mêmes scénarios : attaques de chaque arme, limites du monde, spawns/élites, choix/remplacement, synergies, boss, sauvegarde/reprise, clavier/tactile.
 4. L’aléatoire n’est pas seedé dans la version web ; la comparaison de runs doit contrôler ou enregistrer le générateur pseudo-aléatoire côté Godot.
 5. Pas de licence logicielle choisie dans le dépôt. Les assets sont déclarés créés pour le projet dans le README ; conserver cette provenance dans tout export.

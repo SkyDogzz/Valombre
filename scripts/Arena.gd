@@ -10,7 +10,6 @@ const OBSTACLES := [
 ]
 
 func _ready() -> void:
-	_build_obstacles()
 	queue_redraw()
 
 func _draw() -> void:
@@ -76,16 +75,3 @@ func _draw_ellipse(center: Vector2, radii: Vector2, tint: Color) -> void:
 func _noise(x: float, y: float) -> float:
 	var value := sin(x + y) * 43758.5453
 	return value - floorf(value)
-
-func _build_obstacles() -> void:
-	for obstacle in OBSTACLES:
-		var body := StaticBody2D.new()
-		body.position = Vector2(obstacle.x, obstacle.y)
-		body.collision_layer = 1
-		body.collision_mask = 0
-		var shape := CollisionShape2D.new()
-		var circle := CircleShape2D.new()
-		circle.radius = obstacle.z
-		shape.shape = circle
-		body.add_child(shape)
-		add_child(body)

@@ -5,6 +5,7 @@ signal dodge_started(position: Vector2)
 
 @export var move_speed := 190.0
 @export var world_size := Vector2(1500.0, 1100.0)
+@export var world_edge := 71.0
 var run_active := false
 var dodge_time := 0.0
 var dodge_cooldown := 0.0
@@ -156,6 +157,6 @@ func _physics_process(delta: float) -> void:
 		if direction != Vector2.ZERO:
 			facing = direction
 	move_and_slide()
-	global_position.x = clampf(global_position.x, 35.0, world_size.x - 35.0)
-	global_position.y = clampf(global_position.y, 35.0, world_size.y - 35.0)
+	global_position.x = clampf(global_position.x, world_edge, world_size.x - world_edge)
+	global_position.y = clampf(global_position.y, world_edge, world_size.y - world_edge)
 	queue_redraw()

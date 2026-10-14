@@ -54,14 +54,14 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 
 - [x] Construire la clairière : fond, limites, ruines, arbres/débris décoratifs, teinte générale et vignette.
 - [x] Reproduire monde 1500×1100, caméra 960×540 de référence, suivi du joueur et bornes caméra.
-- [x] Ajouter les quatre obstacles aux coordonnées/rayons du dump. Ils bloquent les entités et les charges ; les projectiles suivent la fonction source `isBlocked`, qui ne teste que les limites du monde.
+- [x] Dessiner les quatre obstacles aux coordonnées/rayons du dump. Ils sont décoratifs dans le source : le déplacement et les projectiles ne testent que les limites du monde.
 - [x] Porter le mouvement `CharacterBody2D` ou équivalent en conservant la vitesse exacte et la normalisation diagonale.
-- [x] Reproduire le glissement le long des obstacles et des limites avec le mouvement physique de Godot.
+- [x] Reproduire les limites source du joueur, des ennemis et des projectiles ; les obstacles restent décoratifs comme dans le source.
 - [x] Ajouter les deux héros, leurs poses source statiques, états de dégâts et orientation ; porter les statistiques et la compétence de la Sentinelle. Le dump fournit un SVG par héros, sans feuilles d’animation supplémentaires ; le port anime l’arme, oriente l’attaque et reprend le clignotement d’invulnérabilité.
 - [x] Déclarer actions InputMap pour directions, attaque, capacité, esquive, pause, inventaire ; gérer relâchement au changement de focus.
 - [x] Créer les commandes tactiles adaptées à écran étroit et écran tactile : joystick et boutons d’action, dimensionnés et placés comme dans le CSS de référence.
 
-**Critères d’acceptation :** Pèlerin à 190 unités/s, Sentinelle à 165 ; direction diagonale normalisée ; collision avec les quatre blocs et glissement ; changement de focus ne laisse pas une touche bloquée ; chaque commande fonctionne au clavier et au tactile ciblé.
+**Critères d’acceptation :** Pèlerin à 190 unités/s, Sentinelle à 165 ; direction diagonale normalisée ; limites source respectées sans collision avec les obstacles décoratifs ; changement de focus ne laisse pas une touche bloquée ; chaque commande fonctionne au clavier et au tactile ciblé.
 
 ## Phase 3 — Combat de base et ennemis
 
@@ -76,7 +76,7 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 - [x] Porter la charge de cendre de la Sentinelle, l’esquive (570, 0,18 s, 0,24 s d’invulnérabilité, 2,6 s de recharge) et leurs collisions.
 - [x] Respecter l’ordre exact des événements : impacts multiples, mort, XP, synergie, vol de vie, butin, défis et progression bestiaire ([`docs/COMBAT_PARITY.md`](docs/COMBAT_PARITY.md)).
 
-**Critères d’acceptation :** les mêmes entrées et cibles causent les mêmes impacts attendus pour chaque arme ; projectiles et zones respectent les limites et le comportement d’obstacle défini dans `game.js` ; télégraphes précèdent leurs attaques ; élites appliquent PV/vitesse/dégâts et attribution d’XP corrects.
+**Critères d’acceptation :** les mêmes entrées et cibles causent les mêmes impacts attendus pour chaque arme ; projectiles et zones respectent les limites définies dans `game.js` ; les obstacles restent décoratifs ; télégraphes précèdent leurs attaques ; élites appliquent PV/vitesse/dégâts et attribution d’XP corrects.
 
 ## Phase 4 — Vagues, boss et boucle de run
 

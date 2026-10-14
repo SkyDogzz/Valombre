@@ -22,7 +22,7 @@ Action-RPG solo 2D vu du dessus, dans une clairière de ruines forestières. Le 
 
 - Univers affiché : chapitre I, « Les bois maudits », an 713 de la Cendre.
 - Référence de rendu : canvas 960×540, monde 1500×1100, caméra centrée sur le joueur et limitée au monde.
-- Obstacles circulaires bloquant déplacement et projectiles : (605,530,r=27), (898,605,r=31), (770,415,r=23), (735,705,r=24). Le mouvement doit glisser le long des obstacles.
+- Obstacles circulaires décoratifs (sans collision dans le code source) : (605,530,r=27), (898,605,r=31), (770,415,r=23), (735,705,r=24). Les acteurs et projectiles respectent les limites du monde.
 - Direction artistique : palette sombre terreuse, décor forestier en ruines, vignette/éclairage, SVG du dump et effets dessinés en temps réel. L’interface web utilise surtout HTML/CSS ; la référence visuelle est `dump/project/styles.css` et `index.html`.
 - Aucun fichier audio n’est fourni. Le jeu navigateur synthétise quelques sons via Web Audio.
 
@@ -151,7 +151,7 @@ Ouvrir ce dossier dans Godot 4.7 (projet configuré avec renderer Compatibility/
 
 ## Critères de fidélité
 
-Une étape de port est considérée fidèle quand elle couvre les règles correspondantes du dump, et que ses cas de référence peuvent être rejoués : mouvement normalisé et collisions/glissement ; cadence et portée par arme ; mêmes dégâts et séquences ; variations de difficulté et élites ; vagues/afflux/boss ; choix d’amélioration et remplacement d’équipement ; synergies ; pause et transitions ; reprise après fermeture ; contrôles clavier, souris et tactile. Le hasard du navigateur n’est pas seedé : pour comparer des scénarios, le port doit exposer une seed de test ou pouvoir enregistrer/rejouer les tirages. Cela sert à comparer les résultats sans changer la run normale.
+Une étape de port est considérée fidèle quand elle couvre les règles correspondantes du dump, et que ses cas de référence peuvent être rejoués : mouvement normalisé et limites du monde ; cadence et portée par arme ; mêmes dégâts et séquences ; variations de difficulté et élites ; vagues/afflux/boss ; choix d’amélioration et remplacement d’équipement ; synergies ; pause et transitions ; reprise après fermeture ; contrôles clavier, souris et tactile. Les obstacles sont décoratifs dans le source. Le hasard du navigateur n’est pas seedé : pour comparer des scénarios, le port doit exposer une seed de test ou pouvoir enregistrer/rejouer les tirages. Cela sert à comparer les résultats sans changer la run normale.
 
 ## Sources
 
