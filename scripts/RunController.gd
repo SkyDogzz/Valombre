@@ -1460,13 +1460,17 @@ func _launch_projectile(weapon: Dictionary, target: ValombreEnemy, damage_scale:
 func _spawn_player_projectile(projectile: Dictionary) -> void:
 	var id := str(projectile.weapon)
 	var weapon: Dictionary = catalog.content.weapons[id]
-	var sprite := Sprite2D.new()
-	sprite.texture = load("res://assets/weapons/%s.svg" % id)
-	sprite.scale = Vector2(0.18, 0.18) * projectile_size_multiplier
-	sprite.modulate = Color("c7a8ff") if weapon.get("lightning", false) else Color("91e9ef") if weapon.get("frost", false) else Color("ff9a4e") if weapon.get("explosive", false) else Color("ffe39a") if bool(projectile.get("has_special", false)) else Color("85d8ce")
-	sprite.position = player.position + projectile.direction * 14.0
-	arena.add_child(sprite)
-	projectile.node = sprite
+	var visual := ValombreProjectileVisual.new()
+	visual.team = "player"
+	visual.radius = float(projectile.radius)
+	visual.tint = Color("c7a8ff") if weapon.get("lightning", false) else Color("91e9ef") if weapon.get("frost", false) else Color("ff9a4e") if weapon.get("explosive", false) else Color("ffe39a") if bool(projectile.get("has_special", false)) else Color("85d8ce")
+	visual.explosive = bool(projectile.get("explosive", false))
+	visual.special_blast = bool(projectile.get("special_blast", false))
+	visual.piercing = bool(projectile.get("piercing", false))
+	visual.rotation = projectile.direction.angle()
+	visual.position = player.position + projectile.direction * 14.0
+	arena.add_child(visual)
+	projectile.node = visual
 	projectiles.append(projectile)
 
 func _process_weapon_effects(delta: float) -> void:
@@ -1557,6 +1561,8 @@ func _update_projectiles(delta: float) -> void:
 		var step := float(projectile.speed) * delta
 		if projectile.has("homing_target") and is_instance_valid(projectile.homing_target):
 			projectile.direction = node.position.direction_to(projectile.homing_target.position)
+		if node is ValombreProjectileVisual:
+			node.rotation = projectile.direction.angle()
 		node.position += projectile.direction * step
 		projectile.remaining -= step
 		var hit_target: ValombreEnemy
@@ -1577,7 +1583,8 @@ func _update_projectiles(delta: float) -> void:
 				hit_target.slow_time = maxf(hit_target.slow_time, float(projectile.get("slow_duration", 1.25)))
 				hit_target.slow_factor = float(projectile.get("slow_factor", 0.58))
 			_damage_enemy(hit_target, float(projectile.damage), str(projectile.weapon))
-			_spawn_burst(node.position, node.modulate, 5)
+			var impact_tint := (node as ValombreProjectileVisual).tint if node is ValombreProjectileVisual else node.modulate
+			_spawn_burst(node.position, impact_tint, 5)
 			if state != "playing":
 				_remove_projectile(index)
 				return
@@ -1764,10 +1771,11 @@ func _on_enemy_killed(enemy: ValombreEnemy, weapon: String) -> void:
 				targets.append(candidate)
 		targets.sort_custom(func(a: ValombreEnemy, b: ValombreEnemy) -> bool: return a.position.distance_to(death_position) < b.position.distance_to(death_position))
 		for target in targets.slice(0, mini(3, targets.size())):
-			var dagger := Sprite2D.new()
-			dagger.texture = load("res://assets/weapons/dagues.svg")
-			dagger.modulate = Color("a9ffe1")
-			dagger.scale = Vector2(0.13, 0.13)
+			var dagger := ValombreProjectileVisual.new()
+			dagger.team = "player"
+			dagger.radius = 6.0
+			dagger.tint = Color("a9ffe1")
+			dagger.rotation = death_position.direction_to(target.position).angle()
 			dagger.position = death_position
 			arena.add_child(dagger)
 			projectiles.append({"node": dagger, "direction": death_position.direction_to(target.position), "speed": 620.0, "radius": 6.0, "damage": float(catalog.content.weapons.dagues.ghoulDamage) * _weapon_scale("dagues") * 1.4, "weapon": "", "remaining": 900.0, "homing_target": target, "explosive": false, "lightning": false, "frost": false, "hit_targets": []})
