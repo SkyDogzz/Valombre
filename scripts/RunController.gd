@@ -2486,7 +2486,13 @@ func _on_enemy_killed(enemy: ValombreEnemy, weapon: String) -> void:
 		for candidate in enemies:
 			if candidate != enemy and candidate.position.distance_to(death_position) <= 300.0:
 				targets.append(candidate)
-		targets.sort_custom(func(a: ValombreEnemy, b: ValombreEnemy) -> bool: return a.position.distance_to(death_position) < b.position.distance_to(death_position))
+		targets.sort_custom(func(a: ValombreEnemy, b: ValombreEnemy) -> bool:
+			var distance_a := a.position.distance_to(death_position)
+			var distance_b := b.position.distance_to(death_position)
+			if distance_a == distance_b:
+				return enemies.find(a) < enemies.find(b)
+			return distance_a < distance_b
+		)
 		if not targets.is_empty():
 			_mark_discovered("discoveredSynergies", "dagues-boots")
 		for target in targets.slice(0, mini(3, targets.size())):
