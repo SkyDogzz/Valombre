@@ -57,6 +57,7 @@ var player_shield := 0.0
 var scythe_souls := 0
 var weapon_swing_counts: Dictionary = {}
 var projectiles: Array[Dictionary] = []
+var damage_zones: Array[Dictionary] = []
 var projectile_size_multiplier := 1.0
 var projectile_speed_multiplier := 1.0
 var rng := RandomNumberGenerator.new()
@@ -116,6 +117,7 @@ var sound_generator: AudioStreamGenerator
 var sound_playback: AudioStreamGeneratorPlayback
 var sound_phase := 0.0
 var held_weapon_sprite: Sprite2D
+var manual_attack_from_mouse := false
 
 func _ready() -> void:
 	main = get_parent()
@@ -140,7 +142,9 @@ func _ready() -> void:
 	player.run_active = false
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("pause"):
+	if event.is_action_pressed("attack") and state == "playing":
+		manual_attack_from_mouse = event is InputEventMouseButton
+	elif event.is_action_pressed("pause"):
 		if state == "playing":
 			inventory_open = false
 			inventory_panel.visible = false
@@ -186,6 +190,9 @@ func _process(delta: float) -> void:
 		if state != "playing":
 			return
 		_update_projectiles(delta)
+		if state != "playing":
+			return
+		_update_damage_zones(delta)
 		if state != "playing":
 			return
 		_update_auto_attack()
@@ -611,6 +618,7 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 		if is_instance_valid(projectile.get("node")):
 			projectile.node.queue_free()
 	projectiles.clear()
+	damage_zones.clear()
 	pending_spawns.clear()
 	var hero := _find_definition("heroes", hero_id) as HeroDefinition
 	max_hp = hero.health
@@ -913,6 +921,20 @@ func _update_enemies(delta: float) -> void:
 			to_remove.append(enemy)
 			continue
 		enemy.hit_flash = maxf(0.0, enemy.hit_flash - delta)
+		var dagger_bleed: Variant = enemy.get_meta("dagger_bleed", null)
+		if dagger_bleed is Dictionary:
+			dagger_bleed.remaining = float(dagger_bleed.remaining) - delta
+			dagger_bleed.tick = float(dagger_bleed.tick) - delta
+			if float(dagger_bleed.tick) <= 0.0:
+				_damage_enemy(enemy, float(dagger_bleed.damage), "dagues")
+				dagger_bleed.tick = float(dagger_bleed.tick) + 0.45
+			if not enemies.has(enemy):
+				to_remove.append(enemy)
+				continue
+			if float(dagger_bleed.remaining) <= 0.0:
+				enemy.remove_meta("dagger_bleed")
+			else:
+				enemy.set_meta("dagger_bleed", dagger_bleed)
 		enemy.slow_time = maxf(0.0, enemy.slow_time - delta)
 		if enemy.slow_time <= 0.0:
 			enemy.slow_factor = 1.0
@@ -1135,8 +1157,11 @@ func _position_blocked(position: Vector2, radius: float) -> bool:
 
 func _update_auto_attack() -> void:
 	for owned in weapon_inventory:
+		if state != "playing":
+			break
 		var id := str(owned.id)
 		var weapon: Dictionary = catalog.content.weapons[id]
+		var ranged := bool(weapon.get("ranged", false))
 		var target: ValombreEnemy
 		var nearest := INF
 		for enemy in enemies:
@@ -1144,22 +1169,31 @@ func _update_auto_attack() -> void:
 			if distance < nearest:
 				nearest = distance
 				target = enemy
-		var manual := id == weapon_id and Input.is_action_just_pressed("attack")
+		var manual := Input.is_action_just_pressed("attack")
+		var manual_melee := manual and not ranged
+		var swing_count := int(weapon_swing_counts.get(id, 0)) + 1
+		var special_finisher := bool(owned.special) and swing_count % 3 == 0
 		var level_scale := 1.0 + 0.18 * (int(owned.level) - 1)
 		var reach := (float(weapon.get("range", 108.0)) + range_bonus + equipment_range) * float(_synergy_data(id).get("rangeMultiplier", 1.0))
-		if not target or nearest > reach or (float(weapon_cooldowns.get(id, 0.0)) > 0.0 and not manual):
+		if ((not target or nearest > reach) and not manual_melee) or float(weapon_cooldowns.get(id, 0.0)) > 0.0:
 			continue
-		var aim := (target.position - player.position).normalized()
+		var aim := player.facing
+		if manual_melee and manual_attack_from_mouse:
+			var mouse_direction := player.get_global_mouse_position() - player.global_position
+			if mouse_direction.length() > 5.0:
+				aim = mouse_direction.normalized()
+		elif target:
+			aim = (target.position - player.position).normalized()
 		if aim != Vector2.ZERO:
 			player.facing = aim
 		var synergy := _synergy_data(id)
 		var damage_scale := damage_multiplier * equipment_damage * level_scale * float(synergy.get("damageMultiplier", 1.0)) * (1.5 if bool(owned.special) else 1.0) * (1.0 + (level - 1) * 0.005)
 		var frequency := maxf(0.1, float(weapon.speed) * attack_speed_multiplier * equipment_speed * (1.0 + 0.08 * (int(owned.level) - 1)) * float(synergy.get("attackSpeedMultiplier", 1.0)) * (1.2 if bool(owned.special) else 1.0))
 		weapon_cooldowns[id] = 0.26 / frequency
-		if bool(weapon.get("ranged", false)):
+		if ranged:
 			_launch_projectile(weapon, target, damage_scale, id, reach)
 			continue
-		weapon_swing_counts[id] = int(weapon_swing_counts.get(id, 0)) + 1
+		weapon_swing_counts[id] = swing_count
 		for enemy in enemies.duplicate():
 			var offset := enemy.position - player.position
 			var distance := offset.length()
@@ -1169,7 +1203,7 @@ func _update_auto_attack() -> void:
 			elif bool(weapon.get("piercing", false)):
 				var along := clampf(offset.dot(player.facing), 0.0, reach)
 				var closest := player.position + player.facing * along
-				in_shape = enemy.position.distance_to(closest) < 18.0 + enemy.radius
+				in_shape = enemy.position.distance_to(closest) < 18.0 + enemy.radius + (8.0 if id == "lance" and special_finisher else 0.0)
 			else:
 				var alignment := offset.normalized().dot(player.facing) if distance > 0.0 else 1.0
 				in_shape = distance < reach and alignment > float(weapon.get("arc", -1.0))
@@ -1181,13 +1215,20 @@ func _update_auto_attack() -> void:
 					sabre_burst = marks >= 5
 				if id == "lance" and _synergy_active(id):
 					player_shield = minf(max_hp * 0.5, player_shield + 8.0)
-				_damage_enemy(enemy, _weapon_base_damage(weapon, enemy) * damage_scale, id)
+				var hit_scale := 1.45 if id == "lance" and special_finisher else 1.0
+				_damage_enemy(enemy, _weapon_base_damage(weapon, enemy) * damage_scale * hit_scale, id)
 				if id == "sabre" and bool(owned.special) and int(weapon_swing_counts[id]) % 3 == 0 and is_instance_valid(enemy):
 					enemy.set_meta("sabre_mark", true)
+				if id == "dagues" and special_finisher and is_instance_valid(enemy) and enemies.has(enemy):
+					enemy.set_meta("dagger_bleed", {"remaining": 1.8, "tick": 0.45, "damage": _weapon_base_damage(weapon, enemy) * damage_scale * 0.24})
 				if sabre_burst:
 					for nearby in enemies.duplicate():
 						if nearby.position.distance_to(enemy.position) <= 104.0:
 							_damage_enemy(nearby, _weapon_base_damage(weapon, nearby) * damage_scale * 1.35, id)
+				if state != "playing":
+					break
+		if state != "playing":
+			break
 		if id == "marteau" and bool(owned.special):
 			var full_circle := _synergy_active(id)
 			for enemy in enemies.duplicate():
@@ -1205,12 +1246,13 @@ func _update_auto_attack() -> void:
 					var away := enemy.position - player.position
 					if away.length() <= reach + 82.0 and away.length() > 0.0:
 						enemy.position += away.normalized() * 76.0
-		if id == "faux" and _synergy_active(id) and scythe_souls > 0:
-			var released := scythe_souls
-			scythe_souls = 0
+		if id == "faux" and (special_finisher or (_synergy_active(id) and scythe_souls > 0)):
+			var released := scythe_souls if _synergy_active(id) else 0
+			scythe_souls -= released
 			for enemy in enemies.duplicate():
 				if enemy.position.distance_to(player.position) <= reach * 1.08:
 					_damage_enemy(enemy, float(weapon.ghoulDamage) * damage_scale * (0.32 + released * 0.42), id)
+	manual_attack_from_mouse = false
 
 func _weapon_base_damage(weapon: Dictionary, enemy: ValombreEnemy) -> float:
 	return float(weapon.get("bruteDamage", 25) if enemy.kind == "brute" else weapon.get("ghoulDamage", 32))
@@ -1237,10 +1279,14 @@ func _launch_projectile(weapon: Dictionary, target: ValombreEnemy, damage_scale:
 			"weapon": id,
 			"remaining": reach + 40.0,
 			"explosive": bool(weapon.get("explosive", false)),
+			"explosion_radius": (44.0 + (float(_owned_weapon(id).get("level", 1)) - 1.0) * 9.0) * (1.35 if bool(_owned_weapon(id).get("special", false)) else 1.0) if bool(weapon.get("explosive", false)) else 0.0,
+			"special_blast": bool(_owned_weapon(id).get("special", false)) and bool(weapon.get("explosive", false)),
 			"lightning": bool(weapon.get("lightning", false)),
 			"frost": bool(weapon.get("frost", false)),
+			"piercing": bool(_owned_weapon(id).get("special", false)) and id == "arc",
+			"storm_special": bool(_owned_weapon(id).get("special", false)) and bool(weapon.get("lightning", false)),
 			"slow_duration": 1.25 * (float(_synergy_data(id).get("slowDurationMultiplier", 1.0))) * (2.4 / 1.25 if bool(_owned_weapon(id).get("special", false)) else 1.0),
-						"slow_factor": 0.42 if bool(_owned_weapon(id).get("special", false)) else 0.58,
+			"slow_factor": 0.42 if bool(_owned_weapon(id).get("special", false)) else 0.58,
 			"chain_targets": int(_owned_weapon(id).get("level", 1)) + (1 if bool(_owned_weapon(id).get("special", false)) and bool(weapon.get("lightning", false)) else 0),
 			"chain_range": 380.0 if id == "foudre" and _synergy_active(id) else 190.0,
 			"hit_targets": [],
@@ -1268,7 +1314,7 @@ func _update_projectiles(delta: float) -> void:
 		projectile.remaining -= step
 		var hit_target: ValombreEnemy
 		for enemy in enemies:
-			if projectile.hit_targets.has(enemy):
+			if projectile.get("hit_targets", []).has(enemy):
 				continue
 			if enemy.position.distance_to(node.position) <= enemy.radius + float(projectile.radius):
 				hit_target = enemy
@@ -1277,19 +1323,31 @@ func _update_projectiles(delta: float) -> void:
 			if projectile.explosive:
 				_detonate_projectile(projectile, node.position)
 				_remove_projectile(index)
+				if state != "playing":
+					return
 				continue
 			if projectile.frost:
 				hit_target.slow_time = maxf(hit_target.slow_time, float(projectile.get("slow_duration", 1.25)))
 				hit_target.slow_factor = float(projectile.get("slow_factor", 0.58))
 			_damage_enemy(hit_target, float(projectile.damage), str(projectile.weapon))
+			if state != "playing":
+				_remove_projectile(index)
+				return
 			if projectile.lightning:
 				_chain_lightning(hit_target, projectile)
+			if bool(projectile.get("piercing", false)):
+				var hit_targets: Array = projectile.get("hit_targets", [])
+				hit_targets.append(hit_target)
+				projectile.hit_targets = hit_targets
+				continue
 			_remove_projectile(index)
 			continue
 		if projectile.remaining <= 0.0 or _position_blocked(node.position, float(projectile.radius)):
 			if projectile.explosive:
 				_detonate_projectile(projectile, node.position)
 			_remove_projectile(index)
+			if state != "playing":
+				return
 
 func _chain_lightning(first: ValombreEnemy, projectile: Dictionary) -> void:
 	var current := first
@@ -1309,13 +1367,45 @@ func _chain_lightning(first: ValombreEnemy, projectile: Dictionary) -> void:
 			break
 		hit.append(nearest)
 		_damage_enemy(nearest, float(projectile.damage) * 0.72, str(projectile.weapon))
+		if state != "playing":
+			break
 		current = nearest
+	if state == "playing" and bool(projectile.get("storm_special", false)):
+		damage_zones.append({"position": current.position, "radius": 34.0, "damage": float(projectile.damage) * 0.28, "weapon": str(projectile.weapon), "tick": 0.12, "interval": 0.3, "life": 1.2})
+
+func _update_damage_zones(delta: float) -> void:
+	for index in range(damage_zones.size() - 1, -1, -1):
+		var zone: Dictionary = damage_zones[index]
+		zone.life = float(zone.life) - delta
+		zone.tick = float(zone.tick) - delta
+		if float(zone.tick) <= 0.0:
+			for enemy in enemies.duplicate():
+				if enemy.position.distance_to(zone.position) < float(zone.radius):
+					_damage_enemy(enemy, float(zone.damage), str(zone.weapon))
+					if state != "playing":
+						break
+			zone.tick = float(zone.tick) + float(zone.interval)
+		if float(zone.life) <= 0.0:
+			damage_zones.remove_at(index)
+		else:
+			damage_zones[index] = zone
+		if state != "playing":
+			return
 
 func _detonate_projectile(projectile: Dictionary, center: Vector2) -> void:
-	var radius := float(projectile.get("radius", 44.0))
+	var radius := float(projectile.get("explosion_radius", 44.0))
+	_play_tone(78.0 if bool(projectile.get("special_blast", false)) else 112.0, 0.18, "sawtooth")
 	for enemy in enemies.duplicate():
-		if enemy.position.distance_to(center) <= radius + enemy.radius:
+		var offset := enemy.position - center
+		var distance := offset.length()
+		if distance <= radius + enemy.radius:
 			_damage_enemy(enemy, float(projectile.damage), str(projectile.weapon))
+			if is_instance_valid(enemy) and enemy.hp > 0.0 and distance > 0.0:
+				_move_enemy_around_obstacles(enemy, offset.normalized() * 24.0)
+		if state != "playing":
+			break
+	if bool(projectile.get("special_blast", false)):
+		damage_zones.append({"position": center, "radius": radius * 0.78, "damage": float(projectile.damage) * 0.18, "weapon": str(projectile.weapon), "tick": 0.16, "interval": 0.2, "life": 0.82})
 
 func _remove_projectile(index: int) -> void:
 	var projectile: Dictionary = projectiles[index]
