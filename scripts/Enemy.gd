@@ -83,12 +83,15 @@ func update_visuals() -> void:
 	if is_instance_valid(sprite):
 		var sprite_size := sprite.texture.get_size().y * sprite.scale.y
 		sprite.position.y = -sprite_size * 0.28 - leap_visual_height + sin(visual_phase) * 2.0
+		if is_instance_valid(elite_label):
+			elite_label.position.y = sprite.position.y - sprite_size * 0.5 - 14.0
 	queue_redraw()
 
 func _draw() -> void:
 	var aim := aim_position - position
 	var aim_direction := aim.normalized() if aim.length_squared() > 0.001 else Vector2.RIGHT
 	var leap_progress := 1.0 - clampf(dash_time_left / 0.24, 0.0, 1.0) if kind == "leaper" and dash_time_left > 0.0 else 0.0
+	var visual_center := Vector2(0.0, sin(visual_phase) * 2.0 - leap_visual_height)
 	draw_set_transform(Vector2(0.0, 8.0), 0.0, Vector2(1.2 - leap_progress * 0.25, 0.5 - leap_progress * 0.12))
 	draw_circle(Vector2.ZERO, radius, Color(0.05, 0.055, 0.05, 0.67))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
@@ -119,18 +122,24 @@ func _draw() -> void:
 			elif kind == "shaman":
 				_draw_fan(aim_direction, telegraph_range, 0.24, 3, warning)
 	if elite:
-		draw_arc(Vector2.ZERO, radius + 6.0 + sin(visual_phase * 10.0) * 1.5, 0.0, TAU, 32, elite_color, 3.0)
+		var elite_radius := radius + 6.0 + sin(visual_phase / 3.0 * 10.0) * 1.5
+		var elite_glow := elite_color
+		elite_glow.a = 0.22
+		draw_arc(visual_center, elite_radius, 0.0, TAU, 32, elite_glow, 9.0)
+		draw_arc(visual_center, elite_radius, 0.0, TAU, 32, elite_color, 3.0)
 	if bool(get_meta("sabre_mark", false)):
-		draw_arc(Vector2.ZERO, radius + 5.0 + sin(visual_phase * 11.1) * 2.0, 0.0, TAU, 32, Color("ffe39a"), 2.0)
+		var mark_radius := radius + 5.0 + sin(visual_phase / 3.0 * (1000.0 / 90.0)) * 2.0
+		draw_arc(visual_center, mark_radius, 0.0, TAU, 32, Color(1.0, 0.78, 0.35, 0.24), 8.0)
+		draw_arc(visual_center, mark_radius, 0.0, TAU, 32, Color("ffe39a"), 2.0)
 	var combo_marks := int(get_meta("sabre_combo_marks", 0))
 	for mark in combo_marks:
 		var angle := float(mark) / 5.0 * TAU - PI * 0.5
-		draw_circle(Vector2(cos(angle), sin(angle)) * (radius + 5.0), 2.5, Color("ffb257"))
+		draw_circle(visual_center + Vector2(cos(angle), sin(angle)) * (radius + 5.0), 2.5, Color("ffb257"))
 	if get_meta("dagger_bleed", null) is Dictionary:
-		var pulse := 0.5 + 0.5 * sin(visual_phase * 13.3)
-		draw_arc(Vector2.ZERO, radius + 3.0 + pulse * 2.0, 0.0, TAU, 32, Color(0.34, 0.94, 0.72, 0.55 + pulse * 0.4), 2.0)
-	if slow_time > 0.0:
-		draw_arc(Vector2.ZERO, radius + 3.0 + sin(visual_phase * 8.0), 0.0, TAU, 32, Color(0.55, 0.91, 0.96, 0.78), 2.0)
+		var pulse := 0.5 + 0.5 * sin(visual_phase / 3.0 * (1000.0 / 75.0))
+		var bleed_radius := radius + 3.0 + pulse * 2.0
+		draw_arc(visual_center, bleed_radius, 0.0, TAU, 32, Color(0.34, 0.94, 0.72, 0.2), 7.0)
+		draw_arc(visual_center, bleed_radius, 0.0, TAU, 32, Color(0.34, 0.94, 0.72, 0.55 + pulse * 0.4), 2.0)
 	if hit_flash > 0.0:
 		draw_circle(Vector2.ZERO, radius + 2.0, Color(1.0, 0.8, 0.6, 0.3))
 	if hp < max_hp:
