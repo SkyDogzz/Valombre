@@ -2300,10 +2300,9 @@ func _on_enemy_killed(enemy: ValombreEnemy, weapon: String) -> void:
 			_damage_enemy(target, float(catalog.content.weapons.givre.ghoulDamage) * _player_damage_scale("givre") * 1.35, "")
 
 func _enemy_drop_xp(position: Vector2, value: float, weapon_xp_multiplier := 1.0) -> void:
-	var node := Sprite2D.new()
+	var node := ValombrePickupVisual.new()
 	node.z_index = 0
-	node.texture = load("res://assets/xp.svg")
-	node.scale = Vector2.ONE
+	node.configure("res://assets/xp.svg", "xp")
 	var drop_position := _drop_spawn_position(position)
 	node.position = drop_position
 	arena.add_child(node)
@@ -2354,10 +2353,9 @@ func _roll_enemy_item_drop(position: Vector2) -> void:
 			var loot_type := drop_types[rng.randi_range(0, drop_types.size() - 1)]
 			var loot_choices := weapon_choices if loot_type == "weapon" else relic_choices
 			var loot_id := loot_choices[rng.randi_range(0, loot_choices.size() - 1)]
-			var loot_node := Sprite2D.new()
+			var loot_node := ValombrePickupVisual.new()
 			loot_node.z_index = 0
-			loot_node.texture = load("res://assets/weapons/category.svg") if loot_type == "weapon" else load("res://assets/relics/category.svg")
-			loot_node.scale = Vector2(22.0 / 32.0, 22.0 / 32.0)
+			loot_node.configure("res://assets/weapons/category.svg" if loot_type == "weapon" else "res://assets/relics/category.svg", loot_type)
 			var drop_position := _drop_spawn_position(position)
 			loot_node.position = drop_position
 			arena.add_child(loot_node)
