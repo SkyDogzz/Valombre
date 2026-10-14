@@ -1071,11 +1071,11 @@ func _update_contact_enemy(enemy: ValombreEnemy, delta: float, direction: Vector
 	if enemy.position.distance_to(player.position) > reach:
 		_move_enemy_around_obstacles(enemy, direction * enemy.speed * enemy.slow_factor * delta)
 		return
-	if enemy.attack_timer <= 0.0 and player.invulnerability <= 0.0:
-		_damage_player(enemy.damage)
-		if enemy.heal_on_hit > 0.0 and hp > 0.0:
-			enemy.hp = minf(enemy.max_hp, enemy.hp + enemy.heal_on_hit)
+	if enemy.attack_timer <= 0.0:
 		enemy.attack_timer = float(catalog.content.config.enemies.attackCooldown)
+		var was_hit := _damage_player(enemy.damage)
+		if was_hit and enemy.heal_on_hit > 0.0 and hp > 0.0:
+			enemy.hp = minf(enemy.max_hp, enemy.hp + enemy.heal_on_hit)
 
 func _update_charger(enemy: ValombreEnemy, delta: float, attack_speed: float, distance: float, direction: Vector2) -> void:
 	var spec: Dictionary = catalog.content.config.enemies.charger
@@ -2298,9 +2298,9 @@ func _relic_health() -> float:
 			total += float(item.value) * int(item.level)
 	return total
 
-func _damage_player(amount: float) -> void:
-	if cheat_infinite_life:
-		return
+func _damage_player(amount: float) -> bool:
+	if state != "playing" or player.invulnerability > 0.0 or cheat_infinite_life:
+		return false
 	_play_tone(90.0, 0.11, "square")
 	var incoming := maxf(1.0, amount * (1.0 - minf(0.8, defense + equipment_defense)))
 	var absorbed := minf(player_shield, incoming)
@@ -2310,6 +2310,7 @@ func _damage_player(amount: float) -> void:
 	if hp <= 0.0:
 		hp = 0.0
 		_finish_run("defeat")
+	return true
 
 func _use_hero_skill() -> void:
 	if hero_id != "sentinel" or skill_cooldown > 0.0:
