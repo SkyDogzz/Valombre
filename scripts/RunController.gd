@@ -1988,11 +1988,9 @@ func _update_auto_attack() -> void:
 			if released > 0:
 				_mark_discovered("discoveredSynergies", "faux-heart")
 			scythe_souls -= released
+			var wave_damage := float(weapon.ghoulDamage) * damage_scale * (0.32 + released * 0.42)
 			_add_combat_effect({"kind": "scythe_wave", "position": player.position, "radius": reach * 1.08, "souls": released, "life": 0.42, "max_life": 0.42})
-			_play_tone(190.0, 0.1, "sawtooth")
-			for enemy in enemies.duplicate():
-				if enemy.position.distance_to(player.position) <= reach * 1.08 + enemy.radius:
-					_damage_enemy(enemy, float(weapon.ghoulDamage) * damage_scale * (0.32 + released * 0.42), id)
+			weapon_effects.append({"kind": "scythe_wave", "position": player.position, "radius": reach * 1.08, "damage": wave_damage, "weapon": id, "souls": released, "life": 0.42, "max_life": 0.42, "active": false})
 
 func _weapon_base_damage(weapon: Dictionary, enemy: ValombreEnemy) -> float:
 	return float(weapon.get("bruteDamage", 25) if enemy.kind == "brute" else weapon.get("ghoulDamage", 32))
@@ -2106,6 +2104,19 @@ func _process_weapon_effects(delta: float) -> void:
 			weapon_effects.remove_at(index)
 			if state != "playing":
 				break
+			continue
+		if str(effect.kind) == "scythe_wave":
+			if not bool(effect.get("active", false)):
+				effect.active = true
+				_play_tone(190.0, 0.1, "sawtooth")
+				for enemy in enemies.duplicate():
+					if enemy.position.distance_to(effect.position) <= float(effect.radius) + enemy.radius:
+						_damage_enemy(enemy, float(effect.damage), str(effect.weapon))
+			effect.life = float(effect.life) - delta
+			if float(effect.life) <= 0.0:
+				weapon_effects.remove_at(index)
+			else:
+				weapon_effects[index] = effect
 			continue
 		var direction: Vector2 = effect.shot.direction
 		var charge_distance := 23.0 if str(effect.weapon) == "foudre" else 31.0
