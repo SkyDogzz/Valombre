@@ -212,8 +212,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif state == "paused":
 			pause_catalog.visible = false
 			_set_state("playing")
-		elif state in ["victory", "defeat"]:
-			_set_state("title")
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("inventory") and state == "playing":
 		inventory_open = not inventory_open
