@@ -762,6 +762,7 @@ func _update_cheat_button() -> void:
 
 func _update_player_visuals() -> void:
 	player.hammer_swing_progress = -1.0
+	player.weapon_swing_visuals.clear()
 	player.queue_redraw()
 	var avatar := player.get_node_or_null("Sprite2D") as Sprite2D
 	if is_instance_valid(avatar):
@@ -793,6 +794,12 @@ func _update_player_visuals() -> void:
 		var frequency := maxf(0.1, float(definition.speed) * attack_speed_multiplier * (1.0 + 0.08 * (int(owned.get("level", 1)) - 1)) * float(synergy.get("attackSpeedMultiplier", 1.0)) * (1.2 if bool(owned.get("special", false)) else 1.0))
 		var attack_duration := 0.26 / frequency
 		var progress := clampf(1.0 - attack_timer / attack_duration, 0.0, 1.0)
+		player.weapon_swing_visuals[weapon_id] = {
+			"progress": progress,
+			"reach": (float(definition.get("range", 108.0)) + range_bonus + equipment_range) * float(synergy.get("rangeMultiplier", 1.0)),
+			"special_slash": weapon_id == "sabre" and bool(owned.get("special", false)) and int(weapon_swing_counts.get(weapon_id, 0)) % 3 == 0,
+			"swing_direction": 1.0 if int(weapon_swing_counts.get(weapon_id, 0)) % 2 == 1 else -1.0,
+		}
 		if weapon_id == "marteau":
 			player.hammer_swing_progress = progress
 		var recovery := 1.0 - clampf(progress / 0.32, 0.0, 1.0)
@@ -842,6 +849,12 @@ func _update_secondary_weapon_visuals(forward: Vector2) -> void:
 		var owned_synergy := _synergy_data(id)
 		var frequency := maxf(0.1, float(definition.get("speed", 1.0)) * attack_speed_multiplier * (1.0 + 0.08 * (int(owned.get("level", 1)) - 1)) * float(owned_synergy.get("attackSpeedMultiplier", 1.0)) * (1.2 if bool(owned.get("special", false)) else 1.0))
 		var progress := clampf(1.0 - attack_timer / (0.26 / frequency), 0.0, 1.0)
+		player.weapon_swing_visuals[id] = {
+			"progress": progress,
+			"reach": (float(definition.get("range", 108.0)) + range_bonus + equipment_range) * float(owned_synergy.get("rangeMultiplier", 1.0)),
+			"special_slash": id == "sabre" and bool(owned.get("special", false)) and int(weapon_swing_counts.get(id, 0)) % 3 == 0,
+			"swing_direction": 1.0 if int(weapon_swing_counts.get(id, 0)) % 2 == 1 else -1.0,
+		}
 		if id == "marteau":
 			secondary_hammer_progress = progress
 		var recovery := 1.0 - clampf(progress / 0.32, 0.0, 1.0)

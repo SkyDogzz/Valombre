@@ -19,6 +19,7 @@ var movement_multiplier := 1.0
 var equipment_speed := 1.0
 var touch_move_vector := Vector2.ZERO
 var hammer_swing_progress := -1.0
+var weapon_swing_visuals: Dictionary = {}
 
 func _draw() -> void:
 	if dodge_time > 0.0:
@@ -26,6 +27,17 @@ func _draw() -> void:
 		var start := Vector2(-direction.x * 32.0 - direction.y * 7.0, -direction.y * 32.0 + direction.x * 7.0)
 		var finish := -direction * 12.0
 		draw_line(start, finish, Color(0.85, 0.76, 0.54, 0.53), 3.0)
+	for weapon_id in weapon_swing_visuals:
+		var attack: Dictionary = weapon_swing_visuals[weapon_id]
+		var progress := clampf(float(attack.get("progress", 0.0)), 0.0, 1.0)
+		var reach := float(attack.get("reach", 108.0))
+		match str(weapon_id):
+			"sabre":
+				if bool(attack.get("special_slash", false)):
+					_draw_sabre_special_slash(progress, reach, float(attack.get("swing_direction", -1.0)))
+			"dagues": _draw_dagger_swing(progress, reach)
+			"lance": _draw_lance_swing(progress, reach)
+			"faux": _draw_scythe_swing(progress, reach)
 	if hammer_swing_progress < 0.0:
 		return
 	var progress := clampf(hammer_swing_progress, 0.0, 1.0)
@@ -60,6 +72,56 @@ func _draw() -> void:
 			shard_center + Vector2(-half_size, half_size).rotated(shard_angle),
 		])
 		draw_colored_polygon(shard_points, Color(1.0, 0.94, 0.73, alpha))
+
+func _draw_dagger_swing(progress: float, reach: float) -> void:
+	var extension := reach * (1.0 - 0.65 * clampf(progress / 0.42, 0.0, 1.0))
+	var forward := facing.normalized()
+	var side_vector := Vector2(-forward.y, forward.x)
+	for side in [-1.0, 1.0]:
+		var start := forward * 8.0 + side_vector * side * 5.0
+		var finish := forward * (8.0 + extension) + side_vector * side * 5.0
+		draw_line(start, finish, Color(0.66, 1.0, 0.86, 0.38), 7.0, true)
+		draw_line(start, finish, Color("effff4"), 3.5, true)
+		var tip := forward * (12.0 + extension) + side_vector * side * 5.0
+		var tip_points := PackedVector2Array([
+			tip + forward * 3.0,
+			tip - forward * 4.0 + side_vector * 3.0,
+			tip - forward * 4.0 - side_vector * 3.0,
+		])
+		draw_colored_polygon(tip_points, Color("a9e6d0"))
+
+func _draw_sabre_special_slash(progress: float, reach: float, direction: float) -> void:
+	var blade_angle := facing.angle() + direction * (-1.3 + 2.6 * progress)
+	var blade_direction := Vector2(cos(blade_angle), sin(blade_angle))
+	var start := blade_direction * 12.0
+	var finish := blade_direction * reach * 0.88
+	draw_line(start, finish, Color(1.0, 0.78, 0.37, 0.48), 11.0, true)
+	draw_line(start, finish, Color("fff0b3"), 5.0, true)
+
+func _draw_lance_swing(progress: float, reach: float) -> void:
+	var pulse := sin(progress * PI)
+	var reach_point := reach * (0.48 + 0.52 * pulse)
+	var forward := facing.normalized()
+	var side_vector := Vector2(-forward.y, forward.x)
+	var alpha := 0.55 + 0.45 * pulse
+	draw_line(forward * 4.0, forward * (reach_point * 0.83), Color(0.69, 0.51, 0.37, alpha), 5.0, true)
+	var tip := forward * reach_point
+	var spearhead := PackedVector2Array([
+		tip,
+		forward * (reach_point * 0.8) - side_vector * 5.0,
+		forward * (reach_point * 0.8) + side_vector * 5.0,
+	])
+	draw_colored_polygon(spearhead, Color(0.96, 0.91, 0.74, alpha))
+	draw_polyline(PackedVector2Array([spearhead[1], spearhead[0], spearhead[2]]), Color(1.0, 0.94, 0.72, alpha * 0.8), 1.5, true)
+
+func _draw_scythe_swing(progress: float, reach: float) -> void:
+	var sweep_start := -PI + progress * TAU
+	var sweep_end := sweep_start + progress * TAU
+	var pulse := sin(progress * PI)
+	var alpha := 0.35 + 0.6 * pulse
+	var radius := reach * 0.86
+	draw_arc(Vector2.ZERO, radius, sweep_start, sweep_end, 64, Color(0.66, 0.87, 0.54, alpha * 0.32), 10.0, true)
+	draw_arc(Vector2.ZERO, radius, sweep_start, sweep_end, 64, Color(0.75, 0.9, 0.61, alpha), 5.0 + 3.0 * pulse, true)
 
 func _physics_process(delta: float) -> void:
 	if not run_active:
