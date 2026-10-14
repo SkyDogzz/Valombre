@@ -315,7 +315,9 @@ func _process(delta: float) -> void:
 	contact_cooldown = maxf(0.0, contact_cooldown - simulation_delta)
 	skill_cooldown = maxf(0.0, skill_cooldown - simulation_delta)
 	_update_auto_attack()
-	if state == "playing" and (manual_attack_requested or Input.is_action_pressed("attack")):
+	var held_attack := Input.is_action_pressed("attack") and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	var held_attack_key := Input.is_physical_key_pressed(KEY_SPACE) or Input.is_physical_key_pressed(KEY_J)
+	if state == "playing" and (manual_attack_requested or held_attack or held_attack_key):
 		_update_manual_attack()
 	manual_attack_requested = false
 	if state != "playing":
