@@ -65,6 +65,10 @@ var weapon_effects: Array[Dictionary] = []
 var projectile_size_multiplier := 1.0
 var projectile_speed_multiplier := 1.0
 var rng := RandomNumberGenerator.new()
+var run_seed_override := 0
+var has_run_seed_override := false
+var run_rng_seed := 0
+var wave_rng_state := 0
 var elapsed := 0.0
 var objective_type := "kills"
 var objective_progress := 0
@@ -188,6 +192,7 @@ func _ready() -> void:
 	custom_drops = bool(profile.customDrops)
 	selected_drop_weapons.assign(profile.dropWeapons)
 	selected_drop_relics.assign(profile.dropRelics)
+	run_seed_override = _read_seed_override()
 	rng.randomize()
 	_create_interface()
 	_create_audio()
@@ -203,6 +208,15 @@ func _notification(what: int) -> void:
 		Input.action_release(action)
 	if is_instance_valid(player):
 		player.touch_move_vector = Vector2.ZERO
+
+func _read_seed_override() -> int:
+	for argument in OS.get_cmdline_user_args():
+		if argument.begins_with("--seed="):
+			var seed_text := argument.trim_prefix("--seed=")
+			if seed_text.is_valid_int():
+				has_run_seed_override = true
+				return seed_text.to_int()
+	return 0
 
 func _input(event: InputEvent) -> void:
 	if state not in ["levelUp", "loot"]:
@@ -1373,7 +1387,16 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 		player.movement_multiplier = movement_multiplier
 		player.equipment_speed = equipment_speed
 		player.position = Vector2(float(saved_position[0]), float(saved_position[1]))
-	rng.randomize()
+	if has_run_seed_override:
+		run_rng_seed = run_seed_override
+		rng.seed = run_rng_seed
+	elif checkpoint.has("rngSeed") and checkpoint.has("waveRngState"):
+		run_rng_seed = int(checkpoint.rngSeed)
+		rng.seed = run_rng_seed
+		rng.state = int(checkpoint.waveRngState)
+	else:
+		rng.randomize()
+		run_rng_seed = rng.seed
 	_start_wave(int(checkpoint.get("wave", 1)))
 	_set_state("playing")
 
@@ -1397,6 +1420,7 @@ func _start_wave(number: int) -> void:
 	else:
 		wave_groups = (catalog.content.waves[number - 1] if number <= catalog.content.waves.size() else []).duplicate(true)
 	boss_after_wave_id = ["guardian", "matriarch", "colossus"][(int(number / 5) - 1) % 3] if mode == "infinite" and number % 5 == 0 else ""
+	wave_rng_state = rng.state
 	pending_spawns.clear()
 	for entry in wave_groups:
 		var count := int(entry.get("count", 1))
@@ -1437,6 +1461,8 @@ func _save_checkpoint(number: int) -> void:
 	}
 	profile.run = {
 		"version": 1,
+		"rngSeed": run_rng_seed,
+		"waveRngState": wave_rng_state,
 		"mode": mode,
 		"difficulty": difficulty_id,
 		"singleWeapon": single_weapon,
@@ -3615,6 +3641,11 @@ func _sanitize_bestiary(records: Dictionary) -> Dictionary:
 func _checkpoint_is_valid(checkpoint: Variant) -> bool:
 	if not checkpoint is Dictionary or not (checkpoint.get("version") is int) or int(checkpoint.version) != 1:
 		return false
+	if checkpoint.has("rngSeed") != checkpoint.has("waveRngState"):
+		return false
+	for field in ["rngSeed", "waveRngState"]:
+		if checkpoint.has(field) and not (checkpoint[field] is int):
+			return false
 	var checkpoint_mode := str(checkpoint.get("mode", ""))
 	var checkpoint_wave_value: Variant = checkpoint.get("wave", 0)
 	var checkpoint_wave := int(checkpoint_wave_value) if checkpoint_wave_value is int else 0

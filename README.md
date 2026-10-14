@@ -147,11 +147,11 @@ Le JSON est un index pratique, pas un substitut aux formules et ordres d’appli
 
 ## Démarrer dans Godot
 
-Ouvrir ce dossier dans Godot 4.7 (projet configuré avec renderer Compatibility/GL). La fenêtre initiale et le point d’entrée seront créés pendant la première étape de [`ROADMAP.md`](ROADMAP.md). À ce jour, le projet n’a pas encore de scène principale.
+Ouvrir ce dossier dans Godot 4.7 (projet configuré avec renderer Compatibility/GL) ou lancer `godot --path .`. Pour rejouer les tirages d’une run à des fins de comparaison, lancer `godot --path . -- --seed=1234` en remplaçant `1234` par l’entier voulu. Sans argument, chaque nouvelle run reçoit une seed aléatoire. Le checkpoint conserve la seed et l’état RNG au début de sa vague afin de reconstruire cette vague de manière reproductible à la reprise.
 
 ## Critères de fidélité
 
-Une étape de port est considérée fidèle quand elle couvre les règles correspondantes du dump, et que ses cas de référence peuvent être rejoués : mouvement normalisé et limites du monde ; cadence et portée par arme ; mêmes dégâts et séquences ; variations de difficulté et élites ; vagues/afflux/boss ; choix d’amélioration et remplacement d’équipement ; synergies ; pause et transitions ; reprise après fermeture ; contrôles clavier, souris et tactile. Les obstacles sont décoratifs dans le source. Le hasard du navigateur n’est pas seedé : pour comparer des scénarios, le port doit exposer une seed de test ou pouvoir enregistrer/rejouer les tirages. Cela sert à comparer les résultats sans changer la run normale.
+Une étape de port est considérée fidèle quand elle couvre les règles correspondantes du dump, et que ses cas de référence peuvent être rejoués : mouvement normalisé et limites du monde ; cadence et portée par arme ; mêmes dégâts et séquences ; variations de difficulté et élites ; vagues/afflux/boss ; choix d’amélioration et remplacement d’équipement ; synergies ; pause et transitions ; reprise après fermeture ; contrôles clavier, souris et tactile. Les obstacles sont décoratifs dans le source. Le navigateur ne seed pas son hasard ; le port garde des seeds aléatoires en jeu normal et accepte `--seed=…` pour rendre les comparaisons reproductibles.
 
 ## Sources
 

@@ -21,6 +21,8 @@ La sauvegarde persistante est le JSON `user://save.json`, écrit par `RunControl
 | Champ | Contenu |
 | --- | --- |
 | `version` | Version du checkpoint, actuellement `1`. |
+| `rngSeed` | Seed de la run ; optionnelle dans les anciens checkpoints. |
+| `waveRngState` | État du générateur juste avant les tirages de construction de la vague, pour pouvoir la reconstruire à l’identique ; optionnel dans les anciens checkpoints. |
 | `mode`, `difficulty` | Mode et difficulté actifs. |
 | `singleWeapon`, `uncappedInventory`, `customDrops` | Options utilisées pour cette run. |
 | `dropWeapons`, `dropRelics` | Filtres actifs de la run. |
@@ -33,7 +35,7 @@ La sauvegarde persistante est le JSON `user://save.json`, écrit par `RunControl
 
 `player` contient `hero`, `weapon`, `hp`, `maxHp`, `xp`, `nextXp`, `level`, `damageMultiplier`, `attackSpeedMultiplier`, `rangeBonus`, `movementMultiplier`, `levelDefense`, `bonusMaxHp`, `projectileSize`, `projectileSpeed`, `pickupRangeMultiplier`, `upgradeRanks`, `weaponInventory`, `inventory` (reliques), `shield`, `cheatInfiniteLife`, `scytheSouls`, `position` et `facing`. `levelDefense` conserve la défense acquise par niveau; les anciens checkpoints Godot qui stockent `defense` sont aussi chargés. Chaque objet d'inventaire contient son identifiant et ses propriétés d'état, notamment niveau/verrouillage et, pour une arme, l'état spécial.
 
-Le checkpoint reprend les valeurs persistantes du joueur et de la progression, pas les entités ennemies, projectiles, minuteries de combat ni effets temporaires en cours. La reprise reconstruit la vague à partir du checkpoint. Si l’inventaire n’est pas débridé, la reprise conserve au plus cinq armes et cinq reliques, comme le jeu source.
+Le checkpoint reprend les valeurs persistantes du joueur et de la progression, pas les entités ennemies, projectiles, minuteries de combat ni effets temporaires en cours. La reprise reconstruit la vague à partir du checkpoint et restaure son état RNG de départ lorsqu’il est présent. Les anciens checkpoints sans état RNG restent valides et démarrent avec une seed aléatoire. Pour démarrer une run contrôlée, passer `--seed=<entier>` après `--` dans la ligne de commande Godot. Si l’inventaire n’est pas débridé, la reprise conserve au plus cinq armes et cinq reliques, comme le jeu source.
 
 ## Validation et migration
 
