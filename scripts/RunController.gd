@@ -60,6 +60,7 @@ var scythe_souls := 0
 var weapon_swing_counts: Dictionary = {}
 var projectiles: Array[Dictionary] = []
 var damage_zones: Array[Dictionary] = []
+var damage_numbers: Array[Dictionary] = []
 var projectile_size_multiplier := 1.0
 var projectile_speed_multiplier := 1.0
 var rng := RandomNumberGenerator.new()
@@ -208,6 +209,7 @@ func _process(delta: float) -> void:
 			return
 		_update_player_visuals()
 	_update_drops(delta)
+	_update_damage_numbers(delta)
 	_update_hud()
 	if inventory_open:
 		_refresh_inventory_panel()
@@ -667,6 +669,10 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 		if is_instance_valid(projectile.get("node")):
 			projectile.node.queue_free()
 	projectiles.clear()
+	for number in damage_numbers:
+		if is_instance_valid(number.get("node")):
+			number.node.queue_free()
+	damage_numbers.clear()
 	damage_zones.clear()
 	pending_spawns.clear()
 	var hero := _find_definition("heroes", hero_id) as HeroDefinition
@@ -1477,6 +1483,7 @@ func _damage_enemy(enemy: ValombreEnemy, amount: float, _weapon: String) -> void
 	if equipment_lifesteal > 0.0 and dealt > 0.0 and is_instance_valid(player):
 		hp = minf(max_hp, hp + dealt * equipment_lifesteal)
 	enemy.hit_flash = 0.18
+	_spawn_damage_number(enemy.position, roundi(damage))
 	if enemy.hp <= 0.0:
 		var death_position := enemy.position
 		var is_boss := enemy.kind == "boss"
@@ -1500,6 +1507,38 @@ func _damage_enemy(enemy: ValombreEnemy, amount: float, _weapon: String) -> void
 		else:
 			_roll_enemy_item_drop(death_position)
 			_enemy_drop_xp(death_position, 1.5 if enemy.elite else 1.0, weapon_xp_multiplier)
+
+func _spawn_damage_number(position: Vector2, damage: int) -> void:
+	var label := Label.new()
+	label.text = str(damage)
+	label.position = position + Vector2(-24.0, -34.0)
+	label.size = Vector2(48.0, 20.0)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_color_override("font_color", Color("f5dda0"))
+	label.add_theme_color_override("font_outline_color", Color("17130e"))
+	label.add_theme_constant_override("outline_size", 3)
+	label.z_index = 12
+	arena.add_child(label)
+	damage_numbers.append({"node": label, "life": 0.65, "max_life": 0.65})
+
+func _update_damage_numbers(delta: float) -> void:
+	for index in range(damage_numbers.size() - 1, -1, -1):
+		var number: Dictionary = damage_numbers[index]
+		var node: Variant = number.get("node")
+		if not is_instance_valid(node):
+			damage_numbers.remove_at(index)
+			continue
+		var label := node as Label
+		number.life = float(number.life) - delta
+		label.position.y -= 25.0 * delta
+		var tint := label.modulate
+		tint.a = clampf(float(number.life) / float(number.max_life), 0.0, 1.0)
+		label.modulate = tint
+		if float(number.life) <= 0.0:
+			label.queue_free()
+			damage_numbers.remove_at(index)
 
 func _weapon_scale(id: String) -> float:
 	var owned := _owned_weapon(id)
