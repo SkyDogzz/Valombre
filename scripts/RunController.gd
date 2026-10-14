@@ -1551,12 +1551,13 @@ func _update_spawns(delta: float) -> void:
 	if swarm_timer > 0.0:
 		swarm_timer -= delta
 		if swarm_timer <= 0.0:
-			var swarm_count := mini(62, 26 + mini(wave, 18) * 2)
+			var enemy_config: Dictionary = catalog.content.config.enemies
+			var swarm_count := mini(int(enemy_config.swarmMaxCount), int(enemy_config.swarmBaseCount) + mini(wave, 18) * int(enemy_config.swarmCountPerWave))
+			var total_weight := 0
+			for group in wave_groups:
+				total_weight += mini(int(group.get("count", 1)), 12)
 			var swarm: Array[Dictionary] = []
 			for _index in swarm_count:
-				var total_weight := 0
-				for group in wave_groups:
-					total_weight += mini(int(group.get("count", 1)), 12)
 				var selected_weight := rng.randi_range(1, max(1, total_weight))
 				var kind := "ghoul"
 				for group in wave_groups:
@@ -1600,7 +1601,7 @@ func _update_spawns(delta: float) -> void:
 	if spawn_clock <= 0.0 and pending_index >= 0:
 		var spawn: Dictionary = pending_spawns.pop_at(pending_index)
 		_spawn_enemy(str(spawn.kind), bool(spawn.get("elite", false)), str(spawn.get("boss_id", "guardian")))
-		spawn_clock = 0.12 if spawn.get("swarm", false) else maxf(0.12, 0.62 * pow(0.7, elapsed / 60.0)) if mode == "infinite" else 0.62
+		spawn_clock = float(catalog.content.config.enemies.swarmSpawnDelay) if spawn.get("swarm", false) else maxf(0.12, float(catalog.content.config.enemies.spawnDelay) * pow(0.7, elapsed / 60.0)) if mode == "infinite" else float(catalog.content.config.enemies.spawnDelay)
 
 func _spawn_enemy(kind: String, is_elite: bool, boss_id: String) -> void:
 	var base: Dictionary
