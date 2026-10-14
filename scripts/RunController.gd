@@ -53,6 +53,9 @@ var equipment_defense := 0.0
 var equipment_xp := 1.0
 var equipment_lifesteal := 0.0
 var global_pickup := false
+var player_shield := 0.0
+var scythe_souls := 0
+var weapon_swing_counts: Dictionary = {}
 var projectiles: Array[Dictionary] = []
 var projectile_size_multiplier := 1.0
 var projectile_speed_multiplier := 1.0
@@ -264,6 +267,9 @@ func _start_run() -> void:
 	equipment_xp = 1.0
 	equipment_lifesteal = 0.0
 	global_pickup = false
+	player_shield = 0.0
+	scythe_souls = 0
+	weapon_swing_counts.clear()
 	attack_speed_multiplier = 1.0
 	range_bonus = 0.0
 	projectile_size_multiplier = 1.0
@@ -660,11 +666,12 @@ func _update_auto_attack() -> void:
 			player.facing = aim
 		var synergy := _synergy_data(id)
 		var damage_scale := damage_multiplier * equipment_damage * level_scale * float(synergy.get("damageMultiplier", 1.0)) * (1.5 if bool(owned.special) else 1.0) * (1.0 + (level - 1) * 0.005)
-		var frequency := maxf(0.1, float(weapon.speed) * attack_speed_multiplier * equipment_speed * pow(1.08, int(owned.level) - 1) * float(synergy.get("attackSpeedMultiplier", 1.0)) * (1.2 if bool(owned.special) else 1.0))
+		var frequency := maxf(0.1, float(weapon.speed) * attack_speed_multiplier * equipment_speed * (1.0 + 0.08 * (int(owned.level) - 1)) * float(synergy.get("attackSpeedMultiplier", 1.0)) * (1.2 if bool(owned.special) else 1.0))
 		weapon_cooldowns[id] = 0.26 / frequency
 		if bool(weapon.get("ranged", false)):
 			_launch_projectile(weapon, target, damage_scale, id, reach)
 			continue
+		weapon_swing_counts[id] = int(weapon_swing_counts.get(id, 0)) + 1
 		for enemy in enemies.duplicate():
 			var offset := enemy.position - player.position
 			var distance := offset.length()
@@ -679,7 +686,43 @@ func _update_auto_attack() -> void:
 				var alignment := offset.normalized().dot(player.facing) if distance > 0.0 else 1.0
 				in_shape = distance < reach and alignment > float(weapon.get("arc", -1.0))
 			if in_shape:
+				var sabre_burst := false
+				if id == "sabre" and _synergy_active(id):
+					var marks := int(enemy.get_meta("sabre_combo_marks", 0)) + 1
+					enemy.set_meta("sabre_combo_marks", marks % 5)
+					sabre_burst = marks >= 5
+				if id == "lance" and _synergy_active(id):
+					player_shield = minf(max_hp * 0.5, player_shield + 8.0)
 				_damage_enemy(enemy, _weapon_base_damage(weapon, enemy) * damage_scale, id)
+				if id == "sabre" and bool(owned.special) and int(weapon_swing_counts[id]) % 3 == 0 and is_instance_valid(enemy):
+					enemy.set_meta("sabre_mark", true)
+				if sabre_burst:
+					for nearby in enemies.duplicate():
+						if nearby.position.distance_to(enemy.position) <= 104.0:
+							_damage_enemy(nearby, _weapon_base_damage(weapon, nearby) * damage_scale * 1.35, id)
+		if id == "marteau" and bool(owned.special):
+			var full_circle := _synergy_active(id)
+			for enemy in enemies.duplicate():
+				var offset := enemy.position - player.position
+				var distance := offset.length()
+				var in_wave := distance <= reach + 34.0
+				if not full_circle and distance > 0.0:
+					in_wave = in_wave and offset.normalized().dot(player.facing) > float(weapon.get("arc", -1.0))
+				if in_wave:
+					_damage_enemy(enemy, _weapon_base_damage(weapon, enemy) * damage_scale * (1.05 if full_circle else 0.55), id)
+					if is_instance_valid(enemy) and enemy.hp > 0.0 and not full_circle:
+						enemy.position += offset.normalized() * 26.0
+			if full_circle:
+				for enemy in enemies.duplicate():
+					var away := enemy.position - player.position
+					if away.length() <= reach + 82.0 and away.length() > 0.0:
+						enemy.position += away.normalized() * 76.0
+		if id == "faux" and _synergy_active(id) and scythe_souls > 0:
+			var released := scythe_souls
+			scythe_souls = 0
+			for enemy in enemies.duplicate():
+				if enemy.position.distance_to(player.position) <= reach * 1.08:
+					_damage_enemy(enemy, float(weapon.ghoulDamage) * damage_scale * (0.32 + released * 0.42), id)
 
 func _weapon_base_damage(weapon: Dictionary, enemy: ValombreEnemy) -> float:
 	return float(weapon.get("bruteDamage", 25) if enemy.kind == "brute" else weapon.get("ghoulDamage", 32))
@@ -689,7 +732,8 @@ func _launch_projectile(weapon: Dictionary, target: ValombreEnemy, damage_scale:
 	var directions: Array[Vector2] = [direction]
 	if id == "arc" and _synergy_active(id):
 		directions = [direction.rotated(-0.2), direction, direction.rotated(0.2)]
-	for shot_direction in directions:
+	for shot_index in directions.size():
+		var shot_direction := directions[shot_index]
 		var sprite := Sprite2D.new()
 		sprite.texture = load("res://assets/weapons/%s.svg" % id)
 		sprite.scale = Vector2(0.18, 0.18) * projectile_size_multiplier
@@ -701,12 +745,16 @@ func _launch_projectile(weapon: Dictionary, target: ValombreEnemy, damage_scale:
 			"direction": shot_direction,
 			"speed": 520.0 * projectile_speed_multiplier,
 			"radius": 5.0 * projectile_size_multiplier,
-			"damage": _weapon_base_damage(weapon, target) * damage_scale,
+			"damage": _weapon_base_damage(weapon, target) * damage_scale * (0.72 if directions.size() == 3 and shot_index != 1 else 1.0),
 			"weapon": id,
 			"remaining": reach + 40.0,
 			"explosive": bool(weapon.get("explosive", false)),
 			"lightning": bool(weapon.get("lightning", false)),
 			"frost": bool(weapon.get("frost", false)),
+			"slow_duration": 1.25 * (float(_synergy_data(id).get("slowDurationMultiplier", 1.0))) * (2.4 / 1.25 if bool(_owned_weapon(id).get("special", false)) else 1.0),
+						"slow_factor": 0.42 if bool(_owned_weapon(id).get("special", false)) else 0.58,
+			"chain_targets": int(_owned_weapon(id).get("level", 1)) + (1 if bool(_owned_weapon(id).get("special", false)) and bool(weapon.get("lightning", false)) else 0),
+			"chain_range": 380.0 if id == "foudre" and _synergy_active(id) else 190.0,
 			"hit_targets": [],
 		})
 
@@ -726,6 +774,8 @@ func _update_projectiles(delta: float) -> void:
 				_remove_projectile(index)
 			continue
 		var step := float(projectile.speed) * delta
+		if projectile.has("homing_target") and is_instance_valid(projectile.homing_target):
+			projectile.direction = node.position.direction_to(projectile.homing_target.position)
 		node.position += projectile.direction * step
 		projectile.remaining -= step
 		var hit_target: ValombreEnemy
@@ -741,8 +791,8 @@ func _update_projectiles(delta: float) -> void:
 				_remove_projectile(index)
 				continue
 			if projectile.frost:
-				hit_target.slow_time = maxf(hit_target.slow_time, 1.25)
-				hit_target.slow_factor = 0.58
+				hit_target.slow_time = maxf(hit_target.slow_time, float(projectile.get("slow_duration", 1.25)))
+				hit_target.slow_factor = float(projectile.get("slow_factor", 0.58))
 			_damage_enemy(hit_target, float(projectile.damage), str(projectile.weapon))
 			if projectile.lightning:
 				_chain_lightning(hit_target, projectile)
@@ -756,10 +806,10 @@ func _update_projectiles(delta: float) -> void:
 func _chain_lightning(first: ValombreEnemy, projectile: Dictionary) -> void:
 	var current := first
 	var hit: Array[ValombreEnemy] = [first]
-	var max_bounces := 2 if _synergy_active(str(projectile.weapon)) else 1
+	var max_bounces := int(projectile.get("chain_targets", 1))
 	for _bounce in max_bounces:
 		var nearest: ValombreEnemy
-		var nearest_distance := 380.0 if _synergy_active(str(projectile.weapon)) else 190.0
+		var nearest_distance := float(projectile.get("chain_range", 190.0))
 		for enemy in enemies:
 			if hit.has(enemy):
 				continue
@@ -774,7 +824,7 @@ func _chain_lightning(first: ValombreEnemy, projectile: Dictionary) -> void:
 		current = nearest
 
 func _detonate_projectile(projectile: Dictionary, center: Vector2) -> void:
-	var radius := 44.0
+	var radius := float(projectile.get("radius", 44.0))
 	for enemy in enemies.duplicate():
 		if enemy.position.distance_to(center) <= radius + enemy.radius:
 			_damage_enemy(enemy, float(projectile.damage), str(projectile.weapon))
@@ -788,10 +838,16 @@ func _remove_projectile(index: int) -> void:
 func _damage_enemy(enemy: ValombreEnemy, amount: float, _weapon: String) -> void:
 	if not is_instance_valid(enemy):
 		return
-	enemy.hp -= roundf(amount)
+	if bool(enemy.get_meta("sabre_mark", false)):
+		amount *= 1.5
+		enemy.set_meta("sabre_mark", false)
+	var damage := roundf(amount)
+	var dealt := minf(damage, maxf(0.0, enemy.hp))
+	enemy.hp -= damage
 	enemy.hit_flash = 0.18
 	if enemy.hp <= 0.0:
 		defeated += 1
+		_on_enemy_killed(enemy, _weapon)
 		if enemy.kind == "boss":
 			_enemy_drop_xp(enemy.position, 1.0, false)
 			enemy.queue_free()
@@ -808,7 +864,39 @@ func _damage_enemy(enemy: ValombreEnemy, amount: float, _weapon: String) -> void
 			enemy.queue_free()
 			enemies.erase(enemy)
 	if equipment_lifesteal > 0.0 and is_instance_valid(player):
-		hp = minf(max_hp, hp + minf(amount, enemy.hp + amount) * equipment_lifesteal)
+		hp = minf(max_hp, hp + dealt * equipment_lifesteal)
+
+func _weapon_scale(id: String) -> float:
+	var owned := _owned_weapon(id)
+	if owned.is_empty():
+		return damage_multiplier * equipment_damage * (1.0 + (level - 1) * 0.005)
+	return damage_multiplier * equipment_damage * (1.0 + 0.18 * (int(owned.level) - 1)) * (1.5 if bool(owned.special) else 1.0) * float(_synergy_data(id).get("damageMultiplier", 1.0)) * (1.0 + (level - 1) * 0.005)
+
+func _on_enemy_killed(enemy: ValombreEnemy, weapon: String) -> void:
+	var death_position := enemy.position
+	if weapon == "faux" and _synergy_active("faux"):
+		scythe_souls = mini(5, scythe_souls + 1)
+	if weapon == "dagues" and _synergy_active("dagues"):
+		var targets: Array[ValombreEnemy] = []
+		for candidate in enemies:
+			if candidate != enemy and candidate.position.distance_to(death_position) <= 300.0:
+				targets.append(candidate)
+		targets.sort_custom(func(a: ValombreEnemy, b: ValombreEnemy) -> bool: return a.position.distance_to(death_position) < b.position.distance_to(death_position))
+		for target in targets.slice(0, mini(3, targets.size())):
+			var dagger := Sprite2D.new()
+			dagger.texture = load("res://assets/weapons/dagues.svg")
+			dagger.modulate = Color("a9ffe1")
+			dagger.scale = Vector2(0.13, 0.13)
+			dagger.position = death_position
+			arena.add_child(dagger)
+			projectiles.append({"node": dagger, "direction": death_position.direction_to(target.position), "speed": 620.0, "radius": 6.0, "damage": float(catalog.content.weapons.dagues.ghoulDamage) * _weapon_scale("dagues") * 1.4, "weapon": "", "remaining": 900.0, "homing_target": target, "explosive": false, "lightning": false, "frost": false, "hit_targets": []})
+	if weapon == "givre" and enemy.slow_time > 0.0 and _synergy_active("givre"):
+		for target in enemies.duplicate():
+			if target == enemy or target.position.distance_to(death_position) > 124.0:
+				continue
+			target.slow_time = maxf(target.slow_time, 1.8)
+			target.slow_factor = 0.35
+			_damage_enemy(target, float(catalog.content.weapons.givre.ghoulDamage) * _weapon_scale("givre") * 1.35, "")
 
 func _enemy_drop_xp(position: Vector2, value: float, allow_item_drop := true) -> void:
 	var node := Sprite2D.new()
@@ -853,6 +941,7 @@ func _enemy_drop_xp(position: Vector2, value: float, allow_item_drop := true) ->
 			drops.append({"node": loot_node, "type": loot_type, "id": loot_id, "life": 18.0})
 
 func _update_drops(delta: float) -> void:
+	var bomb_combo_pickups := 0
 	for index in range(drops.size() - 1, -1, -1):
 		var drop: Dictionary = drops[index]
 		drop.life -= delta
@@ -865,6 +954,8 @@ func _update_drops(delta: float) -> void:
 			var pull := player.position.direction_to(drop.node.position) * minf(240.0 * delta, distance)
 			drop.node.position -= pull
 		if player.position.distance_to(drop.node.position) <= 22.0:
+			if global_pickup:
+				bomb_combo_pickups += 1
 			if str(drop.get("type", "xp")) == "weapon":
 				_pick_weapon(str(drop.id))
 			elif str(drop.get("type", "xp")) == "relic":
@@ -888,6 +979,9 @@ func _update_drops(delta: float) -> void:
 				if pending_upgrades > 0:
 					_show_level_up()
 					return
+	if bomb_combo_pickups > 0 and state == "playing":
+		var bomb_damage := float(catalog.content.weapons.bombe.ghoulDamage) * _weapon_scale("bombe") * minf(4.0, 1.4 + (bomb_combo_pickups - 1) * 0.55)
+		_detonate_projectile({"radius": 92.0, "damage": bomb_damage, "weapon": "bombe"}, player.position)
 
 func _show_level_up() -> void:
 	_set_state("levelUp")
@@ -958,10 +1052,12 @@ func _pick_weapon(id: String) -> void:
 		else:
 			return
 		weapon_cooldowns[id] = 0.0
+		_refresh_relic_stats()
 		return
 	var entry := {"id": id, "level": 1, "special": false, "locked": false}
 	if weapon_inventory.size() < 5:
 		weapon_inventory.append(entry)
+		_refresh_relic_stats()
 		return
 	var choices: Array[Dictionary] = []
 	for item in weapon_inventory:
@@ -978,6 +1074,7 @@ func _pick_weapon(id: String) -> void:
 			weapon_inventory.erase(item)
 			weapon_inventory.append(entry)
 			weapon_cooldowns.erase(str(item.id))
+			_refresh_relic_stats()
 			_set_state("playing")
 		)
 		column.add_child(button)
@@ -1046,7 +1143,7 @@ func _refresh_relic_stats() -> void:
 			"damage": equipment_damage += value * ranks
 			"speed": equipment_speed *= 1.0 + (value - 1.0) * ranks
 			"range": equipment_range += value * ranks
-			"defense": equipment_defense += value * ranks
+			"defense": equipment_defense = minf(0.65, equipment_defense + value * ranks)
 			"experience": equipment_xp *= 1.0 + (value - 1.0) * ranks
 			"lifesteal": equipment_lifesteal += value * ranks
 			"health": health_bonus += value * ranks
@@ -1101,7 +1198,10 @@ func _relic_health() -> float:
 	return total
 
 func _damage_player(amount: float) -> void:
-	hp -= maxf(1.0, amount * (1.0 - clampf(defense + equipment_defense, 0.0, 0.9)))
+	var incoming := maxf(1.0, amount * (1.0 - minf(0.8, defense + equipment_defense)))
+	var absorbed := minf(player_shield, incoming)
+	player_shield -= absorbed
+	hp -= incoming - absorbed
 	player.invulnerability = 0.55
 	if hp <= 0.0:
 		hp = 0.0
@@ -1170,7 +1270,7 @@ func _update_hud() -> void:
 	if not is_instance_valid(hud):
 		return
 	var objective := "%s %d/%d" % [objective_type, mini(objective_progress, objective_target), objective_target]
-	hud.text = "PV %d/%d\nNiveau %d · XP %d/%d\nVague %d · %s · %s\nÉliminations %d · Arsenal %d/5 · Reliques %d/5" % [ceili(hp), ceili(max_hp), level, int(xp), int(next_xp), wave, difficulty_id.capitalize(), objective, defeated, weapon_inventory.size(), relic_inventory.size()]
+	hud.text = "PV %d/%d · Bouclier %d\nNiveau %d · XP %d/%d\nVague %d · %s · %s\nÉliminations %d · Arsenal %d/5 · Reliques %d/5" % [ceili(hp), ceili(max_hp), ceili(player_shield), level, int(xp), int(next_xp), wave, difficulty_id.capitalize(), objective, defeated, weapon_inventory.size(), relic_inventory.size()]
 	var active_boss: ValombreEnemy
 	for enemy in enemies:
 		if enemy.kind == "boss":
