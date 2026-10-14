@@ -1451,6 +1451,8 @@ func _damage_enemy(enemy: ValombreEnemy, amount: float, _weapon: String) -> void
 	var dealt := minf(damage, maxf(0.0, enemy.hp))
 	enemy.hp -= damage
 	enemy.hit_flash = 0.18
+	if equipment_lifesteal > 0.0 and dealt > 0.0 and is_instance_valid(player):
+		hp = minf(max_hp, hp + dealt * equipment_lifesteal)
 	if enemy.hp <= 0.0:
 		defeated += 1
 		_record_bestiary_kill(enemy)
@@ -1472,8 +1474,6 @@ func _damage_enemy(enemy: ValombreEnemy, amount: float, _weapon: String) -> void
 				_progress_objective("elite")
 			enemy.queue_free()
 			enemies.erase(enemy)
-	if equipment_lifesteal > 0.0 and is_instance_valid(player):
-		hp = minf(max_hp, hp + dealt * equipment_lifesteal)
 
 func _weapon_scale(id: String) -> float:
 	var owned := _owned_weapon(id)
