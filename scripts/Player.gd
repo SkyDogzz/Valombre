@@ -14,6 +14,7 @@ var dodge_duration := 0.18
 var dodge_invulnerability := 0.24
 var dodge_recharge := 2.6
 var movement_multiplier := 1.0
+var touch_move_vector := Vector2.ZERO
 var skill_dash_time := 0.0
 var skill_dash_speed := 0.0
 var skill_dash_direction := Vector2.DOWN
@@ -32,7 +33,7 @@ func _physics_process(delta: float) -> void:
 		return
 	invulnerability = maxf(0.0, invulnerability - delta)
 	dodge_cooldown = maxf(0.0, dodge_cooldown - delta)
-	var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	var direction := touch_move_vector if touch_move_vector != Vector2.ZERO else Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	if Input.is_action_just_pressed("dodge") and dodge_cooldown <= 0.0:
 		dodge_direction = direction.normalized() if direction != Vector2.ZERO else facing
 		dodge_time = dodge_duration

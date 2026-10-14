@@ -128,6 +128,7 @@ var sound_playback: AudioStreamGeneratorPlayback
 var sound_phase := 0.0
 var held_weapon_sprite: Sprite2D
 var manual_attack_from_mouse := false
+var touch_controls: ValombreTouchControls
 
 func _ready() -> void:
 	_configure_gamepad_inputs()
@@ -405,6 +406,12 @@ func _create_interface() -> void:
 	inventory_list = VBoxContainer.new()
 	inventory_list.custom_minimum_size.x = 300
 	inventory_scroll.add_child(inventory_list)
+	touch_controls = ValombreTouchControls.new()
+	touch_controls.name = "TouchControls"
+	touch_controls.player = player
+	touch_controls.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	touch_controls.visible = false
+	layer.add_child(touch_controls)
 	status_label.visible = false
 	_set_state("title")
 	_update_hud()
@@ -2360,6 +2367,10 @@ func _set_state(next_state: String) -> void:
 	state = next_state
 	var is_overlay := state != "playing"
 	menu_panel.visible = is_overlay
+	if is_instance_valid(touch_controls):
+		if state != "playing":
+			touch_controls.release_all()
+		touch_controls.visible = state == "playing" and DisplayServer.is_touchscreen_available()
 	player.run_active = state == "playing"
 	if is_instance_valid(cheat_button):
 		cheat_button.visible = state == "playing"
