@@ -1392,7 +1392,12 @@ func _update_auto_attack() -> void:
 		var special_finisher := bool(owned.special) and swing_count % 3 == 0
 		var level_scale := 1.0 + 0.18 * (int(owned.level) - 1)
 		var reach := (float(weapon.get("range", 108.0)) + range_bonus + equipment_range) * float(_synergy_data(id).get("rangeMultiplier", 1.0))
-		if ((not target or nearest > reach) and not manual_melee) or (float(weapon_cooldowns.get(id, 0.0)) > 0.0 and not manual):
+		if float(weapon_cooldowns.get(id, 0.0)) > 0.0:
+			continue
+		if manual:
+			if ranged and (not target or nearest > reach):
+				continue
+		elif not target or nearest >= reach:
 			continue
 		var aim := player.facing
 		if manual and mouse_aim_active:
