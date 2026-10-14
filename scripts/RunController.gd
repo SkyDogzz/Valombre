@@ -93,6 +93,9 @@ var hero_preview: HBoxContainer
 var hero_preview_icon: TextureRect
 var hero_preview_name: Label
 var hero_preview_details: Label
+var weapon_preview_panel: PanelContainer
+var weapon_preview_icon: TextureRect
+var weapon_preview_details: Label
 var picker_labels: Array[Label] = []
 var hero_picker: OptionButton
 var weapon_picker: OptionButton
@@ -362,6 +365,31 @@ func _create_interface() -> void:
 		if str(weapon_picker.get_item_metadata(index)) == weapon_id:
 			weapon_picker.select(index)
 			break
+	weapon_preview_panel = PanelContainer.new()
+	var weapon_preview_style := StyleBoxFlat.new()
+	weapon_preview_style.bg_color = Color("10110edb")
+	weapon_preview_style.border_color = Color("4b4539")
+	weapon_preview_style.set_border_width_all(1)
+	weapon_preview_style.content_margin_left = 8.0
+	weapon_preview_style.content_margin_right = 8.0
+	weapon_preview_style.content_margin_top = 5.0
+	weapon_preview_style.content_margin_bottom = 5.0
+	weapon_preview_panel.add_theme_stylebox_override("panel", weapon_preview_style)
+	var weapon_preview_row := HBoxContainer.new()
+	weapon_preview_row.add_theme_constant_override("separation", 8)
+	weapon_preview_icon = TextureRect.new()
+	weapon_preview_icon.custom_minimum_size = Vector2(30.0, 30.0)
+	weapon_preview_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	weapon_preview_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	weapon_preview_row.add_child(weapon_preview_icon)
+	weapon_preview_details = Label.new()
+	weapon_preview_details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	weapon_preview_details.add_theme_font_size_override("font_size", 10)
+	weapon_preview_details.add_theme_color_override("font_color", Color("c5b58e"))
+	weapon_preview_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	weapon_preview_row.add_child(weapon_preview_details)
+	weapon_preview_panel.add_child(weapon_preview_row)
+	column.add_child(weapon_preview_panel)
 	hero_picker.item_selected.connect(func(index: int) -> void:
 		hero_id = "sentinel" if index == 1 else "pilgrim"
 		profile.hero = hero_id
@@ -369,9 +397,12 @@ func _create_interface() -> void:
 		_save_profile()
 	)
 	weapon_picker.item_selected.connect(func(index: int) -> void:
-		profile.weapon = str(weapon_picker.get_item_metadata(index))
+		weapon_id = str(weapon_picker.get_item_metadata(index))
+		profile.weapon = weapon_id
+		_refresh_weapon_preview()
 		_save_profile()
 	)
+	_refresh_weapon_preview()
 	mode_picker = _add_picker(column, "Mode", ["Vagues", "Infini"])
 	difficulty_picker = _add_picker(column, "Difficulté", ["Insane", "Nightmare", "Cataclysm"])
 	mode_picker.select(1 if mode == "infinite" else 0)
@@ -698,6 +729,16 @@ func _refresh_hero_preview() -> void:
 	hero_preview_name.text = str(hero.get("name", hero_id)).to_upper()
 	var skill := str(hero.get("specialName", "Aucune capacité spéciale"))
 	hero_preview_details.text = "%s\n%d PV · %d vitesse\n%s" % [str(hero.get("className", "")), int(hero.get("health", 0)), int(hero.get("speed", 0)), skill]
+
+func _refresh_weapon_preview() -> void:
+	if not is_instance_valid(weapon_preview_panel):
+		return
+	var definition := _find_definition("weapons", weapon_id)
+	if definition == null:
+		return
+	var icon_path := "res://assets/weapons/%s.svg" % weapon_id
+	weapon_preview_icon.texture = load(icon_path) if ResourceLoader.exists(icon_path) else null
+	weapon_preview_details.text = str(definition.values.get("description", ""))
 
 func _create_cheat_button() -> void:
 	cheat_button = Button.new()
@@ -2972,7 +3013,10 @@ func _set_state(next_state: String) -> void:
 		for child in menu_column.get_children():
 			child.visible = child == title_label or child == status_label or (state == "loot" and child == loot_preview) or child == start_button or (state == "levelUp" and child in upgrade_buttons) or (state == "loot" and child in loot_buttons)
 	_refresh_hero_preview()
-	hero_preview_panel.visible = state == "title" and not (profile.get("run") is Dictionary)
+	var show_character_setup := state == "title" and not (profile.get("run") is Dictionary)
+	hero_preview_panel.visible = show_character_setup
+	_refresh_weapon_preview()
+	weapon_preview_panel.visible = show_character_setup
 	loot_preview.visible = state == "loot" and loot_preview.texture != null
 	call_deferred("_focus_state_action", state)
 
