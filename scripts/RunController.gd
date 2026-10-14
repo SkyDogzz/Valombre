@@ -28,7 +28,7 @@ var damage_multiplier := 1.0
 var attack_speed_multiplier := 1.0
 var range_bonus := 0.0
 var movement_multiplier := 1.0
-var defense := 0.0
+var level_defense := 0.0
 var pickup_range := 90.0
 var pickup_range_multiplier := 1.0
 var upgrade_ranks := {"damage": 0, "attackSpeed": 0, "range": 0, "projectileSize": 0, "projectileSpeed": 0, "movementSpeed": 0, "health": 0, "defense": 0, "pickupRange": 0}
@@ -827,7 +827,7 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 	defeated = 0
 	damage_multiplier = 1.0
 	movement_multiplier = 1.0
-	defense = 0.0
+	level_defense = 0.0
 	pickup_range = 90.0
 	weapon_cooldown = 0.0
 	spawn_clock = 1.0
@@ -881,7 +881,7 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 		attack_speed_multiplier = float(saved_player.get("attackSpeedMultiplier", 1.0))
 		range_bonus = float(saved_player.get("rangeBonus", 0.0))
 		movement_multiplier = float(saved_player.get("movementMultiplier", 1.0))
-		defense = float(saved_player.get("defense", 0.0))
+		level_defense = float(saved_player.get("levelDefense", saved_player.get("defense", 0.0)))
 		bonus_max_hp = float(saved_player.get("bonusMaxHp", 0.0))
 		projectile_size_multiplier = float(saved_player.get("projectileSize", 1.0))
 		projectile_speed_multiplier = float(saved_player.get("projectileSpeed", 1.0))
@@ -968,7 +968,7 @@ func _save_checkpoint(number: int) -> void:
 		"attackSpeedMultiplier": attack_speed_multiplier,
 		"rangeBonus": range_bonus,
 		"movementMultiplier": movement_multiplier,
-		"defense": defense,
+		"levelDefense": level_defense,
 		"bonusMaxHp": bonus_max_hp,
 		"projectileSize": projectile_size_multiplier,
 		"projectileSpeed": projectile_speed_multiplier,
@@ -2042,7 +2042,7 @@ func _apply_upgrade(definition: GameDefinition) -> void:
 			bonus_max_hp += bonus
 			max_hp += bonus
 			hp = minf(max_hp, hp + bonus)
-		"defense": defense += bonus
+		"defense": level_defense += bonus
 		"pickupRange":
 			pickup_range_multiplier *= 1.0 + bonus
 			pickup_range *= 1.0 + bonus
@@ -2493,7 +2493,7 @@ func _damage_player(amount: float) -> bool:
 	if state != "playing" or player.invulnerability > 0.0 or cheat_infinite_life:
 		return false
 	_play_tone(90.0, 0.11, "square")
-	var incoming := amount * (1.0 - minf(0.8, defense + equipment_defense))
+	var incoming := amount * (1.0 - minf(0.8, level_defense + equipment_defense))
 	var absorbed := minf(player_shield, incoming)
 	player_shield -= absorbed
 	hp -= incoming - absorbed
@@ -2906,7 +2906,7 @@ func _checkpoint_is_valid(checkpoint: Variant) -> bool:
 			return false
 	if not (checkpoint_player.get("upgradeRanks", {}) is Dictionary):
 		return false
-	for field in ["hp", "maxHp", "xp", "nextXp", "level", "damageMultiplier", "attackSpeedMultiplier", "rangeBonus", "movementMultiplier", "defense", "bonusMaxHp", "projectileSize", "projectileSpeed", "pickupRangeMultiplier", "shield", "scytheSouls"]:
+	for field in ["hp", "maxHp", "xp", "nextXp", "level", "damageMultiplier", "attackSpeedMultiplier", "rangeBonus", "movementMultiplier", "levelDefense", "defense", "bonusMaxHp", "projectileSize", "projectileSpeed", "pickupRangeMultiplier", "shield", "scytheSouls"]:
 		if checkpoint_player.has(field) and not _is_finite_number(checkpoint_player[field]):
 			return false
 	if checkpoint_player.has("level") and int(checkpoint_player.level) < 1:
