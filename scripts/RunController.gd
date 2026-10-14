@@ -1927,6 +1927,7 @@ func _update_auto_attack() -> void:
 			break
 		var id := str(owned.id)
 		var weapon: Dictionary = catalog.content.weapons[id]
+		var ranged := bool(weapon.get("ranged", false))
 		var target: ValombreEnemy
 		var nearest := INF
 		for enemy in enemies:
