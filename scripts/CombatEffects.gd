@@ -122,6 +122,7 @@ func _draw_lightning_arc(arc: Dictionary) -> void:
 		points.append(start.lerp(finish, progress) + offset)
 	points.append(finish)
 	var alpha := minf(1.0, float(arc.life) / 0.16)
+	draw_polyline(points, Color(0.66, 0.54, 1.0, alpha * 0.22), 9.0, true)
 	draw_polyline(points, Color(0.78, 0.65, 1.0, alpha), 3.0, true)
 
 func _with_alpha(color: Color, alpha: float) -> Color:
