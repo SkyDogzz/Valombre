@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#11130f">
+  <title>Les Cendres de Valombre</title>
+  <link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="src/game.js" type="module"></script>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div class="brand">
+        <div class="sigil" aria-hidden="true"><span>✦</span></div>
+        <div>
+          <h1>LES CENDRES DE VALOMBRE</h1>
+          <p class="subtitle">Chroniques d’un royaume oublié</p>
+        </div>
+      </div>
+      <div class="header-note">Chapitre I &nbsp;·&nbsp; Les bois maudits</div>
+    </header>
+
+    <section class="game-frame" aria-label="Jeu Les Cendres de Valombre">
+      <canvas id="game" width="960" height="540" tabindex="0" aria-label="Arène de jeu vue du dessus"></canvas>
+      <div class="vignette" aria-hidden="true"></div>
+      <div class="top-hud" aria-live="polite">
+        <div class="hero-card">
+          <div class="portrait" aria-hidden="true">♙</div>
+          <div class="hero-details">
+            <div class="hero-name" id="hero-name">LE PÈLERIN</div>
+            <div class="hero-class" id="hero-class">Errant des cendres</div>
+            <div id="weapon-name" class="weapon-name">Arme · Sabre</div>
+            <div class="bars" aria-label="Bouclier, santé et expérience">
+              <div class="bar shield-bar" role="meter" aria-label="Bouclier" aria-valuemin="0" aria-valuemax="100"><i id="shield-fill"></i></div>
+              <div class="bar" role="meter" aria-label="Santé" aria-valuemin="0" aria-valuemax="100"><i id="health-fill"></i></div>
+              <div class="bar" role="meter" aria-label="Expérience"><i id="xp-fill"></i></div>
+            </div>
+            <div class="stats"><span>PV <b id="health-text">100 / 100</b></span><span>XP <b id="xp-text">0 / 5</b></span><span>NIV. <b id="level-text">1</b></span></div>
+          </div>
+        </div>
+        <div class="run-info">
+          <div class="wave">
+            <strong id="wave-text">La forêt sommeille</strong>
+            <span id="enemy-text">Prêt à partir</span>
+            <small id="difficulty-text" class="difficulty-badge">Normal</small>
+          </div>
+          <button
+            id="inventory-toggle"
+            class="inventory-toggle"
+            type="button"
+            aria-controls="inventory-panel"
+            aria-expanded="false"
+          >ARMES &amp; RELIQUES <kbd>Tab</kbd></button>
+          <button id="cheat-toggle" class="cheat-toggle" type="button" aria-pressed="false" hidden>VIE INFINIE · OFF</button>
+          <div id="inventory-panel" class="inventory" aria-live="polite" hidden>
+            <strong class="inventory-title">
+              <img src="assets/weapons/category.svg" alt="" aria-hidden="true">
+              ARMES <b id="weapon-count">1 / 5</b>
+            </strong>
+            <small class="inventory-hint">Toutes attaquent automatiquement</small>
+            <ul id="weapon-list"></ul>
+            <small id="weapon-stats" class="inventory-stats"></small>
+            <strong class="inventory-title relic-title">
+              <img src="assets/relics/category.svg" alt="" aria-hidden="true">
+              RELIQUES <b id="inventory-count">0 / 5</b>
+            </strong>
+            <ul id="relic-list"></ul>
+            <small id="relic-stats" class="inventory-stats"></small>
+            <strong class="inventory-title relic-title">
+              SYNERGIES <b id="synergy-count">0 / 9</b>
+            </strong>
+            <small class="inventory-hint">Arme spéciale + relique niveau 5</small>
+            <ul id="synergy-list"></ul>
+            <strong class="inventory-title relic-title">ENNEMIS</strong>
+            <small id="enemy-stats" class="inventory-stats"></small>
+            <small id="run-objectives" class="inventory-stats"></small>
+          </div>
+        </div>
+      </div>
+      <div id="boss-hud" class="boss-hud" hidden><strong id="boss-name">BOSS</strong><div class="boss-bar"><i id="boss-fill"></i></div></div>
+      <div id="notice" class="notice" role="status"></div>
+      <div class="bottom-hud">
+        <div class="skill"><span class="key">⇧</span><span class="skill-label">Esquive<small id="dodge-text">Prête</small></span></div>
+        <div id="special-skill" class="skill"><span class="key">E</span><span class="skill-label"><span id="special-name">Charge de cendre</span><small id="skill-text">Prête</small></span></div>
+        <div class="hint"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> se déplacer &nbsp; <kbd>ESPACE</kbd> attaquer</div>
+      </div>
+      <div class="touch-controls" aria-label="Commandes tactiles">
+        <div id="joystick" class="joystick" role="group" aria-label="Joystick de déplacement"><i id="stick" aria-hidden="true"></i></div>
+        <div class="touch-actions"><button type="button" data-action="attack" aria-label="Attaquer">⚔</button><button id="special-action" type="button" data-action="special" aria-label="Charge de cendre">E</button><button type="button" data-action="dodge" aria-label="Esquiver">⇧</button><button type="button" data-action="pause" aria-label="Mettre en pause">Ⅱ</button></div>
+      </div>
+      <div id="overlay" class="overlay">
+        <div class="dialog">
+          <div class="eyebrow">Un conte des terres brisées</div>
+          <h2 id="dialog-title">La nuit se lève</h2>
+          <p id="dialog-copy">Les morts se sont éveillés sous les racines. Traversez la clairière, terrassez-les et survivez aux vagues.</p>
+          <div id="loot-preview" class="loot-preview" hidden></div>
+          <div id="pause-catalog" class="pause-catalog" hidden></div>
+          <div class="start-options">
+            <label id="hero-picker" class="weapon-picker" for="hero-select">Héros
+              <select id="hero-select">
+                <option value="pilgrim">Pèlerin · équilibré</option>
+                <option value="sentinel">Sentinelle · robuste</option>
+              </select>
+            </label>
+            <label id="weapon-picker" class="weapon-picker" for="weapon-select">Arme de départ
+              <select id="weapon-select">
+                <option value="sabre">Sabre · équilibré</option>
+                <option value="marteau">Marteau · lent et large</option>
+                <option value="dagues">Dagues · rapides et courtes</option>
+                <option value="arc">Arc runique · tirs automatiques à distance</option>
+                <option value="foudre">Bâton des orages · éclairs en chaîne</option>
+                <option value="bombe">Bombarde ardente · explosions en zone</option>
+                <option value="lance">Lance transperçante · estoc long</option>
+                <option value="faux">Faux circulaire · balayage autour de soi</option>
+                <option value="givre">Sceptre de givre · projectiles ralentissants</option>
+              </select>
+              <small id="weapon-help" class="weapon-help"></small>
+            </label>
+            <label id="mode-picker" class="weapon-picker" for="mode-select">Mode
+              <select id="mode-select"><option value="waves">Vagues · boss final</option><option value="infinite">Survie infinie · boss tous les 5 niveaux</option></select>
+            </label>
+            <label id="difficulty-picker" class="weapon-picker" for="difficulty-select">Difficulté
+              <select id="difficulty-select"><option value="insane">Insane</option><option value="nightmare">Cauchemar</option><option value="cataclysm">Cataclysme</option></select>
+            </label>
+            <label class="run-toggle"><input id="single-weapon" type="checkbox"> Arme unique · garder seulement l’arme de départ</label>
+            <label class="run-toggle"><input id="uncapped-inventory" type="checkbox"> Arsenal illimité · armes et reliques</label>
+            <div id="drop-settings" class="drop-settings">
+              <label class="run-toggle"><input id="custom-drops" type="checkbox"> Drops personnalisés · choisir le butin possible</label>
+              <div id="drop-options" class="drop-options" hidden>
+                <fieldset><legend>Armes</legend><div id="drop-weapons" class="drop-list"></div></fieldset>
+                <fieldset><legend>Reliques</legend><div id="drop-relics" class="drop-list"></div></fieldset>
+              </div>
+            </div>
+          </div>
+          <div id="choice-hint" class="choice-hint">Limite normale : 5 armes et 5 reliques. Activez Arsenal illimité pour conserver tout votre équipement.</div>
+          <button id="share-run" class="share-run" type="button">Copier le lien de cette configuration</button>
+          <label class="share-link-label" for="share-link" hidden>Lien de configuration
+            <input id="share-link" type="url" readonly>
+          </label>
+          <div id="save-text" class="save-text" aria-live="polite"></div>
+          <div class="audio-options"><label><input id="mute" type="checkbox"> Muet</label><label for="volume">Volume <input id="volume" type="range" min="0" max="1" step="0.05" value="0.25"></label></div>
+          <label class="auto-pick-option"><input id="auto-pick-upgrade" type="checkbox"> Choisir automatiquement la première amélioration après 3 s</label>
+          <button id="reset-save" class="reset-save" type="button">Effacer la progression et les options sauvegardées</button>
+          <div id="upgrade-options" class="upgrade-options" role="group" aria-label="Améliorations disponibles" hidden></div>
+          <button id="start" class="start">Entrer dans la forêt</button>
+          <button id="restart-run" class="start secondary" type="button" hidden>Nouvelle run · choisir les options</button>
+          <button id="new-run" class="start secondary" type="button" hidden>Nouvelle partie</button>
+          <button id="return-menu" class="start secondary" hidden>Retour au menu</button>
+          <div class="instructions"><span><b>↑ ↓ ← →</b> menus · <b>Entrée</b> valider</span><span><b>WASD</b> déplacement · <b>Maj</b> esquive · <b>E</b> capacité du héros</span></div>
+          <div class="under">Les armes attaquent automatiquement les ennemis proches ; espace ou clic permet aussi de frapper</div>
+        </div>
+      </div>
+    </section>
+
+    <footer><span>VALOMBRE &nbsp;·&nbsp; AN 713 DE LA CENDRE</span><span>Survivez. Devenez plus fort. Recommencez.</span></footer>
+  </main>
+</body>
+</html>
