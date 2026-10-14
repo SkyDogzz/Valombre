@@ -2628,7 +2628,8 @@ func _roll_enemy_item_drop(position: Vector2) -> void:
 			var loot_id := loot_choices[rng.randi_range(0, loot_choices.size() - 1)]
 			var loot_node := ValombrePickupVisual.new()
 			loot_node.z_index = 1
-			loot_node.configure("res://assets/weapons/category.svg" if loot_type == "weapon" else "res://assets/relics/category.svg", loot_type)
+			var asset_category := "weapons" if loot_type == "weapon" else "relics"
+			loot_node.configure("res://assets/%s/%s.svg" % [asset_category, loot_id], loot_type)
 			var drop_position := _drop_spawn_position(position)
 			loot_node.position = drop_position
 			arena.add_child(loot_node)
