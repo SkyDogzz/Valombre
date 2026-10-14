@@ -130,6 +130,7 @@ var held_weapon_sprite: Sprite2D
 var manual_attack_from_mouse := false
 var touch_controls: ValombreTouchControls
 var particle_layer: ValombreParticleLayer
+var combat_effects: ValombreCombatEffects
 
 func _ready() -> void:
 	_configure_gamepad_inputs()
@@ -141,6 +142,10 @@ func _ready() -> void:
 	particle_layer.z_index = 10
 	particle_layer.set_process(false)
 	arena.add_child(particle_layer)
+	combat_effects = ValombreCombatEffects.new()
+	combat_effects.name = "CombatEffects"
+	combat_effects.set_process(false)
+	arena.add_child(combat_effects)
 	player.dodge_started.connect(func(position: Vector2) -> void: _spawn_burst(position, Color("d9c18a"), 8))
 	catalog = main.catalog
 	_load_profile()
@@ -737,6 +742,8 @@ func _on_new_run_pressed() -> void:
 func _start_run(checkpoint: Dictionary = {}) -> void:
 	if is_instance_valid(particle_layer):
 		particle_layer.clear()
+	if is_instance_valid(combat_effects):
+		combat_effects.clear()
 	for enemy in enemies:
 		enemy.queue_free()
 	for drop in drops:
@@ -1369,6 +1376,7 @@ func _update_auto_attack() -> void:
 				if id == "dagues" and special_finisher and is_instance_valid(enemy) and enemies.has(enemy):
 					enemy.set_meta("dagger_bleed", {"remaining": 1.8, "tick": 0.45, "damage": _weapon_base_damage(weapon, enemy) * damage_scale * 0.24})
 				if sabre_burst:
+					_add_combat_effect({"kind": "sabre_burst", "position": enemy.position, "radius": 104.0, "life": 0.34, "max_life": 0.34})
 					for nearby in enemies.duplicate():
 						if nearby.position.distance_to(enemy.position) <= 104.0:
 							_damage_enemy(nearby, _weapon_base_damage(weapon, nearby) * damage_scale * 1.35, id)
@@ -1385,9 +1393,13 @@ func _update_auto_attack() -> void:
 		if id == "marteau" and bool(owned.special):
 			var full_circle := _synergy_active(id)
 			weapon_effects.append({"kind": "hammer_wave", "delay": 0.16, "position": player.position, "angle": player.facing.angle(), "arc": float(weapon.get("arc", -1.0)), "outer": reach + 34.0, "full_circle": full_circle, "weapon": id, "damage_scale": damage_scale * (1.05 if full_circle else 0.55)})
+			if full_circle:
+				_add_combat_effect({"kind": "hammer_wave", "delay": 0.16, "position": player.position, "outer": reach + 34.0, "full_circle": true, "life": 0.3, "max_life": 0.3})
 		if id == "faux" and (special_finisher or (_synergy_active(id) and scythe_souls > 0)):
 			var released := scythe_souls if _synergy_active(id) else 0
 			scythe_souls -= released
+			_add_combat_effect({"kind": "scythe_wave", "position": player.position, "radius": reach * 1.08, "souls": released, "life": 0.42, "max_life": 0.42})
+			_play_tone(190.0, 0.1, "sawtooth")
 			for enemy in enemies.duplicate():
 				if enemy.position.distance_to(player.position) <= reach * 1.08:
 					_damage_enemy(enemy, float(weapon.ghoulDamage) * damage_scale * (0.32 + released * 0.42), id)
@@ -1469,6 +1481,7 @@ func _process_weapon_effects(delta: float) -> void:
 				var away := enemy.position - effect.position
 				if away.length() <= float(effect.radius) and away.length() > 0.0:
 					_move_enemy_around_obstacles(enemy, away.normalized() * 76.0)
+			_add_combat_effect({"kind": "hammer_shockwave", "position": effect.position, "radius": float(effect.radius), "delay": 0.12, "life": 0.28, "max_life": 0.28})
 			_play_tone(120.0, 0.09)
 			weapon_effects.remove_at(index)
 			continue
@@ -1602,12 +1615,15 @@ func _chain_lightning(first: ValombreEnemy, projectile: Dictionary) -> void:
 		if not nearest:
 			break
 		hit.append(nearest)
+		if is_instance_valid(combat_effects):
+			combat_effects.add_lightning_arc(current.position, nearest.position)
 		_damage_enemy(nearest, float(projectile.damage) * 0.72, str(projectile.weapon))
 		if state != "playing":
 			break
 		current = nearest
 	if state == "playing" and bool(projectile.get("storm_special", false)):
 		damage_zones.append({"position": current.position, "radius": 34.0, "damage": float(projectile.damage) * 0.28, "weapon": str(projectile.weapon), "tick": 0.12, "interval": 0.3, "life": 1.2})
+		_add_combat_effect({"kind": "lightning_zone", "position": current.position, "radius": 34.0, "life": 1.2, "max_life": 1.2})
 
 func _update_damage_zones(delta: float) -> void:
 	for index in range(damage_zones.size() - 1, -1, -1):
@@ -1632,6 +1648,7 @@ func _detonate_projectile(projectile: Dictionary, center: Vector2) -> void:
 	var radius := float(projectile.get("explosion_radius", 44.0))
 	_play_tone(78.0 if bool(projectile.get("special_blast", false)) else 112.0, 0.18, "sawtooth")
 	_spawn_burst(center, Color("ffe18a") if bool(projectile.get("special_blast", false)) else Color("ff9a4e"), 16)
+	_add_combat_effect({"kind": "bomb_explosion", "position": center, "radius": radius, "special": bool(projectile.get("special_blast", false)), "life": 0.38, "max_life": 0.38})
 	for enemy in enemies.duplicate():
 		var offset := enemy.position - center
 		var distance := offset.length()
@@ -1643,6 +1660,7 @@ func _detonate_projectile(projectile: Dictionary, center: Vector2) -> void:
 			break
 	if bool(projectile.get("special_blast", false)):
 		damage_zones.append({"position": center, "radius": radius * 0.78, "damage": float(projectile.damage) * 0.18, "weapon": str(projectile.weapon), "tick": 0.16, "interval": 0.2, "life": 0.82})
+		_add_combat_effect({"kind": "bomb_burn", "position": center, "radius": radius * 0.78, "life": 0.82, "max_life": 0.82})
 
 func _remove_projectile(index: int) -> void:
 	var projectile: Dictionary = projectiles[index]
@@ -1708,6 +1726,10 @@ func _spawn_burst(position: Vector2, tint: Color, count: int) -> void:
 	if is_instance_valid(particle_layer):
 		particle_layer.burst(position, tint, count, rng)
 
+func _add_combat_effect(effect: Dictionary) -> void:
+	if is_instance_valid(combat_effects):
+		combat_effects.add_effect(effect)
+
 func _update_damage_numbers(delta: float) -> void:
 	for index in range(damage_numbers.size() - 1, -1, -1):
 		var number: Dictionary = damage_numbers[index]
@@ -1750,6 +1772,7 @@ func _on_enemy_killed(enemy: ValombreEnemy, weapon: String) -> void:
 			arena.add_child(dagger)
 			projectiles.append({"node": dagger, "direction": death_position.direction_to(target.position), "speed": 620.0, "radius": 6.0, "damage": float(catalog.content.weapons.dagues.ghoulDamage) * _weapon_scale("dagues") * 1.4, "weapon": "", "remaining": 900.0, "homing_target": target, "explosive": false, "lightning": false, "frost": false, "hit_targets": []})
 	if weapon == "givre" and enemy.slow_time > 0.0 and _synergy_active("givre"):
+		_add_combat_effect({"kind": "frost_nova", "position": death_position, "radius": 124.0, "life": 0.42, "max_life": 0.42})
 		for target in enemies.duplicate():
 			if target == enemy or target.position.distance_to(death_position) > 124.0:
 				continue
@@ -2420,6 +2443,8 @@ func _set_state(next_state: String) -> void:
 	menu_panel.visible = is_overlay
 	if is_instance_valid(particle_layer):
 		particle_layer.set_process(state == "playing")
+	if is_instance_valid(combat_effects):
+		combat_effects.set_process(state == "playing")
 	if is_instance_valid(touch_controls):
 		if state != "playing":
 			touch_controls.release_all()
