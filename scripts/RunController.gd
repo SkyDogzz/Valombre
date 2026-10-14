@@ -43,6 +43,16 @@ var swarm_timer := -1.0
 var boss_after_wave_id := ""
 var enemies: Array[ValombreEnemy] = []
 var drops: Array[Dictionary] = []
+var weapon_inventory: Array[Dictionary] = []
+var relic_inventory: Array[Dictionary] = []
+var weapon_cooldowns: Dictionary = {}
+var equipment_damage := 1.0
+var equipment_speed := 1.0
+var equipment_range := 0.0
+var equipment_defense := 0.0
+var equipment_xp := 1.0
+var equipment_lifesteal := 0.0
+var global_pickup := false
 var projectiles: Array[Dictionary] = []
 var projectile_size_multiplier := 1.0
 var projectile_speed_multiplier := 1.0
@@ -86,7 +96,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_set_state("title")
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("inventory") and state == "playing":
-		status_label.text = "ARMES\n%s\n\nRelique : aucune\nSynergies : aucune" % _find_definition("weapons", weapon_id).display_name
+		status_label.text = _inventory_summary()
 		status_label.visible = not status_label.visible
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("special") and state == "playing":
@@ -97,6 +107,8 @@ func _process(delta: float) -> void:
 		return
 	elapsed += delta
 	weapon_cooldown = maxf(0.0, weapon_cooldown - delta)
+	for id in weapon_cooldowns.keys():
+		weapon_cooldowns[id] = maxf(0.0, float(weapon_cooldowns[id]) - delta)
 	contact_cooldown = maxf(0.0, contact_cooldown - delta)
 	skill_cooldown = maxf(0.0, skill_cooldown - delta)
 	if intermission > 0.0:
@@ -242,6 +254,16 @@ func _start_run() -> void:
 	boss_after_wave_id = ""
 	base_hp = float(stats.get("health", 100))
 	bonus_max_hp = 0.0
+	weapon_inventory = [{"id": weapon_id, "level": 1, "special": false, "locked": false}]
+	relic_inventory.clear()
+	weapon_cooldowns.clear()
+	equipment_damage = 1.0
+	equipment_speed = 1.0
+	equipment_range = 0.0
+	equipment_defense = 0.0
+	equipment_xp = 1.0
+	equipment_lifesteal = 0.0
+	global_pickup = false
 	attack_speed_multiplier = 1.0
 	range_bonus = 0.0
 	projectile_size_multiplier = 1.0
@@ -618,66 +640,75 @@ func _position_blocked(position: Vector2, radius: float) -> bool:
 	return false
 
 func _update_auto_attack() -> void:
-	var weapon: Dictionary = catalog.content.weapons[weapon_id]
-	var target: ValombreEnemy
-	var nearest := INF
-	for enemy in enemies:
-		var distance := player.position.distance_to(enemy.position)
-		if distance < nearest:
-			nearest = distance
-			target = enemy
-	var manual := Input.is_action_just_pressed("attack")
-	if not target or nearest > float(weapon.get("range", 108.0)) + range_bonus or (weapon_cooldown > 0.0 and not manual):
-		return
-	var aim := (target.position - player.position).normalized()
-	if aim != Vector2.ZERO:
-		player.facing = aim
-	var damage_scale := damage_multiplier * (1.0 + (level - 1) * 0.005)
-	var frequency := maxf(0.1, float(weapon.speed) * attack_speed_multiplier)
-	weapon_cooldown = 0.26 / frequency
-	if bool(weapon.get("ranged", false)):
-		_launch_projectile(weapon, target, damage_scale)
-		return
-	for enemy in enemies.duplicate():
-		var offset := enemy.position - player.position
-		var distance := offset.length()
-		var in_shape := false
-		if bool(weapon.get("circular", false)):
-			in_shape = distance < float(weapon.range) + range_bonus
-		elif bool(weapon.get("piercing", false)):
-			var along := clampf(offset.dot(player.facing), 0.0, float(weapon.range) + range_bonus)
-			var closest := player.position + player.facing * along
-			in_shape = enemy.position.distance_to(closest) < 18.0 + enemy.radius
-		else:
-			var alignment := offset.normalized().dot(player.facing) if distance > 0.0 else 1.0
-			in_shape = distance < float(weapon.range) + range_bonus and alignment > float(weapon.get("arc", -1.0))
-		if in_shape:
-			_damage_enemy(enemy, _weapon_base_damage(weapon, enemy) * damage_scale, weapon_id)
+	for owned in weapon_inventory:
+		var id := str(owned.id)
+		var weapon: Dictionary = catalog.content.weapons[id]
+		var target: ValombreEnemy
+		var nearest := INF
+		for enemy in enemies:
+			var distance := player.position.distance_to(enemy.position)
+			if distance < nearest:
+				nearest = distance
+				target = enemy
+		var manual := id == weapon_id and Input.is_action_just_pressed("attack")
+		var level_scale := 1.0 + 0.18 * (int(owned.level) - 1)
+		var reach := (float(weapon.get("range", 108.0)) + range_bonus + equipment_range) * float(_synergy_data(id).get("rangeMultiplier", 1.0))
+		if not target or nearest > reach or (float(weapon_cooldowns.get(id, 0.0)) > 0.0 and not manual):
+			continue
+		var aim := (target.position - player.position).normalized()
+		if aim != Vector2.ZERO:
+			player.facing = aim
+		var synergy := _synergy_data(id)
+		var damage_scale := damage_multiplier * equipment_damage * level_scale * float(synergy.get("damageMultiplier", 1.0)) * (1.5 if bool(owned.special) else 1.0) * (1.0 + (level - 1) * 0.005)
+		var frequency := maxf(0.1, float(weapon.speed) * attack_speed_multiplier * equipment_speed * pow(1.08, int(owned.level) - 1) * float(synergy.get("attackSpeedMultiplier", 1.0)) * (1.2 if bool(owned.special) else 1.0))
+		weapon_cooldowns[id] = 0.26 / frequency
+		if bool(weapon.get("ranged", false)):
+			_launch_projectile(weapon, target, damage_scale, id, reach)
+			continue
+		for enemy in enemies.duplicate():
+			var offset := enemy.position - player.position
+			var distance := offset.length()
+			var in_shape := false
+			if bool(weapon.get("circular", false)):
+				in_shape = distance < reach
+			elif bool(weapon.get("piercing", false)):
+				var along := clampf(offset.dot(player.facing), 0.0, reach)
+				var closest := player.position + player.facing * along
+				in_shape = enemy.position.distance_to(closest) < 18.0 + enemy.radius
+			else:
+				var alignment := offset.normalized().dot(player.facing) if distance > 0.0 else 1.0
+				in_shape = distance < reach and alignment > float(weapon.get("arc", -1.0))
+			if in_shape:
+				_damage_enemy(enemy, _weapon_base_damage(weapon, enemy) * damage_scale, id)
 
 func _weapon_base_damage(weapon: Dictionary, enemy: ValombreEnemy) -> float:
 	return float(weapon.get("bruteDamage", 25) if enemy.kind == "brute" else weapon.get("ghoulDamage", 32))
 
-func _launch_projectile(weapon: Dictionary, target: ValombreEnemy, damage_scale: float) -> void:
+func _launch_projectile(weapon: Dictionary, target: ValombreEnemy, damage_scale: float, id: String, reach: float) -> void:
 	var direction := (target.position - player.position).normalized()
-	var sprite := Sprite2D.new()
-	sprite.texture = load("res://assets/weapons/%s.svg" % weapon_id)
-	sprite.scale = Vector2(0.18, 0.18) * projectile_size_multiplier
-	sprite.modulate = Color("c7a8ff") if weapon.get("lightning", false) else Color("91e9ef") if weapon.get("frost", false) else Color("ff9a4e") if weapon.get("explosive", false) else Color("85d8ce")
-	sprite.position = player.position + direction * 14.0
-	arena.add_child(sprite)
-	projectiles.append({
-		"node": sprite,
-		"direction": direction,
-		"speed": 520.0 * projectile_speed_multiplier,
-		"radius": 5.0 * projectile_size_multiplier,
-		"damage": _weapon_base_damage(weapon, target) * damage_scale,
-		"weapon": weapon_id,
-		"remaining": float(weapon.get("range", 330.0)) + 40.0,
-		"explosive": bool(weapon.get("explosive", false)),
-		"lightning": bool(weapon.get("lightning", false)),
-		"frost": bool(weapon.get("frost", false)),
-		"hit_targets": [],
-	})
+	var directions: Array[Vector2] = [direction]
+	if id == "arc" and _synergy_active(id):
+		directions = [direction.rotated(-0.2), direction, direction.rotated(0.2)]
+	for shot_direction in directions:
+		var sprite := Sprite2D.new()
+		sprite.texture = load("res://assets/weapons/%s.svg" % id)
+		sprite.scale = Vector2(0.18, 0.18) * projectile_size_multiplier
+		sprite.modulate = Color("c7a8ff") if weapon.get("lightning", false) else Color("91e9ef") if weapon.get("frost", false) else Color("ff9a4e") if weapon.get("explosive", false) else Color("85d8ce")
+		sprite.position = player.position + shot_direction * 14.0
+		arena.add_child(sprite)
+		projectiles.append({
+			"node": sprite,
+			"direction": shot_direction,
+			"speed": 520.0 * projectile_speed_multiplier,
+			"radius": 5.0 * projectile_size_multiplier,
+			"damage": _weapon_base_damage(weapon, target) * damage_scale,
+			"weapon": id,
+			"remaining": reach + 40.0,
+			"explosive": bool(weapon.get("explosive", false)),
+			"lightning": bool(weapon.get("lightning", false)),
+			"frost": bool(weapon.get("frost", false)),
+			"hit_targets": [],
+		})
 
 func _update_projectiles(delta: float) -> void:
 	for index in range(projectiles.size() - 1, -1, -1):
@@ -725,9 +756,10 @@ func _update_projectiles(delta: float) -> void:
 func _chain_lightning(first: ValombreEnemy, projectile: Dictionary) -> void:
 	var current := first
 	var hit: Array[ValombreEnemy] = [first]
-	for _bounce in 1:
+	var max_bounces := 2 if _synergy_active(str(projectile.weapon)) else 1
+	for _bounce in max_bounces:
 		var nearest: ValombreEnemy
-		var nearest_distance := 190.0
+		var nearest_distance := 380.0 if _synergy_active(str(projectile.weapon)) else 190.0
 		for enemy in enemies:
 			if hit.has(enemy):
 				continue
@@ -761,7 +793,7 @@ func _damage_enemy(enemy: ValombreEnemy, amount: float, _weapon: String) -> void
 	if enemy.hp <= 0.0:
 		defeated += 1
 		if enemy.kind == "boss":
-			_enemy_drop_xp(enemy.position, 1.0)
+			_enemy_drop_xp(enemy.position, 1.0, false)
 			enemy.queue_free()
 			enemies.erase(enemy)
 			if mode == "infinite":
@@ -775,14 +807,50 @@ func _damage_enemy(enemy: ValombreEnemy, amount: float, _weapon: String) -> void
 				_progress_objective("elite")
 			enemy.queue_free()
 			enemies.erase(enemy)
+	if equipment_lifesteal > 0.0 and is_instance_valid(player):
+		hp = minf(max_hp, hp + minf(amount, enemy.hp + amount) * equipment_lifesteal)
 
-func _enemy_drop_xp(position: Vector2, value: float) -> void:
+func _enemy_drop_xp(position: Vector2, value: float, allow_item_drop := true) -> void:
 	var node := Sprite2D.new()
 	node.texture = load("res://assets/xp.svg")
 	node.scale = Vector2(0.18, 0.18)
 	node.position = position + Vector2(rng.randf_range(-15, 15), rng.randf_range(-15, 15))
 	arena.add_child(node)
-	drops.append({"node": node, "value": value, "life": 18.0})
+	var xp_multiplier := equipment_xp * float(_synergy_data("foudre").get("experienceMultiplier", 1.0))
+	drops.append({"node": node, "type": "xp", "value": value * xp_multiplier, "life": 18.0})
+	var difficulty: Dictionary = catalog.content.difficulties.get(difficulty_id, {})
+	if not allow_item_drop:
+		return
+	var drop_roll := rng.randf()
+	var potion_chance := float(catalog.content.config.drops.get("potionChance", 0.08)) * float(difficulty.get("itemDrop", 1.0))
+	var equipment_chance := float(catalog.content.config.drops.get("relicChance", 0.22)) * float(difficulty.get("itemDrop", 1.0))
+	if drop_roll < potion_chance:
+		var potion := Sprite2D.new()
+		potion.texture = load("res://assets/relics/heart.svg")
+		potion.scale = Vector2(0.17, 0.17)
+		potion.position = position
+		arena.add_child(potion)
+		drops.append({"node": potion, "type": "potion", "life": 18.0})
+	elif drop_roll < potion_chance + equipment_chance:
+		var choices: Array[String] = []
+		for definition: GameDefinition in catalog.definitions.get("weapons", []):
+			var owned := _owned_weapon(str(definition.id))
+			if owned.is_empty() or int(owned.level) < 5 or not bool(owned.special):
+				choices.append("weapon:%s" % definition.id)
+		for relic: Dictionary in catalog.content.relics:
+			var owned_relic := _owned_relic(str(relic.id))
+			if owned_relic.is_empty() or int(owned_relic.level) < 5:
+				choices.append("relic:%s" % relic.id)
+		if not choices.is_empty():
+			var parts := choices[rng.randi_range(0, choices.size() - 1)].split(":")
+			var loot_type := str(parts[0])
+			var loot_id := str(parts[1])
+			var loot_node := Sprite2D.new()
+			loot_node.texture = load("res://assets/weapons/%s.svg" % loot_id) if loot_type == "weapon" else load("res://assets/relics/%s.svg" % loot_id)
+			loot_node.scale = Vector2(0.17, 0.17)
+			loot_node.position = position + Vector2(rng.randf_range(-20, 20), rng.randf_range(-20, 20))
+			arena.add_child(loot_node)
+			drops.append({"node": loot_node, "type": loot_type, "id": loot_id, "life": 18.0})
 
 func _update_drops(delta: float) -> void:
 	for index in range(drops.size() - 1, -1, -1):
@@ -793,25 +861,33 @@ func _update_drops(delta: float) -> void:
 			drops.remove_at(index)
 			continue
 		var distance: float = player.position.distance_to(drop.node.position)
-		if distance <= pickup_range:
+		if distance <= pickup_range or global_pickup:
 			var pull := player.position.direction_to(drop.node.position) * minf(240.0 * delta, distance)
 			drop.node.position -= pull
 		if player.position.distance_to(drop.node.position) <= 22.0:
-			xp += float(drop.value)
+			if str(drop.get("type", "xp")) == "weapon":
+				_pick_weapon(str(drop.id))
+			elif str(drop.get("type", "xp")) == "relic":
+				_pick_relic(str(drop.id))
+			elif str(drop.get("type", "xp")) == "potion":
+				hp = minf(max_hp, hp + 32.0)
+			else:
+				xp += float(drop.value)
 			drop.node.queue_free()
 			drops.remove_at(index)
-			_progress_objective("xp")
-			while xp >= next_xp:
-				xp -= next_xp
-				level += 1
-				next_xp += 3.0
-				pending_upgrades += 1
-			var old_max_hp := max_hp
-			max_hp = base_hp * (1.0 + (level - 1) * 0.01) + bonus_max_hp
-			hp = minf(max_hp, hp + max_hp - old_max_hp)
-			if pending_upgrades > 0:
-				_show_level_up()
-				return
+			if str(drop.get("type", "xp")) == "xp":
+				_progress_objective("xp")
+				while xp >= next_xp:
+					xp -= next_xp
+					level += 1
+					next_xp += 3.0
+					pending_upgrades += 1
+				var old_max_hp := max_hp
+				max_hp = base_hp * (1.0 + (level - 1) * 0.01) + bonus_max_hp + _relic_health()
+				hp = minf(max_hp, hp + max_hp - old_max_hp)
+				if pending_upgrades > 0:
+					_show_level_up()
+					return
 
 func _show_level_up() -> void:
 	_set_state("levelUp")
@@ -838,8 +914,8 @@ func _apply_upgrade(definition: GameDefinition) -> void:
 		"damage": damage_multiplier *= 1.0 + bonus
 		"attackSpeed": attack_speed_multiplier *= 1.0 + bonus
 		"range": range_bonus += bonus
-	"projectileSize": projectile_size_multiplier *= 1.0 + bonus
-	"projectileSpeed": projectile_speed_multiplier *= 1.0 + bonus
+		"projectileSize": projectile_size_multiplier *= 1.0 + bonus
+		"projectileSpeed": projectile_speed_multiplier *= 1.0 + bonus
 		"movementSpeed":
 			movement_multiplier *= 1.0 + bonus
 			player.movement_multiplier = movement_multiplier
@@ -852,14 +928,180 @@ func _apply_upgrade(definition: GameDefinition) -> void:
 			pickup_range_multiplier *= 1.0 + bonus
 			pickup_range *= 1.0 + bonus
 	upgrade_ranks[str(definition.id)] = rank + 1
+	_refresh_relic_stats()
 	pending_upgrades -= 1
 	if pending_upgrades > 0:
 		_show_level_up()
 	else:
 		_set_state("playing")
 
+func _owned_weapon(id: String) -> Dictionary:
+	for item in weapon_inventory:
+		if str(item.id) == id:
+			return item
+	return {}
+
+func _owned_relic(id: String) -> Dictionary:
+	for item in relic_inventory:
+		if str(item.id) == id:
+			return item
+	return {}
+
+func _pick_weapon(id: String) -> void:
+	var owned := _owned_weapon(id)
+	if not owned.is_empty():
+		if int(owned.level) < 5:
+			owned.level = int(owned.level) + 1
+		elif not bool(owned.special):
+			owned.special = true
+			status_label.text = "%s spéciale obtenue" % _find_definition("weapons", id).display_name
+		else:
+			return
+		weapon_cooldowns[id] = 0.0
+		return
+	var entry := {"id": id, "level": 1, "special": false, "locked": false}
+	if weapon_inventory.size() < 5:
+		weapon_inventory.append(entry)
+		return
+	var choices: Array[Dictionary] = []
+	for item in weapon_inventory:
+		if not bool(item.get("locked", false)):
+			choices.append(item)
+	if choices.is_empty():
+		return
+	_set_state("loot")
+	var column: VBoxContainer = menu_panel.get_child(0)
+	for item in choices:
+		var button := Button.new()
+		button.text = "Remplacer %s · niveau %d" % [_find_definition("weapons", str(item.id)).display_name, int(item.level)]
+		button.pressed.connect(func() -> void:
+			weapon_inventory.erase(item)
+			weapon_inventory.append(entry)
+			weapon_cooldowns.erase(str(item.id))
+			_set_state("playing")
+		)
+		column.add_child(button)
+	var pass_button := Button.new()
+	pass_button.text = "Passer cette arme"
+	pass_button.pressed.connect(func() -> void: _set_state("playing"))
+	column.add_child(pass_button)
+
+func _pick_relic(id: String) -> void:
+	var owned := _owned_relic(id)
+	if not owned.is_empty():
+		if int(owned.level) < 5:
+			owned.level = int(owned.level) + 1
+			_refresh_relic_stats()
+		return
+	var entry: Dictionary = {}
+	for relic: Dictionary in catalog.content.relics:
+		if str(relic.id) == id:
+			entry = relic.duplicate(true)
+			break
+	if entry.is_empty():
+		return
+	entry.level = 1
+	entry.locked = false
+	if relic_inventory.size() < 5:
+		relic_inventory.append(entry)
+		_refresh_relic_stats()
+		return
+	var choices: Array[Dictionary] = []
+	for item in relic_inventory:
+		if not bool(item.get("locked", false)):
+			choices.append(item)
+	if choices.is_empty():
+		return
+	_set_state("loot")
+	var column: VBoxContainer = menu_panel.get_child(0)
+	for item in choices:
+		var button := Button.new()
+		button.text = "Remplacer %s · niveau %d" % [str(item.get("name", item.id)), int(item.level)]
+		button.pressed.connect(func() -> void:
+			relic_inventory.erase(item)
+			relic_inventory.append(entry)
+			_refresh_relic_stats()
+			_set_state("playing")
+		)
+		column.add_child(button)
+	var pass_button := Button.new()
+	pass_button.text = "Passer cette relique"
+	pass_button.pressed.connect(func() -> void: _set_state("playing"))
+	column.add_child(pass_button)
+
+func _refresh_relic_stats() -> void:
+	equipment_damage = 1.0
+	equipment_speed = 1.0
+	equipment_range = 0.0
+	equipment_defense = 0.0
+	equipment_xp = 1.0
+	equipment_lifesteal = 0.0
+	var pickup_mult := 1.0
+	var health_bonus := 0.0
+	global_pickup = false
+	for relic in relic_inventory:
+		var value := float(relic.get("value", 0.0))
+		var ranks := int(relic.get("level", 1))
+		match str(relic.get("effect", "")):
+			"damage": equipment_damage += value * ranks
+			"speed": equipment_speed *= 1.0 + (value - 1.0) * ranks
+			"range": equipment_range += value * ranks
+			"defense": equipment_defense += value * ranks
+			"experience": equipment_xp *= 1.0 + (value - 1.0) * ranks
+			"lifesteal": equipment_lifesteal += value * ranks
+			"health": health_bonus += value * ranks
+			"pickup": pickup_mult *= 1.0 + (value - 1.0) * ranks
+	for synergy: Dictionary in catalog.content.synergies:
+		var owned_weapon := _owned_weapon(str(synergy.weaponId))
+		var owned_relic := _owned_relic(str(synergy.relicId))
+		if not owned_weapon.is_empty() and int(owned_weapon.level) == 5 and bool(owned_weapon.special) and not owned_relic.is_empty() and int(owned_relic.level) == 5 and bool(synergy.get("globalPickup", false)):
+			global_pickup = true
+	max_hp = base_hp * (1.0 + (level - 1) * 0.01) + bonus_max_hp + health_bonus
+	hp = minf(max_hp, hp)
+	pickup_range = 90.0 * pickup_range_multiplier * pickup_mult
+
+func _synergy_active(weapon: String) -> bool:
+	for synergy: Dictionary in catalog.content.synergies:
+		if str(synergy.weaponId) != weapon:
+			continue
+		var owned_weapon := _owned_weapon(weapon)
+		var owned_relic := _owned_relic(str(synergy.relicId))
+		if not owned_weapon.is_empty() and int(owned_weapon.level) == 5 and bool(owned_weapon.special) and not owned_relic.is_empty() and int(owned_relic.level) == 5:
+			return true
+	return false
+
+func _synergy_data(weapon: String) -> Dictionary:
+	for synergy: Dictionary in catalog.content.synergies:
+		if str(synergy.weaponId) == weapon and _synergy_active(weapon):
+			return synergy
+	return {}
+
+func _inventory_summary() -> String:
+	var lines: Array[String] = ["ARMES"]
+	for item in weapon_inventory:
+		lines.append("%s · niveau %d%s" % [_find_definition("weapons", str(item.id)).display_name, int(item.level), " · spéciale" if bool(item.special) else ""])
+	lines.append("\nRELIQUES")
+	for item in relic_inventory:
+		lines.append("%s · niveau %d" % [str(item.get("name", item.id)), int(item.level)])
+	lines.append("\nSYNERGIES ACTIVES")
+	var found := false
+	for synergy: Dictionary in catalog.content.synergies:
+		if _synergy_active(str(synergy.weaponId)):
+			lines.append(str(synergy.name))
+			found = true
+	if not found:
+		lines.append("Aucune")
+	return "\n".join(lines)
+
+func _relic_health() -> float:
+	var total := 0.0
+	for item in relic_inventory:
+		if str(item.get("effect", "")) == "health":
+			total += float(item.value) * int(item.level)
+	return total
+
 func _damage_player(amount: float) -> void:
-	hp -= maxf(1.0, amount * (1.0 - defense))
+	hp -= maxf(1.0, amount * (1.0 - clampf(defense + equipment_defense, 0.0, 0.9)))
 	player.invulnerability = 0.55
 	if hp <= 0.0:
 		hp = 0.0
@@ -899,6 +1141,10 @@ func _set_state(next_state: String) -> void:
 			title_label.text = "UNE NOUVELLE FORCE"
 			status_label.text = "Choisissez une amélioration."
 			start_button.visible = false
+		"loot":
+			title_label.text = "UN NOUVEL ÉQUIPEMENT"
+			status_label.text = "Votre sac est plein. Choisissez un objet à remplacer, ou passez."
+			start_button.visible = false
 		"victory":
 			title_label.text = "VALOMBRE EST LIBÉRÉE"
 			status_label.text = "Ennemis vaincus : %d · niveau %d" % [defeated, level]
@@ -907,7 +1153,7 @@ func _set_state(next_state: String) -> void:
 			title_label.text = "LA FORÊT VOUS REPREND"
 			status_label.text = "Ennemis vaincus : %d · vague %d" % [defeated, wave]
 			start_button.text = "Rejouer"
-	if state != "levelUp":
+	if state not in ["levelUp", "loot"]:
 		start_button.visible = true
 		hero_picker.visible = state == "title"
 		weapon_picker.visible = state == "title"
@@ -924,7 +1170,7 @@ func _update_hud() -> void:
 	if not is_instance_valid(hud):
 		return
 	var objective := "%s %d/%d" % [objective_type, mini(objective_progress, objective_target), objective_target]
-	hud.text = "PV %d/%d\nNiveau %d · XP %d/%d\nVague %d · %s · %s\nÉliminations %d" % [ceili(hp), ceili(max_hp), level, int(xp), int(next_xp), wave, difficulty_id.capitalize(), objective, defeated]
+	hud.text = "PV %d/%d\nNiveau %d · XP %d/%d\nVague %d · %s · %s\nÉliminations %d · Arsenal %d/5 · Reliques %d/5" % [ceili(hp), ceili(max_hp), level, int(xp), int(next_xp), wave, difficulty_id.capitalize(), objective, defeated, weapon_inventory.size(), relic_inventory.size()]
 	var active_boss: ValombreEnemy
 	for enemy in enemies:
 		if enemy.kind == "boss":
