@@ -2325,10 +2325,8 @@ func _roll_enemy_item_drop(position: Vector2) -> void:
 	var potion_chance := float(catalog.content.config.drops.get("potionChance", 0.08)) * float(difficulty.get("itemDrop", 1.0))
 	var equipment_chance := float(catalog.content.config.drops.get("relicChance", 0.22)) * float(difficulty.get("itemDrop", 1.0))
 	if drop_roll < potion_chance:
-		var potion := Sprite2D.new()
+		var potion := ValombrePotionPickupVisual.new()
 		potion.z_index = 0
-		potion.texture = load("res://assets/relics/heart.svg")
-		potion.scale = Vector2(22.0 / 32.0, 22.0 / 32.0)
 		var drop_position := _drop_spawn_position(position)
 		potion.position = drop_position
 		arena.add_child(potion)
