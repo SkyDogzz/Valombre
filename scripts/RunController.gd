@@ -3382,7 +3382,8 @@ func _progress_objective(target: String) -> void:
 		if objective_progress >= objective_target:
 			objective_complete = true
 			hp = minf(max_hp, hp + ceili(max_hp * 0.18))
-			status_label.text = "Objectif accompli · +18 % PV"
+			_play_tone(720.0, 0.16, "sine")
+			_show_notice("Objectif accompli · +18 % PV", false)
 	_progress_challenges(target)
 	if target == "kills" and defeated > 0 and defeated % 10 == 0:
 		_save_checkpoint(wave)
