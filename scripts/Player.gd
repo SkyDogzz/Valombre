@@ -18,6 +18,14 @@ var skill_dash_time := 0.0
 var skill_dash_speed := 0.0
 var skill_dash_direction := Vector2.DOWN
 
+func _draw() -> void:
+	if dodge_time <= 0.0:
+		return
+	var direction := dodge_direction.normalized()
+	var start := Vector2(-direction.x * 32.0 - direction.y * 7.0, -direction.y * 32.0 + direction.x * 7.0)
+	var finish := -direction * 12.0
+	draw_line(start, finish, Color(0.85, 0.76, 0.54, 0.53), 3.0)
+
 func _physics_process(delta: float) -> void:
 	if not run_active:
 		velocity = Vector2.ZERO
@@ -45,3 +53,4 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	global_position.x = clampf(global_position.x, 35.0, world_size.x - 35.0)
 	global_position.y = clampf(global_position.y, 35.0, world_size.y - 35.0)
+	queue_redraw()

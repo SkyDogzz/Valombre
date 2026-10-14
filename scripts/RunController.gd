@@ -557,6 +557,8 @@ func _update_player_visuals() -> void:
 	var avatar := player.get_node_or_null("Sprite2D") as Sprite2D
 	if is_instance_valid(avatar):
 		avatar.texture = load("res://assets/%s.svg" % ("sentinel" if hero_id == "sentinel" else "hero"))
+		var blinking := player.invulnerability > 0.0 and int(Time.get_ticks_msec() / 70) % 2 == 1
+		avatar.modulate = Color(1.0, 1.0, 1.0, 0.55) if blinking else Color.WHITE
 	if not is_instance_valid(held_weapon_sprite):
 		return
 	var weapon_path := "res://assets/held-weapons/%s.svg" % weapon_id
