@@ -2125,21 +2125,18 @@ func _update_projectiles(delta: float) -> void:
 				hit_target.slow_time = maxf(hit_target.slow_time, float(projectile.get("slow_duration", 1.25)))
 				hit_target.slow_factor = float(projectile.get("slow_factor", 0.58))
 			_damage_enemy(hit_target, float(projectile.damage), str(projectile.weapon))
-			var impact_tint := (node as ValombreProjectileVisual).tint if node is ValombreProjectileVisual else node.modulate
-			_spawn_burst(node.position, impact_tint, 5)
-			if state != "playing":
-				_remove_projectile(index)
-				return
 			if projectile.lightning:
 				_chain_lightning(hit_target, projectile)
+			var impact_tint := (node as ValombreProjectileVisual).tint if node is ValombreProjectileVisual else node.modulate
+			_spawn_burst(node.position, impact_tint, 5)
 			if bool(projectile.get("piercing", false)):
 				var hit_targets: Array = projectile.get("hit_targets", [])
 				hit_targets.append(hit_target)
 				projectile.hit_targets = hit_targets
 				projectile.damage = float(projectile.damage) * 1.18
+			else:
+				_remove_projectile(index)
 				continue
-			_remove_projectile(index)
-			continue
 		if projectile.remaining <= 0.0 or _projectile_out_of_bounds(node.position, float(projectile.radius)):
 			if projectile.explosive:
 				_detonate_projectile(projectile, node.position)
@@ -2167,10 +2164,8 @@ func _chain_lightning(first: ValombreEnemy, projectile: Dictionary) -> void:
 		if is_instance_valid(combat_effects):
 			combat_effects.add_lightning_arc(current.position, nearest.position)
 		_damage_enemy(nearest, float(projectile.damage) * 0.72, str(projectile.weapon))
-		if state != "playing":
-			break
 		current = nearest
-	if state == "playing" and bool(projectile.get("storm_special", false)):
+	if bool(projectile.get("storm_special", false)):
 		damage_zones.append({"position": current.position, "radius": 34.0, "damage": float(projectile.damage) * 0.28, "weapon": str(projectile.weapon), "tick": 0.12, "interval": 0.3, "life": 1.2})
 		_add_combat_effect({"kind": "lightning_zone", "position": current.position, "radius": 34.0, "life": 1.2, "max_life": 1.2})
 
