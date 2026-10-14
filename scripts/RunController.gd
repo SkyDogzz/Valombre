@@ -1906,10 +1906,10 @@ func _update_auto_attack() -> void:
 		var automatic_target := target != null and nearest < reach
 		if float(weapon_cooldowns.get(id, 0.0)) > 0.0:
 			continue
-		if manual:
-			if ranged and (not target or nearest > reach):
+		if ranged:
+			if not target or nearest > reach:
 				continue
-		elif not target or nearest >= reach:
+		elif not manual and (not target or nearest >= reach):
 			continue
 		var swing_count := int(weapon_swing_counts.get(id, 0)) + 1
 		var special_finisher := bool(owned.special) and swing_count % 3 == 0
@@ -1918,7 +1918,7 @@ func _update_auto_attack() -> void:
 			var mouse_direction := player.get_global_mouse_position() - player.global_position
 			if mouse_direction.length() > 5.0:
 				aim = mouse_direction.normalized()
-		elif target:
+		elif target and (ranged or nearest < reach):
 			aim = (target.position - player.position).normalized()
 		if aim != Vector2.ZERO:
 			player.facing = aim
@@ -1927,11 +1927,11 @@ func _update_auto_attack() -> void:
 		var frequency := maxf(0.1, float(weapon.speed) * attack_speed_multiplier * (1.0 + 0.08 * (int(owned.level) - 1)) * float(synergy.get("attackSpeedMultiplier", 1.0)) * (1.2 if bool(owned.special) else 1.0))
 		weapon_cooldowns[id] = 0.26 / frequency
 		weapon_attack_timers[id] = 0.26 / frequency
+		weapon_swing_counts[id] = swing_count
 		if ranged:
 			_launch_projectile(weapon, target, damage_scale, id)
 			continue
 		_play_tone(155.0, 0.045, "triangle")
-		weapon_swing_counts[id] = swing_count
 		var attack_hit := false
 		for enemy in enemies.duplicate():
 			var offset := enemy.position - player.position
