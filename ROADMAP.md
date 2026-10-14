@@ -2,7 +2,7 @@
 
 Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le guide du dépôt [`README.md`](README.md). L’objectif est une version Godot jouable dont le contenu et les règles reproduisent le snapshot web, puis dont la présentation et les contrôles atteignent la même expérience. Les tâches marquées « parité » doivent suivre le code JavaScript exporté, y compris les comportements qui ne sont pas décrits dans le JSON.
 
-**Avancement global : 59/70 tâches terminées (84,3 %).**
+**Avancement global : 60/70 tâches terminées (85,7 %).**
 
 ## Principes de portage
 
@@ -69,7 +69,7 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 
 - [x] Implémenter les états de run (`title`, `playing`, `paused`, `levelUp`, `loot`, `victory`, `defeat`) et leurs règles de gel/reprise ([`docs/RUN_STATES.md`](docs/RUN_STATES.md)).
 - [x] Ajouter modèles runtime de joueur, ennemi, projectile, dégâts, statut, cible, minuterie et effets temporaires.
-- [ ] Porter attaque manuelle et automatique, recherche de cible, portée, orientation, cadence, anim/flash et invulnérabilité.
+- [x] Porter attaque manuelle et automatique, recherche de cible, portée, orientation, cadence, anim/flash et invulnérabilité.
 - [ ] Porter les neuf armes : sabre, marteau, dagues, arc, foudre, bombe, lance, faux et givre. Inclure percement, rebonds, explosion, ralentissement et choix de cibles exacts.
 - [x] Ajouter les huit espèces avec leurs comportements, temps de télégraphie, déplacements, projectiles, dégâts et collision.
 - [x] Ajouter les trois affixes élites, leurs multiplicateurs, couleurs/signalement et conséquences de récompense.

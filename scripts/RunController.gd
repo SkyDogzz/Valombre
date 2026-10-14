@@ -159,6 +159,7 @@ var damage_number_font: SystemFont
 var held_weapon_sprite: Sprite2D
 var secondary_weapon_sprites: Dictionary = {}
 var mouse_aim_active := false
+var manual_attack_requested := false
 var touch_controls: ValombreTouchControls
 var particle_layer: ValombreParticleLayer
 var combat_effects: ValombreCombatEffects
@@ -207,6 +208,7 @@ func _notification(what: int) -> void:
 		return
 	for action in ["move_left", "move_right", "move_up", "move_down", "attack", "special", "dodge", "pause", "inventory"]:
 		Input.action_release(action)
+	manual_attack_requested = false
 	if is_instance_valid(player):
 		player.touch_move_vector = Vector2.ZERO
 
@@ -270,6 +272,8 @@ func _should_show_touch_controls() -> bool:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion or event is InputEventMouseButton:
 		mouse_aim_active = true
+	if event.is_action_pressed("attack") and state == "playing":
+		manual_attack_requested = true
 	if event.is_action_pressed("pause"):
 		if state == "playing":
 			inventory_open = false
@@ -308,6 +312,9 @@ func _process(delta: float) -> void:
 	contact_cooldown = maxf(0.0, contact_cooldown - delta)
 	skill_cooldown = maxf(0.0, skill_cooldown - delta)
 	_update_auto_attack()
+	if state == "playing" and (manual_attack_requested or Input.is_action_pressed("attack")):
+		_update_manual_attack()
+	manual_attack_requested = false
 	if state != "playing":
 		return
 	if intermission > 0.0:
@@ -1905,7 +1912,6 @@ func _update_auto_attack() -> void:
 			break
 		var id := str(owned.id)
 		var weapon: Dictionary = catalog.content.weapons[id]
-		var ranged := bool(weapon.get("ranged", false))
 		var target: ValombreEnemy
 		var nearest := INF
 		for enemy in enemies:
@@ -1913,25 +1919,16 @@ func _update_auto_attack() -> void:
 			if distance < nearest:
 				nearest = distance
 				target = enemy
-		var manual := Input.is_action_pressed("attack")
 		var level_scale := 1.0 + 0.18 * (int(owned.level) - 1)
 		var reach := (float(weapon.get("range", 108.0)) + range_bonus + equipment_range) * float(_synergy_data(id).get("rangeMultiplier", 1.0))
-		var automatic_target := target != null and nearest < reach
 		if float(weapon_cooldowns.get(id, 0.0)) > 0.0:
 			continue
-		if ranged:
-			if not target or nearest > reach:
-				continue
-		elif not manual and (not target or nearest >= reach):
+		if target == null or nearest >= reach:
 			continue
 		var swing_count := int(weapon_swing_counts.get(id, 0)) + 1
 		var special_finisher := bool(owned.special) and swing_count % 3 == 0
 		var aim := player.facing
-		if manual and not ranged and not automatic_target and mouse_aim_active:
-			var mouse_direction := player.get_global_mouse_position() - player.global_position
-			if mouse_direction.length() > 5.0:
-				aim = mouse_direction.normalized()
-		elif target and (ranged or nearest < reach):
+		if target:
 			aim = (target.position - player.position).normalized()
 		if aim != Vector2.ZERO:
 			player.facing = aim
@@ -2007,6 +2004,105 @@ func _update_auto_attack() -> void:
 
 func _weapon_base_damage(weapon: Dictionary, enemy: ValombreEnemy) -> float:
 	return float(weapon.get("bruteDamage", 25) if enemy.kind == "brute" else weapon.get("ghoulDamage", 32))
+
+func _update_manual_attack() -> void:
+	for owned in weapon_inventory:
+		if state != "playing":
+			break
+		var id := str(owned.id)
+		if float(weapon_cooldowns.get(id, 0.0)) > 0.0:
+			continue
+		var weapon: Dictionary = catalog.content.weapons[id]
+		var ranged := bool(weapon.get("ranged", false))
+		var target: ValombreEnemy
+		var nearest := INF
+		for enemy in enemies:
+			var distance := player.position.distance_to(enemy.position)
+			if distance < nearest:
+				nearest = distance
+				target = enemy
+		var synergy := _synergy_data(id)
+		var reach := (float(weapon.get("range", 108.0)) + range_bonus + equipment_range) * float(synergy.get("rangeMultiplier", 1.0))
+		if ranged:
+			if target == null:
+				continue
+			player.facing = (target.position - player.position).normalized()
+			if nearest > reach:
+				continue
+		else:
+			var mouse_direction := player.get_global_mouse_position() - player.global_position
+			if mouse_aim_active and mouse_direction.length() > 5.0:
+				player.facing = mouse_direction.normalized()
+		var level_scale := 1.0 + 0.18 * (int(owned.level) - 1)
+		var damage_scale := damage_multiplier * equipment_damage * level_scale * float(synergy.get("damageMultiplier", 1.0)) * (1.5 if bool(owned.special) else 1.0) * (1.0 + (level - 1) * 0.005)
+		var frequency := maxf(0.1, float(weapon.speed) * attack_speed_multiplier * (1.0 + 0.08 * (int(owned.level) - 1)) * float(synergy.get("attackSpeedMultiplier", 1.0)) * (1.2 if bool(owned.special) else 1.0))
+		var swing_count := int(weapon_swing_counts.get(id, 0)) + 1
+		var special_finisher := bool(owned.special) and swing_count % 3 == 0
+		weapon_cooldowns[id] = 0.26 / frequency
+		weapon_attack_timers[id] = 0.26 / frequency
+		weapon_swing_counts[id] = swing_count
+		if ranged:
+			_launch_projectile(weapon, target, damage_scale, id)
+			continue
+		_play_tone(155.0, 0.045, "triangle")
+		var attack_hit := false
+		for enemy in enemies.duplicate():
+			var offset := enemy.position - player.position
+			var distance := offset.length()
+			var in_shape := false
+			if bool(weapon.get("circular", false)):
+				in_shape = distance < reach
+			elif bool(weapon.get("piercing", false)):
+				var along := clampf(offset.dot(player.facing), 0.0, reach)
+				var closest := player.position + player.facing * along
+				in_shape = enemy.position.distance_to(closest) < 18.0 + enemy.radius + (8.0 if id == "lance" and special_finisher else 0.0)
+			else:
+				var alignment := offset.normalized().dot(player.facing) if distance > 0.0 else 1.0
+				in_shape = distance < reach and alignment > float(weapon.get("arc", -1.0))
+			if not in_shape:
+				continue
+			attack_hit = true
+			var sabre_burst := false
+			if id == "sabre" and _synergy_active(id):
+				var marks := int(enemy.get_meta("sabre_combo_marks", 0)) + 1
+				enemy.set_meta("sabre_combo_marks", marks % 5)
+				sabre_burst = marks >= 5
+			if id == "lance" and _synergy_active(id):
+				_mark_discovered("discoveredSynergies", "lance-seal")
+				player_shield = minf(max_hp * 0.5, player_shield + 8.0)
+			var hit_scale := 1.45 if id == "lance" and special_finisher else 1.0
+			_damage_enemy(enemy, _weapon_base_damage(weapon, enemy) * damage_scale * hit_scale, id)
+			if id == "sabre" and bool(owned.special) and swing_count % 3 == 0 and is_instance_valid(enemy):
+				enemy.set_meta("sabre_mark", true)
+			if id == "dagues" and special_finisher and is_instance_valid(enemy) and enemies.has(enemy):
+				enemy.set_meta("dagger_bleed", {"remaining": 1.8, "tick": 0.45, "damage": _weapon_base_damage(weapon, enemy) * damage_scale * 0.24})
+			if sabre_burst:
+				_mark_discovered("discoveredSynergies", "sabre-talisman")
+				_add_combat_effect({"kind": "sabre_burst", "position": enemy.position, "radius": 104.0, "life": 0.34, "max_life": 0.34})
+				for nearby in enemies.duplicate():
+					if nearby.position.distance_to(enemy.position) <= 104.0:
+						_damage_enemy(nearby, _weapon_base_damage(weapon, nearby) * damage_scale * 1.35, id)
+			if state != "playing":
+				break
+		if attack_hit:
+			var tint := Color("e99b58") if id == "marteau" else Color("bce7a0") if id == "faux" else Color("f0dfa8") if id == "lance" else Color("b4e2cd") if id == "dagues" else Color("e8c57e")
+			_spawn_burst(player.position + player.facing * 65.0, tint, 11 if id == "marteau" else 5)
+			if id == "dagues" and special_finisher:
+				_play_tone(460.0, 0.08, "sawtooth")
+				_spawn_burst(player.position + player.facing * 48.0, Color("a9ffe1"), 12)
+		if state != "playing":
+			break
+		if id == "marteau" and bool(owned.special):
+			var full_circle := _synergy_active(id)
+			weapon_effects.append({"kind": "hammer_wave", "delay": 0.16, "position": player.position, "angle": player.facing.angle(), "arc": float(weapon.get("arc", -1.0)), "outer": reach + 34.0, "full_circle": full_circle, "weapon": id, "damage_scale": damage_scale * (1.05 if full_circle else 0.55)})
+		if id == "faux" and (special_finisher or (_synergy_active(id) and scythe_souls > 0)):
+			var released := scythe_souls if _synergy_active(id) else 0
+			if released > 0:
+				_mark_discovered("discoveredSynergies", "faux-heart")
+			scythe_souls -= released
+			var wave_damage := float(weapon.ghoulDamage) * damage_scale * (0.32 + released * 0.42)
+			_add_combat_effect({"kind": "scythe_wave", "position": player.position, "radius": reach * 1.08, "souls": released, "life": 0.42, "max_life": 0.42})
+			weapon_effects.append({"kind": "scythe_wave", "position": player.position, "radius": reach * 1.08, "damage": wave_damage, "weapon": id, "souls": released, "life": 0.42, "max_life": 0.42, "active": false})
 
 func _launch_projectile(weapon: Dictionary, target: ValombreEnemy, damage_scale: float, id: String) -> void:
 	var direction := (target.position - player.position).normalized()
