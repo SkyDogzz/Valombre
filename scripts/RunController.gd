@@ -2577,34 +2577,44 @@ func _build_pause_catalog() -> void:
 	var owned_weapons: Dictionary = {}
 	for item in weapon_inventory:
 		owned_weapons[str(item.id)] = item
-	_add_catalog_heading("ARMES · %d/%d" % [weapon_records.size(), weapons.size()])
+	_add_catalog_heading("ARMES · %d/%d" % [weapon_records.size(), weapons.size()], "res://assets/weapons/category.svg")
 	for id in weapons:
 		var record: Dictionary = weapons[id]
 		var owned: Dictionary = owned_weapons.get(str(id), {})
 		var discovered := bool(weapon_records.get(str(id), false)) or not owned.is_empty()
 		var detail := str(record.get("description", "")) if discovered else "Arme non découverte."
 		var status := "Possédée · niveau %d%s" % [int(owned.get("level", 1)), " · spéciale" if bool(owned.get("special", false)) else ""] if not owned.is_empty() else "Découverte" if discovered else "Inconnue"
-		_add_catalog_entry(str(record.get("name", record.get("displayName", id))) if discovered else "Inconnue", detail, status)
+		_add_catalog_entry(str(record.get("name", record.get("displayName", id))) if discovered else "Inconnue", detail, status, ["res://assets/weapons/%s.svg" % str(id)], not discovered)
 	var relic_records: Dictionary = profile.get("discoveredRelics", {})
 	var owned_relics: Dictionary = {}
 	for item in relic_inventory:
 		owned_relics[str(item.id)] = item
-	_add_catalog_heading("RELIQUES · %d/%d" % [relic_records.size(), catalog.content.relics.size()])
+	_add_catalog_heading("RELIQUES · %d/%d" % [relic_records.size(), catalog.content.relics.size()], "res://assets/relics/category.svg")
 	for relic: Dictionary in catalog.content.relics:
 		var id := str(relic.id)
 		var owned: Dictionary = owned_relics.get(id, {})
 		var discovered := bool(relic_records.get(id, false)) or not owned.is_empty()
 		var detail := str(relic.get("description", "")) if discovered else "Relique non découverte."
 		var status := "Possédée · niveau %d" % int(owned.get("level", 1)) if not owned.is_empty() else "Découverte" if discovered else "Inconnue"
-		_add_catalog_entry(str(relic.get("name", id)) if discovered else "Inconnue", detail, status)
+		_add_catalog_entry(str(relic.get("name", id)) if discovered else "Inconnue", detail, status, ["res://assets/relics/%s.svg" % id], not discovered)
 	var synergy_records: Dictionary = profile.get("discoveredSynergies", {})
 	_add_catalog_heading("SYNERGIES · %d/9" % synergy_records.size())
 	for synergy: Dictionary in catalog.content.synergies:
 		var id := str(synergy.id)
 		var discovered := bool(synergy_records.get(id, false)) or _synergy_active(str(synergy.weaponId))
 		var detail := str(synergy.get("description", "")) if discovered else "Combo non découvert."
-		var status := "Activée" if _synergy_active(str(synergy.weaponId)) else "Découverte · à réactiver" if discovered else "Inconnue"
-		_add_catalog_entry(str(synergy.get("name", "Combo inconnu")) if discovered else "Combo inconnu", detail, status)
+		var status := "Inconnue"
+		if discovered:
+			var weapon_record: Dictionary = weapons.get(str(synergy.weaponId), {})
+			var relic_record: Dictionary = {}
+			for relic in catalog.content.relics:
+				if str(relic.id) == str(synergy.relicId):
+					relic_record = relic
+					break
+			var recipe := "%s spéciale niv. 5 + %s niv. 5" % [str(weapon_record.get("name", synergy.weaponId)), str(relic_record.get("name", synergy.relicId))]
+			status = "%s · %s" % ["Activée" if _synergy_active(str(synergy.weaponId)) else "À refaire", recipe]
+		var synergy_icons := ["res://assets/weapons/%s.svg" % str(synergy.weaponId), "res://assets/relics/%s.svg" % str(synergy.relicId)]
+		_add_catalog_entry(str(synergy.get("name", "Combo inconnu")) if discovered else "Combo inconnu", detail, status, synergy_icons, not discovered)
 	var bestiary: Dictionary = profile.get("bestiary", {})
 	_add_catalog_heading("BESTIAIRE")
 	var bestiary_entries: Dictionary = catalog.content.bestiary.duplicate(true)
@@ -2616,27 +2626,105 @@ func _build_pause_catalog() -> void:
 		var record: Dictionary = bestiary.get(str(id), {})
 		var discovered := bool(record.get("discovered", false)) or int(record.get("kills", 0)) > 0
 		var attack: String = str(definition.get("attack", definition.get("behavior", "")))
-		var detail := "%s Attaque : %s" % [str(definition.get("description", "")), attack] if discovered else "Créature non rencontrée."
-		_add_catalog_entry(str(definition.get("name", id)) if discovered else "Inconnu", detail, "Vaincus : %d" % int(record.get("kills", 0)) if discovered else "Non découvert")
+		var stat_record: Dictionary = definition
+		if str(id).begins_with("boss:"):
+			stat_record = catalog.content.bosses.get(str(id).trim_prefix("boss:"), definition)
+		else:
+			stat_record = catalog.content.config.enemies.get(str(id), definition)
+		var stat_label := "PV %d · vitesse %d · dégâts %d" % [int(stat_record.get("health", 0)), int(stat_record.get("speed", 0)), int(stat_record.get("damage", stat_record.get("slamDamage", 0)))]
+		var detail := "%s Attaque : %s. %s" % [str(definition.get("description", "")), attack, stat_label] if discovered else "Créature non rencontrée."
+		var sprite_id := str(definition.get("sprite", id))
+		if str(id).begins_with("boss:"):
+			sprite_id = str(id).trim_prefix("boss:")
+			if sprite_id == "guardian":
+				sprite_id = "boss"
+		_add_catalog_entry(str(definition.get("name", id)) if discovered else "Inconnu", detail, "Vaincus : %d" % int(record.get("kills", 0)) if discovered else "Non découvert", ["res://assets/%s.svg" % sprite_id], not discovered)
 	_add_catalog_heading("AFFIXES ÉLITES")
 	for id in catalog.content.eliteAffixes:
 		var definition: Dictionary = catalog.content.eliteAffixes[id]
 		var record: Dictionary = bestiary.get("elite:%s" % id, {})
 		var discovered := bool(record.get("discovered", false)) or int(record.get("kills", 0)) > 0
 		var detail := "PV ×%s · vitesse ×%s · dégâts ×%s" % [str(definition.health), str(definition.speed), str(definition.damage)] if discovered else "Variante élite non rencontrée."
-		_add_catalog_entry("Élite · %s" % str(definition.name) if discovered else "Élite inconnue", detail, "Vaincus : %d" % int(record.get("kills", 0)) if discovered else "Non découvert")
+		_add_catalog_entry("Élite · %s" % str(definition.name) if discovered else "Élite inconnue", detail, "Vaincus : %d" % int(record.get("kills", 0)) if discovered else "Non découvert", [], not discovered)
 
-func _add_catalog_heading(title: String) -> void:
-	var heading := Label.new()
-	heading.text = title
-	heading.add_theme_font_size_override("font_size", 18)
+func _add_catalog_heading(title: String, icon_path := "") -> void:
+	var heading := HBoxContainer.new()
+	heading.add_theme_constant_override("separation", 6)
+	if not icon_path.is_empty() and ResourceLoader.exists(icon_path):
+		var icon := TextureRect.new()
+		icon.texture = load(icon_path)
+		icon.custom_minimum_size = Vector2(20.0, 20.0)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		heading.add_child(icon)
+	var label := Label.new()
+	label.text = title
+	label.add_theme_font_size_override("font_size", 18)
+	label.add_theme_color_override("font_color", Color("d6bb81"))
+	heading.add_child(label)
 	pause_catalog_list.add_child(heading)
 
-func _add_catalog_entry(title: String, description: String, status: String) -> void:
-	var label := Label.new()
-	label.text = "%s — %s · %s" % [title, description, status]
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	pause_catalog_list.add_child(label)
+func _add_catalog_entry(title: String, description: String, status: String, icon_paths: Array = [], undiscovered := false) -> void:
+	var card := PanelContainer.new()
+	card.focus_mode = Control.FOCUS_ALL
+	card.tooltip_text = "%s · %s · %s" % [title, description, status]
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("10110e")
+	style.border_color = Color("4b4539")
+	style.set_border_width_all(1)
+	style.content_margin_left = 6.0
+	style.content_margin_right = 6.0
+	style.content_margin_top = 5.0
+	style.content_margin_bottom = 5.0
+	card.add_theme_stylebox_override("panel", style)
+	var focus_style := StyleBoxFlat.new()
+	focus_style.bg_color = Color("19170f")
+	focus_style.border_color = Color("d0ae69")
+	focus_style.set_border_width_all(2)
+	card.add_theme_stylebox_override("focus", focus_style)
+	if undiscovered:
+		card.modulate = Color(0.68, 0.68, 0.68, 0.78)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 7)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(row)
+	for path in icon_paths:
+		if not ResourceLoader.exists(path):
+			continue
+		var icon := TextureRect.new()
+		icon.texture = load(path)
+		icon.custom_minimum_size = Vector2(30.0, 30.0)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(icon)
+	var copy := VBoxContainer.new()
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	copy.add_theme_constant_override("separation", 1)
+	copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(copy)
+	var name_label := Label.new()
+	name_label.text = title
+	name_label.add_theme_font_size_override("font_size", 11)
+	name_label.add_theme_color_override("font_color", Color("e5d3ad"))
+	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	copy.add_child(name_label)
+	var detail_label := Label.new()
+	detail_label.text = description
+	detail_label.add_theme_font_size_override("font_size", 9)
+	detail_label.add_theme_color_override("font_color", Color("a9a18f"))
+	detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	detail_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	copy.add_child(detail_label)
+	var status_label_in_card := Label.new()
+	status_label_in_card.text = status
+	status_label_in_card.add_theme_font_size_override("font_size", 9)
+	status_label_in_card.add_theme_color_override("font_color", Color("d6bb81"))
+	status_label_in_card.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status_label_in_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	copy.add_child(status_label_in_card)
+	pause_catalog_list.add_child(card)
 
 func _relic_health() -> float:
 	var total := 0.0
