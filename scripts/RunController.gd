@@ -1809,6 +1809,7 @@ func _update_drops(delta: float) -> void:
 		_detonate_projectile({"radius": 92.0, "damage": bomb_damage, "weapon": "bombe"}, player.position)
 
 func _show_level_up() -> void:
+	_play_tone(460.0, 0.12, "sine")
 	_set_state("levelUp")
 	var column: VBoxContainer = menu_panel.get_child(0)
 	for button in upgrade_buttons:
