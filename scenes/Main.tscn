@@ -20,7 +20,7 @@ position = Vector2(750, 550)
 
 [node name="Sprite2D" type="Sprite2D" parent="Arena/Player"]
 texture = ExtResource("4_hero")
-scale = Vector2(0.62, 0.62)
+scale = Vector2(0.75, 0.75)
 
 [node name="Camera2D" type="Camera2D" parent="Arena/Player"]
 

@@ -24,7 +24,7 @@ func _configure_player() -> void:
 	shape.shape = capsule
 	var sprite: Sprite2D = $Arena/Player/Sprite2D
 	sprite.texture = load("res://assets/hero.svg")
-	sprite.scale = Vector2(0.62, 0.62)
+	sprite.scale = Vector2(0.75, 0.75)
 
 func _build_camera() -> void:
 	var camera: Camera2D = $Arena/Player/Camera2D

@@ -115,6 +115,7 @@ var audio_player: AudioStreamPlayer
 var sound_generator: AudioStreamGenerator
 var sound_playback: AudioStreamGeneratorPlayback
 var sound_phase := 0.0
+var held_weapon_sprite: Sprite2D
 
 func _ready() -> void:
 	main = get_parent()
@@ -134,6 +135,8 @@ func _ready() -> void:
 	rng.randomize()
 	_create_interface()
 	_create_audio()
+	_create_held_weapon_sprite()
+	_update_player_visuals()
 	player.run_active = false
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -188,6 +191,7 @@ func _process(delta: float) -> void:
 		_update_auto_attack()
 		if state != "playing":
 			return
+		_update_player_visuals()
 	_update_drops(delta)
 	_update_hud()
 	if inventory_open:
@@ -479,6 +483,30 @@ func _create_audio() -> void:
 	audio_player.play()
 	sound_playback = audio_player.get_stream_playback() as AudioStreamGeneratorPlayback
 
+func _create_held_weapon_sprite() -> void:
+	held_weapon_sprite = Sprite2D.new()
+	held_weapon_sprite.name = "HeldWeaponSprite"
+	held_weapon_sprite.z_index = 1
+	player.add_child(held_weapon_sprite)
+
+func _update_player_visuals() -> void:
+	var avatar := player.get_node_or_null("Sprite2D") as Sprite2D
+	if is_instance_valid(avatar):
+		avatar.texture = load("res://assets/%s.svg" % ("sentinel" if hero_id == "sentinel" else "hero"))
+	if not is_instance_valid(held_weapon_sprite):
+		return
+	var weapon_path := "res://assets/held-weapons/%s.svg" % weapon_id
+	if held_weapon_sprite.texture == null or held_weapon_sprite.texture.resource_path != weapon_path:
+		held_weapon_sprite.texture = load(weapon_path)
+	if held_weapon_sprite.texture:
+		var size := held_weapon_sprite.texture.get_size()
+		held_weapon_sprite.scale = Vector2(42.0 / size.x, 18.0 / size.y)
+	held_weapon_sprite.visible = state == "playing"
+	if state != "playing":
+		return
+	held_weapon_sprite.position = player.facing.normalized() * 7.0
+	held_weapon_sprite.rotation = player.facing.angle()
+
 func _play_tone(frequency: float, duration := 0.08, waveform := "sine") -> void:
 	if bool(profile.muted) or float(profile.volume) <= 0.0 or not is_instance_valid(audio_player):
 		return
@@ -593,8 +621,7 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 	player.move_speed = float(stats.get("speed", 190))
 	player.movement_multiplier = 1.0
 	player.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	var avatar: Sprite2D = player.get_node("Sprite2D")
-	avatar.texture = load("res://assets/%s.svg" % ("sentinel" if hero_id == "sentinel" else "hero"))
+	_update_player_visuals()
 	player.facing = Vector2.DOWN
 	player.skill_dash_time = 0.0
 	xp = 0.0
@@ -1973,6 +2000,7 @@ func _set_state(next_state: String) -> void:
 	var is_overlay := state != "playing"
 	menu_panel.visible = is_overlay
 	player.run_active = state == "playing"
+	_update_player_visuals()
 	if state != "playing":
 		inventory_open = false
 		if is_instance_valid(inventory_panel):
