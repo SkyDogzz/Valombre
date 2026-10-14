@@ -1710,6 +1710,7 @@ func _damage_enemy(enemy: ValombreEnemy, amount: float, _weapon: String) -> void
 	if enemy.hp <= 0.0:
 		var death_position := enemy.position
 		var is_boss := enemy.kind == "boss"
+		_play_tone(70.0 if is_boss else 320.0, 0.4 if is_boss else 0.08, "triangle")
 		enemy.queue_free()
 		enemies.erase(enemy)
 		defeated += 1
@@ -1731,8 +1732,8 @@ func _damage_enemy(enemy: ValombreEnemy, amount: float, _weapon: String) -> void
 			else:
 				_finish_run("victory")
 		else:
-			_spawn_burst(death_position, Color("9d5744") if enemy.kind == "brute" else Color("b99e68"), 9)
 			_roll_enemy_item_drop(death_position)
+			_spawn_burst(death_position, Color("9d5744") if enemy.kind == "brute" else Color("b99e68"), 9)
 			_enemy_drop_xp(death_position, 1.5 if enemy.elite else 1.0, weapon_xp_multiplier)
 
 func _spawn_damage_number(position: Vector2, damage: int) -> void:
