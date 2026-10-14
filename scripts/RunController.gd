@@ -149,7 +149,7 @@ var cheat_button: Button
 var audio_player: AudioStreamPlayer
 var sound_generator: AudioStreamGenerator
 var sound_playback: AudioStreamGeneratorPlayback
-var sound_phase := 0.0
+var active_tones: Array[Dictionary] = []
 var damage_number_font: SystemFont
 var held_weapon_sprite: Sprite2D
 var secondary_weapon_sprites: Dictionary = {}
@@ -271,6 +271,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_use_hero_skill()
 
 func _process(delta: float) -> void:
+	_update_audio_buffer()
 	if is_instance_valid(touch_controls):
 		var touch_ui_visible := state == "playing" and _should_show_touch_controls()
 		if touch_controls.visible != touch_ui_visible:
@@ -1108,17 +1109,43 @@ func _play_tone(frequency: float, duration := 0.08, waveform := "sine") -> void:
 		return
 	if sound_playback == null:
 		return
-	var frames := mini(int(duration * sound_generator.mix_rate), sound_playback.get_frames_available())
-	for _frame in frames:
-		var phase := fposmod(sound_phase, 1.0)
-		var sample := sin(TAU * phase)
-		if waveform == "square":
-			sample = 1.0 if phase < 0.5 else -1.0
-		elif waveform == "triangle":
-			sample = 1.0 - 4.0 * absf(phase - 0.5)
-		sample *= float(profile.volume) * 0.16
-		sound_playback.push_frame(Vector2(sample, sample))
-		sound_phase += frequency / sound_generator.mix_rate
+	active_tones.append({
+		"frequency": frequency,
+		"duration": maxf(0.001, duration),
+		"waveform": waveform,
+		"phase": 0.0,
+		"elapsed": 0.0,
+		"start_gain": 0.08 * float(profile.volume),
+	})
+
+func _update_audio_buffer() -> void:
+	if sound_playback == null or sound_generator == null:
+		return
+	var sample_duration := 1.0 / sound_generator.mix_rate
+	for _frame in sound_playback.get_frames_available():
+		var mixed_sample := 0.0
+		for index in range(active_tones.size() - 1, -1, -1):
+			var tone: Dictionary = active_tones[index]
+			var phase := float(tone.phase)
+			var waveform := str(tone.waveform)
+			var sample := sin(TAU * phase)
+			match waveform:
+				"square": sample = 1.0 if phase < 0.5 else -1.0
+				"triangle": sample = asin(sin(TAU * phase)) * (2.0 / PI)
+				"sawtooth": sample = phase * 2.0 - 1.0
+			var duration := float(tone.duration)
+			var start_gain := float(tone.start_gain)
+			var progress := clampf(float(tone.elapsed) / duration, 0.0, 1.0)
+			var gain := start_gain * pow(0.001 / start_gain, progress)
+			mixed_sample += sample * gain
+			tone.elapsed = float(tone.elapsed) + sample_duration
+			tone.phase = fposmod(phase + float(tone.frequency) * sample_duration, 1.0)
+			if float(tone.elapsed) >= duration:
+				active_tones.remove_at(index)
+			else:
+				active_tones[index] = tone
+		mixed_sample = clampf(mixed_sample, -1.0, 1.0)
+		sound_playback.push_frame(Vector2(mixed_sample, mixed_sample))
 
 func _update_drop_filter_controls() -> void:
 	if is_instance_valid(weapon_drop_menu):
