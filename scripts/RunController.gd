@@ -1650,7 +1650,7 @@ func _spawn_enemy(kind: String, is_elite: bool, boss_id: String) -> void:
 	if kind == "boss":
 		enemy.radius = float(base.get("radius", 33))
 		enemy.damage = roundf(float(base.get("slamDamage", 26)) * float(difficulty.damage) * infinite_damage)
-		enemy.projectile_damage = float(base.get("projectileDamage", enemy.damage)) * float(difficulty.damage) * infinite_damage
+		enemy.projectile_damage = float(base.get("projectileDamage", 0.0)) * float(difficulty.damage) * infinite_damage
 		enemy.boss_id = boss_id
 		enemy.boss_behavior = str(base.get("behavior", "guardian"))
 		enemy.attack_mode = "volley" if enemy.boss_behavior == "volley" else "slam"
