@@ -86,6 +86,7 @@ var notice_text := ""
 var notice_timer := 0.0
 
 var layer: CanvasLayer
+var overlay_center: CenterContainer
 var menu_panel: PanelContainer
 var overlay_backdrop: ColorRect
 var overlay_scroll: ScrollContainer
@@ -373,8 +374,11 @@ func _sync_elapsed_clock() -> void:
 func _create_interface() -> void:
 	layer = CanvasLayer.new()
 	main.add_child(layer)
+	overlay_center = CenterContainer.new()
+	overlay_center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay_center.mouse_filter = Control.MOUSE_FILTER_PASS
+	layer.add_child(overlay_center)
 	menu_panel = PanelContainer.new()
-	menu_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	menu_panel.custom_minimum_size = Vector2(390, 0)
 	var dialog_style := StyleBoxFlat.new()
 	dialog_style.bg_color = Color("1b1b17")
@@ -388,7 +392,7 @@ func _create_interface() -> void:
 	dialog_style.shadow_size = 18
 	dialog_style.shadow_offset = Vector2(0.0, 12.0)
 	menu_panel.add_theme_stylebox_override("panel", dialog_style)
-	layer.add_child(menu_panel)
+	overlay_center.add_child(menu_panel)
 	overlay_scroll = ScrollContainer.new()
 	overlay_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	overlay_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -720,7 +724,7 @@ func _create_interface() -> void:
 	overlay_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay_backdrop.visible = false
 	layer.add_child(overlay_backdrop)
-	layer.move_child(menu_panel, layer.get_child_count() - 1)
+	layer.move_child(overlay_center, layer.get_child_count() - 1)
 	status_label.visible = false
 	_connect_ui_button_sounds(layer)
 	_set_state("title")
@@ -764,6 +768,8 @@ func _update_overlay_layout() -> void:
 	var maximum_height := maxf(160.0, viewport_height - 24.0)
 	menu_panel.custom_maximum_size.y = maximum_height
 	overlay_scroll.custom_maximum_size.y = maximum_height
+	var available_scroll_height := maxf(0.0, maximum_height - 54.0)
+	overlay_scroll.custom_minimum_size.y = minf(menu_column.get_combined_minimum_size().y, available_scroll_height)
 
 func _update_hud_layout() -> void:
 	if not is_instance_valid(hero_hud_card) or not is_instance_valid(wave_hud_card):
@@ -3565,7 +3571,7 @@ func _set_state(next_state: String) -> void:
 			_build_pause_catalog()
 		else:
 			for child in menu_column.get_children():
-				child.visible = true
+				child.visible = child != pause_catalog
 			title_label.visible = true
 			status_label.visible = state != "playing"
 			start_button.visible = state in ["title", "paused", "victory", "defeat"]
@@ -3584,6 +3590,7 @@ func _set_state(next_state: String) -> void:
 	_refresh_weapon_preview()
 	weapon_preview_panel.visible = show_character_setup
 	loot_preview.visible = state == "loot" and loot_preview.texture != null
+	_update_overlay_layout()
 	call_deferred("_focus_state_action", state)
 
 func _focus_state_action(target_state: String) -> void:
