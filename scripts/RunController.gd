@@ -1672,7 +1672,6 @@ func _update_enemies(delta: float) -> void:
 		if not is_instance_valid(enemy):
 			to_remove.append(enemy)
 			continue
-		enemy.hit_flash = maxf(0.0, enemy.hit_flash - delta)
 		var dagger_bleed: Variant = enemy.get_meta("dagger_bleed", null)
 		if dagger_bleed is Dictionary:
 			dagger_bleed.remaining = float(dagger_bleed.remaining) - delta
@@ -2417,7 +2416,6 @@ func _damage_enemy(enemy: ValombreEnemy, amount: float, _weapon: String) -> void
 	enemy.hp -= damage
 	if equipment_lifesteal > 0.0 and dealt > 0.0 and is_instance_valid(player):
 		hp = minf(max_hp, hp + dealt * equipment_lifesteal)
-	enemy.hit_flash = 0.18
 	_spawn_damage_number(enemy.position, roundi(damage))
 	if enemy.hp <= 0.0:
 		var death_position := enemy.position

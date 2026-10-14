@@ -13,7 +13,6 @@ var elite := false
 var elite_id := ""
 var elite_color := Color("e4c978")
 var elite_name := ""
-var hit_flash := 0.0
 var attack_cooldown := 0.0
 var attack_timer := 0.8
 var telegraph := 0.0
@@ -83,7 +82,6 @@ func update_visuals() -> void:
 	if is_instance_valid(sprite):
 		var sprite_size := sprite.texture.get_size().y * sprite.scale.y
 		sprite.position.y = -sprite_size * 0.28 - leap_visual_height + sin(visual_phase) * 2.0
-		sprite.modulate = Color("eee1bd") if hit_flash > 0.0 else Color.WHITE
 		if is_instance_valid(elite_label):
 			elite_label.position.y = sprite.position.y - sprite_size * 0.5 - 14.0
 	queue_redraw()
