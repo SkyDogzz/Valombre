@@ -129,6 +129,7 @@ var sound_generator: AudioStreamGenerator
 var sound_playback: AudioStreamGeneratorPlayback
 var sound_phase := 0.0
 var held_weapon_sprite: Sprite2D
+var secondary_weapon_sprites: Dictionary = {}
 var mouse_aim_active := false
 var touch_controls: ValombreTouchControls
 var particle_layer: ValombreParticleLayer
@@ -673,6 +674,8 @@ func _update_player_visuals() -> void:
 		avatar.texture = load("res://assets/%s.svg" % ("sentinel" if hero_id == "sentinel" else "hero"))
 		var blinking := player.invulnerability > 0.0 and int(Time.get_ticks_msec() / 70) % 2 == 1
 		avatar.modulate = Color(1.0, 1.0, 1.0, 0.55) if blinking else Color.WHITE
+	for sprite: Sprite2D in secondary_weapon_sprites.values():
+		sprite.visible = false
 	if not is_instance_valid(held_weapon_sprite):
 		return
 	var weapon_path := "res://assets/held-weapons/%s.svg" % weapon_id
@@ -713,6 +716,48 @@ func _update_player_visuals() -> void:
 	held_weapon_sprite.position = sprite_position
 	held_weapon_sprite.rotation = sprite_rotation
 	held_weapon_sprite.scale = weapon_sprite_scale
+	_update_secondary_weapon_visuals(forward)
+
+func _update_secondary_weapon_visuals(forward: Vector2) -> void:
+	for owned in weapon_inventory:
+		var id := str(owned.id)
+		if id == weapon_id:
+			continue
+		var definition: Dictionary = catalog.content.weapons.get(id, {})
+		if definition.is_empty() or bool(definition.get("ranged", false)):
+			continue
+		var attack_timer := float(weapon_attack_timers.get(id, 0.0))
+		if attack_timer <= 0.0:
+			continue
+		var sprite: Sprite2D = secondary_weapon_sprites.get(id)
+		if not is_instance_valid(sprite):
+			sprite = Sprite2D.new()
+			sprite.name = "SecondaryWeapon_%s" % id
+			sprite.texture = load("res://assets/held-weapons/%s.svg" % id)
+			sprite.z_index = 1
+			player.add_child(sprite)
+			secondary_weapon_sprites[id] = sprite
+		if sprite.texture == null:
+			continue
+		var texture_size := sprite.texture.get_size()
+		sprite.scale = Vector2(42.0 / texture_size.x, 18.0 / texture_size.y)
+		var owned_synergy := _synergy_data(id)
+		var frequency := maxf(0.1, float(definition.get("speed", 1.0)) * attack_speed_multiplier * (1.0 + 0.08 * (int(owned.get("level", 1)) - 1)) * float(owned_synergy.get("attackSpeedMultiplier", 1.0)) * (1.2 if bool(owned.get("special", false)) else 1.0))
+		var progress := clampf(1.0 - attack_timer / (0.26 / frequency), 0.0, 1.0)
+		var recovery := 1.0 - clampf(progress / 0.32, 0.0, 1.0)
+		var position := forward * 7.0
+		var rotation := forward.angle()
+		match id:
+			"sabre":
+				var direction := 1.0 if int(weapon_swing_counts.get(id, 0)) % 2 == 1 else -1.0
+				rotation += direction * (-1.3 + 2.6 * progress)
+			"marteau": rotation += 1.25 * recovery
+			"dagues": position += forward * 12.0 * recovery
+			"lance": position += forward * 14.0 * sin(progress * PI)
+			"faux": rotation += -PI + progress * TAU
+		sprite.position = position
+		sprite.rotation = rotation
+		sprite.visible = true
 
 func _play_tone(frequency: float, duration := 0.08, waveform := "sine") -> void:
 	if bool(profile.muted) or float(profile.volume) <= 0.0 or not is_instance_valid(audio_player):
