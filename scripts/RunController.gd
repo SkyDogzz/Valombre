@@ -2096,6 +2096,60 @@ func _clear_loot_buttons() -> void:
 			button.queue_free()
 	loot_buttons.clear()
 
+func _make_loot_choice_button(title: String, detail: String, incoming_path: String, outgoing_path := "") -> Button:
+	var button := Button.new()
+	button.text = ""
+	button.custom_minimum_size.y = 60.0
+	var row := HBoxContainer.new()
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.offset_left = 8.0
+	row.offset_top = 4.0
+	row.offset_right = -8.0
+	row.offset_bottom = -4.0
+	row.add_theme_constant_override("separation", 7)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.add_child(row)
+	_add_loot_choice_icon(row, incoming_path)
+	if not outgoing_path.is_empty() and ResourceLoader.exists(outgoing_path):
+		var arrow := Label.new()
+		arrow.text = "→"
+		arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(arrow)
+		_add_loot_choice_icon(row, outgoing_path)
+	var copy := VBoxContainer.new()
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	copy.alignment = BoxContainer.ALIGNMENT_CENTER
+	copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var heading := Label.new()
+	heading.text = title
+	heading.add_theme_font_size_override("font_size", 12)
+	heading.add_theme_color_override("font_color", Color("ead7ae"))
+	heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	copy.add_child(heading)
+	if not detail.is_empty():
+		var description := Label.new()
+		description.text = detail
+		description.add_theme_font_size_override("font_size", 10)
+		description.add_theme_color_override("font_color", Color("a9a18f"))
+		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		description.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		copy.add_child(description)
+	row.add_child(copy)
+	return button
+
+func _add_loot_choice_icon(parent: HBoxContainer, path: String) -> void:
+	if not ResourceLoader.exists(path):
+		return
+	var icon := TextureRect.new()
+	icon.texture = load(path)
+	icon.custom_minimum_size = Vector2(32.0, 32.0)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(icon)
+
 func _show_loot_choices(item_name: String, description: String, group: String, item: Dictionary, candidates: Array[Dictionary]) -> void:
 	_clear_upgrade_buttons()
 	_clear_loot_buttons()
@@ -2104,25 +2158,34 @@ func _show_loot_choices(item_name: String, description: String, group: String, i
 		if _synergy_active(str(synergy.weaponId)):
 			previous_synergies.append(str(synergy.id))
 	_set_state("loot")
-	status_label.text = "%s : %s. Choisissez un objet à remplacer, ou passez." % [item_name, description]
 	var asset_group := "weapons" if group == "weapons" else "relics"
 	var incoming_icon := "res://assets/%s/%s.svg" % [asset_group, str(item.id)]
 	loot_preview.texture = load(incoming_icon) if ResourceLoader.exists(incoming_icon) else null
 	loot_preview.visible = loot_preview.texture != null
+	var incoming_synergy := _synergy_description(str(item.id))
+	status_label.text = "%s : %s%s. Choisissez un objet à remplacer, ou passez." % [item_name, description, " · " + incoming_synergy if not incoming_synergy.is_empty() else ""]
 	var items := weapon_inventory if group == "weapons" else relic_inventory
 	for candidate in candidates:
 		var item_id := str(candidate.id)
-		var button := Button.new()
 		var candidate_icon := "res://assets/%s/%s.svg" % [asset_group, item_id]
-		if ResourceLoader.exists(candidate_icon):
-			button.icon = load(candidate_icon)
+		var candidate_name: String
+		var candidate_description: String
 		if group == "weapons":
 			var definition := _find_definition("weapons", item_id)
-			var synergy_detail := _synergy_description(item_id)
-			button.text = "Remplacer %s · niveau %d%s" % [definition.display_name if definition else item_id, int(candidate.level), " · " + synergy_detail if not synergy_detail.is_empty() else ""]
+			candidate_name = definition.display_name if definition else item_id
+			candidate_description = str(definition.values.get("description", "")) if definition else ""
 		else:
-			var synergy_detail := _synergy_description(str(candidate.id))
-			button.text = "Remplacer %s · niveau %d%s" % [str(candidate.get("name", item_id)), int(candidate.level), " · " + synergy_detail if not synergy_detail.is_empty() else ""]
+			candidate_name = str(candidate.get("name", item_id))
+			candidate_description = str(candidate.get("description", ""))
+		var candidate_synergy := _synergy_description(item_id)
+		if not candidate_synergy.is_empty():
+			candidate_description += " · " + candidate_synergy
+		var button := _make_loot_choice_button(
+			"Remplacer %s · niveau %d" % [candidate_name, int(candidate.level)],
+			"Retiré : " + candidate_description if not candidate_description.is_empty() else "",
+			incoming_icon,
+			candidate_icon,
+		)
 		button.pressed.connect(func() -> void:
 			var slot := items.find(candidate)
 			if slot >= 0:
@@ -2150,10 +2213,7 @@ func _show_loot_choices(item_name: String, description: String, group: String, i
 		)
 		menu_column.add_child(button)
 		loot_buttons.append(button)
-	var pass_button := Button.new()
-	pass_button.text = "Passer cet équipement"
-	if loot_preview.texture:
-		pass_button.icon = loot_preview.texture
+	var pass_button := _make_loot_choice_button("Passer cet équipement", "L’objet ne rejoint pas votre équipement.", incoming_icon)
 	pass_button.pressed.connect(func() -> void:
 		_set_state("playing")
 		_clear_loot_buttons()
