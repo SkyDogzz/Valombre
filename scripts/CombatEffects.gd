@@ -5,7 +5,24 @@ var effects: Array[Dictionary] = []
 var lightning_arcs: Array[Dictionary] = []
 
 func add_effect(effect: Dictionary) -> void:
-	effects.append(effect.duplicate(true))
+	var visual := effect.duplicate(true)
+	visual.max_life = float(visual.get("max_life", visual.get("life", 0.0)))
+	visual.persistent_lifetime = str(visual.get("kind", "")) == "bomb_burn" or str(visual.get("kind", "")) == "lightning_zone"
+	effects.append(visual)
+	queue_redraw()
+
+func update_persistent_effect(source: Dictionary) -> void:
+	var kind := str(source.get("kind", ""))
+	if kind != "bomb_burn" and kind != "lightning_zone":
+		return
+	for index in range(effects.size() - 1, -1, -1):
+		var effect: Dictionary = effects[index]
+		if str(effect.get("kind", "")) != kind or effect.get("position", Vector2.ZERO) != source.get("position", Vector2.ZERO):
+			continue
+		effect.life = float(source.life)
+		effect.tick = float(source.tick)
+		effects[index] = effect
+		break
 	queue_redraw()
 
 func add_lightning_arc(from: Vector2, to: Vector2) -> void:
@@ -24,11 +41,12 @@ func _process(delta: float) -> void:
 			effect.delay = maxf(0.0, float(effect.delay) - delta)
 			effects[index] = effect
 			continue
-		effect.life = float(effect.life) - delta
-		if float(effect.life) <= 0.0:
-			effects.remove_at(index)
-		else:
-			effects[index] = effect
+		if not bool(effect.get("persistent_lifetime", false)):
+			effect.life = float(effect.life) - delta
+			if float(effect.life) <= 0.0:
+				effects.remove_at(index)
+				continue
+		effects[index] = effect
 	for index in range(lightning_arcs.size() - 1, -1, -1):
 		var arc: Dictionary = lightning_arcs[index]
 		arc.life = float(arc.life) - delta
@@ -53,6 +71,8 @@ func _draw_effect(effect: Dictionary) -> void:
 	var life := float(effect.life)
 	var max_life := maxf(0.001, float(effect.get("max_life", effect.life)))
 	var progress := clampf(1.0 - life / max_life, 0.0, 1.0)
+	if bool(effect.get("persistent_lifetime", false)) and life <= 0.0:
+		return
 	match kind:
 		"drop_trail":
 			var from: Vector2 = effect.from

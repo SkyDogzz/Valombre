@@ -174,7 +174,7 @@ func _ready() -> void:
 	combat_effects = ValombreCombatEffects.new()
 	combat_effects.name = "CombatEffects"
 	combat_effects.z_index = 2
-	combat_effects.set_process(false)
+	combat_effects.set_process(true)
 	arena.add_child(combat_effects)
 	player.dodge_started.connect(func(position: Vector2) -> void: _spawn_burst(position, Color("d9c18a"), 8))
 	catalog = main.catalog
@@ -2166,8 +2166,9 @@ func _chain_lightning(first: ValombreEnemy, projectile: Dictionary) -> void:
 		_damage_enemy(nearest, float(projectile.damage) * 0.72, str(projectile.weapon))
 		current = nearest
 	if bool(projectile.get("storm_special", false)):
-		damage_zones.append({"position": current.position, "radius": 34.0, "damage": float(projectile.damage) * 0.28, "weapon": str(projectile.weapon), "tick": 0.12, "interval": 0.3, "life": 1.2})
-		_add_combat_effect({"kind": "lightning_zone", "position": current.position, "radius": 34.0, "life": 1.2, "max_life": 1.2})
+		var lightning_zone := {"kind": "lightning_zone", "position": current.position, "radius": 34.0, "damage": float(projectile.damage) * 0.28, "weapon": str(projectile.weapon), "tick": 0.12, "interval": 0.3, "life": 1.2}
+		damage_zones.append(lightning_zone)
+		_add_combat_effect(lightning_zone)
 
 func _update_damage_zones(delta: float) -> void:
 	for index in range(damage_zones.size() - 1, -1, -1):
@@ -2181,6 +2182,8 @@ func _update_damage_zones(delta: float) -> void:
 					if state != "playing":
 						break
 			zone.tick = float(zone.tick) + float(zone.interval)
+		if is_instance_valid(combat_effects):
+			combat_effects.update_persistent_effect(zone)
 		if float(zone.life) <= 0.0:
 			damage_zones.remove_at(index)
 		else:
@@ -2203,8 +2206,9 @@ func _detonate_projectile(projectile: Dictionary, center: Vector2) -> void:
 		if state != "playing":
 			break
 	if bool(projectile.get("special_blast", false)) and not bool(projectile.get("pickup_combo", false)):
-		damage_zones.append({"position": center, "radius": radius * 0.78, "damage": float(projectile.damage) * 0.18, "weapon": str(projectile.weapon), "tick": 0.16, "interval": 0.2, "life": 0.82})
-		_add_combat_effect({"kind": "bomb_burn", "position": center, "radius": radius * 0.78, "life": 0.82, "max_life": 0.82})
+		var bomb_burn := {"kind": "bomb_burn", "position": center, "radius": radius * 0.78, "damage": float(projectile.damage) * 0.18, "weapon": str(projectile.weapon), "tick": 0.16, "interval": 0.2, "life": 0.82}
+		damage_zones.append(bomb_burn)
+		_add_combat_effect(bomb_burn)
 
 func _remove_projectile(index: int) -> void:
 	var projectile: Dictionary = projectiles[index]
