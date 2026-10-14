@@ -1129,7 +1129,7 @@ func _update_caster(enemy: ValombreEnemy, delta: float, attack_speed: float, dis
 		enemy.telegraph = maxf(0.0, enemy.telegraph - delta * attack_speed)
 		if enemy.telegraph <= 0.0:
 			var count := 3 if enemy.kind == "shaman" else 1
-			_fire_enemy_fan(enemy, count, 0.24, float(spec.projectileSpeed), enemy.damage, 2.0, "#bd79ce" if count == 3 else "#d7bb8d")
+			_fire_enemy_fan(enemy, count, 0.24, float(spec.projectileSpeed), enemy.damage, 2.0, "#bd79ce" if count == 3 else "#d7bb8d", 8.0 if enemy.kind == "shaman" else 7.0)
 			enemy.attack_timer = float(spec.attackCooldown)
 	elif enemy.attack_timer <= 0.0 and distance < float(spec.range) + 115.0:
 		enemy.aim_position = player.position
@@ -1164,7 +1164,7 @@ func _update_boss(enemy: ValombreEnemy, delta: float, attack_speed: float, to_pl
 		if enemy.telegraph > 0.0:
 			enemy.telegraph = maxf(0.0, enemy.telegraph - delta * attack_speed)
 			if enemy.telegraph <= 0.0:
-				_fire_enemy_fan(enemy, 5, 0.2, float(spec.projectileSpeed), enemy.projectile_damage, 3.0, "#a8d978")
+				_fire_enemy_fan(enemy, 5, 0.2, float(spec.projectileSpeed), enemy.projectile_damage, 3.0, "#a8d978", 10.0)
 				enemy.attack_timer = float(spec.cooldown)
 		elif enemy.attack_timer <= 0.0:
 			enemy.aim_position = player.position
@@ -1196,7 +1196,7 @@ func _update_boss(enemy: ValombreEnemy, delta: float, attack_speed: float, to_pl
 	elif distance > enemy.radius + 85.0:
 		_move_enemy_around_obstacles(enemy, direction * enemy.speed * enemy.slow_factor * delta)
 
-func _fire_enemy_fan(enemy: ValombreEnemy, count: int, spread: float, speed: float, damage: float, lifetime: float, tint: String) -> void:
+func _fire_enemy_fan(enemy: ValombreEnemy, count: int, spread: float, speed: float, damage: float, lifetime: float, tint: String, projectile_radius: float = 7.0) -> void:
 	var base_angle := (enemy.aim_position - enemy.position).angle()
 	var difficulty: Dictionary = catalog.content.difficulties[difficulty_id]
 	for shot in count:
@@ -1208,7 +1208,7 @@ func _fire_enemy_fan(enemy: ValombreEnemy, count: int, spread: float, speed: flo
 		sprite.modulate = Color(tint)
 		sprite.position = enemy.position
 		arena.add_child(sprite)
-		projectiles.append({"node": sprite, "team": "enemy", "velocity": direction * speed * float(difficulty.projectileSpeed), "damage": damage, "radius": 7.0, "life": lifetime, "source": enemy.kind})
+		projectiles.append({"node": sprite, "team": "enemy", "velocity": direction * speed * float(difficulty.projectileSpeed), "damage": damage, "radius": projectile_radius, "life": lifetime, "source": enemy.kind})
 
 func _advance_enemy_dash(enemy: ValombreEnemy, delta: float) -> void:
 	var step_length := minf(enemy.dash_distance_left, enemy.dash_distance_left * delta / maxf(enemy.dash_time_left, delta))
