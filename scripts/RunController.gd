@@ -672,7 +672,7 @@ func _update_player_visuals() -> void:
 		var definition: Dictionary = catalog.content.weapons[weapon_id]
 		var owned := _owned_weapon(weapon_id)
 		var synergy := _synergy_data(weapon_id)
-		var frequency := maxf(0.1, float(definition.speed) * attack_speed_multiplier * equipment_speed * (1.0 + 0.08 * (int(owned.get("level", 1)) - 1)) * float(synergy.get("attackSpeedMultiplier", 1.0)) * (1.2 if bool(owned.get("special", false)) else 1.0))
+		var frequency := maxf(0.1, float(definition.speed) * attack_speed_multiplier * (1.0 + 0.08 * (int(owned.get("level", 1)) - 1)) * float(synergy.get("attackSpeedMultiplier", 1.0)) * (1.2 if bool(owned.get("special", false)) else 1.0))
 		var attack_duration := 0.26 / frequency
 		var progress := clampf(1.0 - attack_timer / attack_duration, 0.0, 1.0)
 		var recovery := 1.0 - clampf(progress / 0.32, 0.0, 1.0)
@@ -1410,7 +1410,7 @@ func _update_auto_attack() -> void:
 			player.facing = aim
 		var synergy := _synergy_data(id)
 		var damage_scale := damage_multiplier * equipment_damage * level_scale * float(synergy.get("damageMultiplier", 1.0)) * (1.5 if bool(owned.special) else 1.0) * (1.0 + (level - 1) * 0.005)
-		var frequency := maxf(0.1, float(weapon.speed) * attack_speed_multiplier * equipment_speed * (1.0 + 0.08 * (int(owned.level) - 1)) * float(synergy.get("attackSpeedMultiplier", 1.0)) * (1.2 if bool(owned.special) else 1.0))
+		var frequency := maxf(0.1, float(weapon.speed) * attack_speed_multiplier * (1.0 + 0.08 * (int(owned.level) - 1)) * float(synergy.get("attackSpeedMultiplier", 1.0)) * (1.2 if bool(owned.special) else 1.0))
 		weapon_cooldowns[id] = 0.26 / frequency
 		weapon_attack_timers[id] = 0.26 / frequency
 		if ranged:
@@ -1736,7 +1736,7 @@ func _detonate_projectile(projectile: Dictionary, center: Vector2) -> void:
 				_move_enemy_around_obstacles(enemy, offset.normalized() * 24.0)
 		if state != "playing":
 			break
-	if bool(projectile.get("special_blast", false)):
+	if bool(projectile.get("special_blast", false)) and not bool(projectile.get("pickup_combo", false)):
 		damage_zones.append({"position": center, "radius": radius * 0.78, "damage": float(projectile.damage) * 0.18, "weapon": str(projectile.weapon), "tick": 0.16, "interval": 0.2, "life": 0.82})
 		_add_combat_effect({"kind": "bomb_burn", "position": center, "radius": radius * 0.78, "life": 0.82, "max_life": 0.82})
 
@@ -1834,6 +1834,9 @@ func _weapon_scale(id: String) -> float:
 		return damage_multiplier * equipment_damage * (1.0 + (level - 1) * 0.005)
 	return damage_multiplier * equipment_damage * (1.0 + 0.18 * (int(owned.level) - 1)) * (1.5 if bool(owned.special) else 1.0) * float(_synergy_data(id).get("damageMultiplier", 1.0)) * (1.0 + (level - 1) * 0.005)
 
+func _player_damage_scale(weapon: String) -> float:
+	return damage_multiplier * equipment_damage * (1.0 + (level - 1) * 0.005) * float(_synergy_data(weapon).get("damageMultiplier", 1.0))
+
 func _on_enemy_killed(enemy: ValombreEnemy, weapon: String) -> void:
 	var death_position := enemy.position
 	if weapon == "faux" and _synergy_active("faux"):
@@ -1852,7 +1855,7 @@ func _on_enemy_killed(enemy: ValombreEnemy, weapon: String) -> void:
 			dagger.rotation = death_position.direction_to(target.position).angle()
 			dagger.position = death_position
 			arena.add_child(dagger)
-			projectiles.append({"node": dagger, "direction": death_position.direction_to(target.position), "speed": 620.0, "radius": 6.0, "damage": float(catalog.content.weapons.dagues.ghoulDamage) * _weapon_scale("dagues") * 1.4, "weapon": "", "remaining": 900.0, "homing_target": target, "explosive": false, "lightning": false, "frost": false, "hit_targets": []})
+			projectiles.append({"node": dagger, "direction": death_position.direction_to(target.position), "speed": 620.0, "radius": 6.0, "damage": float(catalog.content.weapons.dagues.ghoulDamage) * _player_damage_scale("dagues") * 1.4, "weapon": "", "remaining": 900.0, "homing_target": target, "explosive": false, "lightning": false, "frost": false, "hit_targets": []})
 	if weapon == "givre" and enemy.slow_time > 0.0 and _synergy_active("givre"):
 		_add_combat_effect({"kind": "frost_nova", "position": death_position, "radius": 124.0, "life": 0.42, "max_life": 0.42})
 		for target in enemies.duplicate():
@@ -1860,7 +1863,7 @@ func _on_enemy_killed(enemy: ValombreEnemy, weapon: String) -> void:
 				continue
 			target.slow_time = maxf(target.slow_time, 1.8)
 			target.slow_factor = 0.35
-			_damage_enemy(target, float(catalog.content.weapons.givre.ghoulDamage) * _weapon_scale("givre") * 1.35, "")
+			_damage_enemy(target, float(catalog.content.weapons.givre.ghoulDamage) * _player_damage_scale("givre") * 1.35, "")
 
 func _enemy_drop_xp(position: Vector2, value: float, weapon_xp_multiplier := 1.0) -> void:
 	var node := Sprite2D.new()
@@ -1976,7 +1979,7 @@ func _update_drops(delta: float) -> void:
 			drops.remove_at(index)
 	if bomb_combo_pickups > 0 and state == "playing":
 		var bomb_damage := float(catalog.content.weapons.bombe.ghoulDamage) * _weapon_scale("bombe") * minf(4.0, 1.4 + (bomb_combo_pickups - 1) * 0.55)
-		_detonate_projectile({"radius": 92.0, "damage": bomb_damage, "weapon": "bombe"}, player.position)
+		_detonate_projectile({"explosion_radius": 92.0, "damage": bomb_damage, "weapon": "bombe", "special_blast": true, "pickup_combo": true}, player.position)
 
 func _show_level_up() -> void:
 	_play_tone(460.0, 0.12, "sine")
