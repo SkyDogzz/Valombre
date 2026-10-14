@@ -1710,10 +1710,12 @@ func _damage_enemy(enemy: ValombreEnemy, amount: float, _weapon: String) -> void
 	if enemy.hp <= 0.0:
 		var death_position := enemy.position
 		var is_boss := enemy.kind == "boss"
-		defeated += 1
-		_record_bestiary_kill(enemy)
 		enemy.queue_free()
 		enemies.erase(enemy)
+		defeated += 1
+		var new_bestiary_discovery := _record_bestiary_kill(enemy)
+		if new_bestiary_discovery or defeated % 10 == 0:
+			_save_profile()
 		_progress_objective("kills")
 		if enemy.elite:
 			_progress_objective("elite")
@@ -2306,21 +2308,24 @@ func _discover_bestiary(key: String, elite_id: String) -> void:
 		profile.bestiary = bestiary
 		_save_profile()
 
-func _record_bestiary_kill(enemy: ValombreEnemy) -> void:
+func _record_bestiary_kill(enemy: ValombreEnemy) -> bool:
 	var key := "boss:%s" % enemy.boss_id if enemy.kind == "boss" else enemy.kind
 	var bestiary: Dictionary = profile.get("bestiary", {})
 	var record: Dictionary = bestiary.get(key, {"kills": 0, "discovered": true})
+	var new_discovery := int(record.get("kills", 0)) == 0
 	record.kills = int(record.get("kills", 0)) + 1
 	record.discovered = true
 	bestiary[key] = record
 	if enemy.elite:
 		var elite_key := "elite:%s" % enemy.elite_id
 		var elite_record: Dictionary = bestiary.get(elite_key, {"kills": 0, "discovered": true})
+		if int(elite_record.get("kills", 0)) == 0:
+			new_discovery = true
 		elite_record.kills = int(elite_record.get("kills", 0)) + 1
 		elite_record.discovered = true
 		bestiary[elite_key] = elite_record
 	profile.bestiary = bestiary
-	_save_profile()
+	return new_discovery
 
 func _set_inventory_lock(group: String, item_id: String, enabled: bool) -> void:
 	var item := _owned_weapon(item_id) if group == "weapons" else _owned_relic(item_id)
@@ -2635,16 +2640,15 @@ func _format_upgrade_bonus(definition: GameDefinition) -> String:
 		_: return "%d %%" % roundi(value * 100.0)
 
 func _progress_objective(target: String) -> void:
+	if objective_type == target and not objective_complete:
+		objective_progress = mini(objective_target, objective_progress + 1)
+		if objective_progress >= objective_target:
+			objective_complete = true
+			hp = minf(max_hp, hp + ceili(max_hp * 0.18))
+			status_label.text = "Objectif accompli · +18 % PV"
 	_progress_challenges(target)
 	if target == "kills" and defeated > 0 and defeated % 10 == 0:
 		_save_checkpoint(wave)
-	if objective_type != target or objective_complete:
-		return
-	objective_progress = mini(objective_target, objective_progress + 1)
-	if objective_progress >= objective_target:
-		objective_complete = true
-		hp = minf(max_hp, hp + ceili(max_hp * 0.18))
-		status_label.text = "Objectif accompli · +18 % PV"
 
 func _progress_challenges(target: String) -> void:
 	var challenge_id := "elites" if target == "elite" else target
@@ -2652,17 +2656,17 @@ func _progress_challenges(target: String) -> void:
 		if str(challenge.id) != challenge_id or bool(challenge.complete):
 			continue
 		challenge.progress = mini(int(challenge.target), int(challenge.progress) + 1)
-		if profile.get("run") is Dictionary:
-			profile.run.runChallenges = run_challenges.duplicate(true)
-			profile.run.defeated = defeated
-			profile.run.elapsedSeconds = int(elapsed)
 		if int(challenge.progress) >= int(challenge.target):
 			challenge.complete = true
 			profile.shards = int(profile.shards) + 1
+			if profile.get("run") is Dictionary:
+				profile.run.runChallenges = run_challenges.duplicate(true)
+				profile.run.waveObjective = {"type": objective_type, "target": objective_target, "progress": objective_progress, "complete": objective_complete}
 			_save_checkpoint(wave)
 			status_label.text = "Défi accompli · +1 Éclat"
-		else:
-			_save_checkpoint(wave)
+		elif profile.get("run") is Dictionary:
+			profile.run.runChallenges = run_challenges.duplicate(true)
+			profile.run.waveObjective = {"type": objective_type, "target": objective_target, "progress": objective_progress, "complete": objective_complete}
 
 func _finish_run(result: String) -> void:
 	if result_recorded:
