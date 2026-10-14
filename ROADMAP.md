@@ -2,7 +2,7 @@
 
 Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le guide du dépôt [`README.md`](README.md). L’objectif est une version Godot jouable dont le contenu et les règles reproduisent le snapshot web, puis dont la présentation et les contrôles atteignent la même expérience. Les tâches marquées « parité » doivent suivre le code JavaScript exporté, y compris les comportements qui ne sont pas décrits dans le JSON.
 
-**Avancement global : 34/70 tâches terminées (48,6 %).**
+**Avancement global : 36/70 tâches terminées (51,4 %).**
 
 ## Principes de portage
 
@@ -41,8 +41,8 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 - [x] Créer `scenes/Main.tscn` et l’assigner comme scène principale dans `project.godot`.
 - [x] Créer les dossiers `scenes/`, `scripts/`, `data/`, `assets/`, `shaders/` et `audio/` si nécessaire.
 - [x] Copier les SVG du dump sous `assets/` sans altérer les originaux ; conserver le manifeste et décider du mode d’import SVG adapté à Godot 4.7.
-- [ ] Créer des Resources typées pour héros, armes, espèces ennemies, boss, affixes, améliorations, reliques, synergies, difficultés et vagues.
-- [ ] Importer toutes les valeurs de référence. Ajouter une validation de données au démarrage afin de relever les identifiants ou relations manquants.
+- [x] Créer des Resources typées pour héros, armes, espèces ennemies, boss, affixes, améliorations, reliques, synergies, difficultés et vagues.
+- [x] Importer toutes les valeurs de référence. Ajouter une validation de données au démarrage afin de relever les identifiants ou relations manquants.
 - [x] Créer la scène racine et les couches monde/interface, une scène d’arène, puis une caméra bornée au rectangle 1500×1100.
 - [x] Régler la fenêtre de jeu et le comportement de redimensionnement pour préserver le cadre 16:9 de référence.
 

@@ -612,13 +612,12 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 			projectile.node.queue_free()
 	projectiles.clear()
 	pending_spawns.clear()
-	var hero: GameDefinition = _find_definition("heroes", hero_id)
-	var stats: Dictionary = hero.values
-	max_hp = float(stats.get("health", 100))
+	var hero := _find_definition("heroes", hero_id) as HeroDefinition
+	max_hp = hero.health
 	hp = max_hp
 	player.position = WORLD_SIZE * 0.5
 	player.run_active = true
-	player.move_speed = float(stats.get("speed", 190))
+	player.move_speed = hero.speed
 	player.movement_multiplier = 1.0
 	player.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	_update_player_visuals()
@@ -641,7 +640,7 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 	wave = 0
 	elapsed = 0.0
 	boss_after_wave_id = ""
-	base_hp = float(stats.get("health", 100))
+	base_hp = hero.health
 	bonus_max_hp = 0.0
 	weapon_inventory = [{"id": weapon_id, "level": 1, "special": false, "locked": false}]
 	_mark_discovered("discoveredWeapons", weapon_id)
