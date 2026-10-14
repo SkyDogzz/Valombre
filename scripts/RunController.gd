@@ -47,6 +47,7 @@ var drops: Array[Dictionary] = []
 var weapon_inventory: Array[Dictionary] = []
 var relic_inventory: Array[Dictionary] = []
 var weapon_cooldowns: Dictionary = {}
+var weapon_attack_timers: Dictionary = {}
 var equipment_damage := 1.0
 var equipment_speed := 1.0
 var equipment_range := 0.0
@@ -61,6 +62,7 @@ var weapon_swing_counts: Dictionary = {}
 var projectiles: Array[Dictionary] = []
 var damage_zones: Array[Dictionary] = []
 var damage_numbers: Array[Dictionary] = []
+var weapon_effects: Array[Dictionary] = []
 var projectile_size_multiplier := 1.0
 var projectile_speed_multiplier := 1.0
 var rng := RandomNumberGenerator.new()
@@ -187,10 +189,13 @@ func _process(delta: float) -> void:
 	weapon_cooldown = maxf(0.0, weapon_cooldown - delta)
 	for id in weapon_cooldowns.keys():
 		weapon_cooldowns[id] = maxf(0.0, float(weapon_cooldowns[id]) - delta)
+	for id in weapon_attack_timers.keys():
+		weapon_attack_timers[id] = maxf(0.0, float(weapon_attack_timers[id]) - delta)
 	contact_cooldown = maxf(0.0, contact_cooldown - delta)
 	skill_cooldown = maxf(0.0, skill_cooldown - delta)
 	if intermission > 0.0:
 		intermission -= delta
+		_process_weapon_effects(delta)
 		if intermission <= 0.0:
 			_start_wave(wave + 1)
 	else:
@@ -198,6 +203,7 @@ func _process(delta: float) -> void:
 		_update_enemies(delta)
 		if state != "playing":
 			return
+		_process_weapon_effects(delta)
 		_update_projectiles(delta)
 		if state != "playing":
 			return
@@ -207,7 +213,7 @@ func _process(delta: float) -> void:
 		_update_auto_attack()
 		if state != "playing":
 			return
-		_update_player_visuals()
+	_update_player_visuals()
 	_update_drops(delta)
 	_update_damage_numbers(delta)
 	_update_hud()
@@ -559,11 +565,38 @@ func _update_player_visuals() -> void:
 	if held_weapon_sprite.texture:
 		var size := held_weapon_sprite.texture.get_size()
 		held_weapon_sprite.scale = Vector2(42.0 / size.x, 18.0 / size.y)
+	var weapon_sprite_scale := held_weapon_sprite.scale
 	held_weapon_sprite.visible = state == "playing"
 	if state != "playing":
 		return
-	held_weapon_sprite.position = player.facing.normalized() * 7.0
-	held_weapon_sprite.rotation = player.facing.angle()
+	var forward := player.facing.normalized()
+	var sprite_position := forward * 7.0
+	var sprite_rotation := player.facing.angle()
+	var attack_timer := float(weapon_attack_timers.get(weapon_id, 0.0))
+	if attack_timer > 0.0:
+		var definition: Dictionary = catalog.content.weapons[weapon_id]
+		var owned := _owned_weapon(weapon_id)
+		var synergy := _synergy_data(weapon_id)
+		var frequency := maxf(0.1, float(definition.speed) * attack_speed_multiplier * equipment_speed * (1.0 + 0.08 * (int(owned.get("level", 1)) - 1)) * float(synergy.get("attackSpeedMultiplier", 1.0)) * (1.2 if bool(owned.get("special", false)) else 1.0))
+		var attack_duration := 0.26 / frequency
+		var progress := clampf(1.0 - attack_timer / attack_duration, 0.0, 1.0)
+		var recovery := 1.0 - clampf(progress / 0.32, 0.0, 1.0)
+		match weapon_id:
+			"sabre":
+				var swing_direction := 1.0 if int(weapon_swing_counts.get(weapon_id, 0)) % 2 == 1 else -1.0
+				sprite_rotation += swing_direction * (-1.3 + 2.6 * progress)
+			"marteau": sprite_rotation += 1.25 * recovery
+			"dagues": sprite_position += forward * 12.0 * recovery
+			"arc":
+				sprite_rotation -= 0.1 * recovery
+				weapon_sprite_scale.y *= 1.0 + 0.25 * recovery
+			"foudre": sprite_rotation -= 0.18 * recovery
+			"bombe":
+				sprite_position += forward * 7.0 * recovery
+				sprite_rotation += sin(progress * PI) * 0.12
+	held_weapon_sprite.position = sprite_position
+	held_weapon_sprite.rotation = sprite_rotation
+	held_weapon_sprite.scale = weapon_sprite_scale
 
 func _play_tone(frequency: float, duration := 0.08, waveform := "sine") -> void:
 	if bool(profile.muted) or float(profile.volume) <= 0.0 or not is_instance_valid(audio_player):
@@ -669,6 +702,11 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 		if is_instance_valid(projectile.get("node")):
 			projectile.node.queue_free()
 	projectiles.clear()
+	for effect in weapon_effects:
+		var visual: Variant = effect.get("visual")
+		if is_instance_valid(visual):
+			visual.queue_free()
+	weapon_effects.clear()
 	for number in damage_numbers:
 		if is_instance_valid(number.get("node")):
 			number.node.queue_free()
@@ -709,6 +747,7 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 	_mark_discovered("discoveredWeapons", weapon_id)
 	relic_inventory.clear()
 	weapon_cooldowns.clear()
+	weapon_attack_timers.clear()
 	equipment_damage = 1.0
 	equipment_speed = 1.0
 	equipment_range = 0.0
@@ -1248,9 +1287,11 @@ func _update_auto_attack() -> void:
 		var damage_scale := damage_multiplier * equipment_damage * level_scale * float(synergy.get("damageMultiplier", 1.0)) * (1.5 if bool(owned.special) else 1.0) * (1.0 + (level - 1) * 0.005)
 		var frequency := maxf(0.1, float(weapon.speed) * attack_speed_multiplier * equipment_speed * (1.0 + 0.08 * (int(owned.level) - 1)) * float(synergy.get("attackSpeedMultiplier", 1.0)) * (1.2 if bool(owned.special) else 1.0))
 		weapon_cooldowns[id] = 0.26 / frequency
+		weapon_attack_timers[id] = 0.26 / frequency
 		if ranged:
-			_launch_projectile(weapon, target, damage_scale, id, reach)
+			_launch_projectile(weapon, target, damage_scale, id)
 			continue
+		_play_tone(155.0, 0.045, "triangle")
 		weapon_swing_counts[id] = swing_count
 		for enemy in enemies.duplicate():
 			var offset := enemy.position - player.position
@@ -1289,21 +1330,7 @@ func _update_auto_attack() -> void:
 			break
 		if id == "marteau" and bool(owned.special):
 			var full_circle := _synergy_active(id)
-			for enemy in enemies.duplicate():
-				var offset := enemy.position - player.position
-				var distance := offset.length()
-				var in_wave := distance <= reach + 34.0
-				if not full_circle and distance > 0.0:
-					in_wave = in_wave and offset.normalized().dot(player.facing) > float(weapon.get("arc", -1.0))
-				if in_wave:
-					_damage_enemy(enemy, _weapon_base_damage(weapon, enemy) * damage_scale * (1.05 if full_circle else 0.55), id)
-					if is_instance_valid(enemy) and enemy.hp > 0.0 and not full_circle:
-						enemy.position += offset.normalized() * 26.0
-			if full_circle:
-				for enemy in enemies.duplicate():
-					var away := enemy.position - player.position
-					if away.length() <= reach + 82.0 and away.length() > 0.0:
-						enemy.position += away.normalized() * 76.0
+			weapon_effects.append({"kind": "hammer_wave", "delay": 0.16, "position": player.position, "angle": player.facing.angle(), "arc": float(weapon.get("arc", -1.0)), "outer": reach + 34.0, "full_circle": full_circle, "weapon": id, "damage_scale": damage_scale * (1.05 if full_circle else 0.55)})
 		if id == "faux" and (special_finisher or (_synergy_active(id) and scythe_souls > 0)):
 			var released := scythe_souls if _synergy_active(id) else 0
 			scythe_souls -= released
@@ -1315,40 +1342,130 @@ func _update_auto_attack() -> void:
 func _weapon_base_damage(weapon: Dictionary, enemy: ValombreEnemy) -> float:
 	return float(weapon.get("bruteDamage", 25) if enemy.kind == "brute" else weapon.get("ghoulDamage", 32))
 
-func _launch_projectile(weapon: Dictionary, target: ValombreEnemy, damage_scale: float, id: String, reach: float) -> void:
+func _launch_projectile(weapon: Dictionary, target: ValombreEnemy, damage_scale: float, id: String) -> void:
 	var direction := (target.position - player.position).normalized()
-	var directions: Array[Vector2] = [direction]
-	if id == "arc" and _synergy_active(id):
-		directions = [direction.rotated(-0.2), direction, direction.rotated(0.2)]
-	for shot_index in directions.size():
-		var shot_direction := directions[shot_index]
-		var sprite := Sprite2D.new()
-		sprite.texture = load("res://assets/weapons/%s.svg" % id)
-		sprite.scale = Vector2(0.18, 0.18) * projectile_size_multiplier
-		sprite.modulate = Color("c7a8ff") if weapon.get("lightning", false) else Color("91e9ef") if weapon.get("frost", false) else Color("ff9a4e") if weapon.get("explosive", false) else Color("85d8ce")
-		sprite.position = player.position + shot_direction * 14.0
-		arena.add_child(sprite)
-		projectiles.append({
-			"node": sprite,
-			"direction": shot_direction,
-			"speed": 520.0 * projectile_speed_multiplier,
-			"radius": 5.0 * projectile_size_multiplier,
-			"damage": _weapon_base_damage(weapon, target) * damage_scale * (0.72 if directions.size() == 3 and shot_index != 1 else 1.0),
-			"weapon": id,
-			"remaining": reach + 40.0,
-			"explosive": bool(weapon.get("explosive", false)),
-			"explosion_radius": (44.0 + (float(_owned_weapon(id).get("level", 1)) - 1.0) * 9.0) * (1.35 if bool(_owned_weapon(id).get("special", false)) else 1.0) if bool(weapon.get("explosive", false)) else 0.0,
-			"special_blast": bool(_owned_weapon(id).get("special", false)) and bool(weapon.get("explosive", false)),
-			"lightning": bool(weapon.get("lightning", false)),
-			"frost": bool(weapon.get("frost", false)),
-			"piercing": bool(_owned_weapon(id).get("special", false)) and id == "arc",
-			"storm_special": bool(_owned_weapon(id).get("special", false)) and bool(weapon.get("lightning", false)),
-			"slow_duration": 1.25 * (float(_synergy_data(id).get("slowDurationMultiplier", 1.0))) * (2.4 / 1.25 if bool(_owned_weapon(id).get("special", false)) else 1.0),
-			"slow_factor": 0.42 if bool(_owned_weapon(id).get("special", false)) else 0.58,
-			"chain_targets": int(_owned_weapon(id).get("level", 1)) + (1 if bool(_owned_weapon(id).get("special", false)) and bool(weapon.get("lightning", false)) else 0),
-			"chain_range": 380.0 if id == "foudre" and _synergy_active(id) else 190.0,
-			"hit_targets": [],
-		})
+	var owned := _owned_weapon(id)
+	var is_special := bool(owned.get("special", false))
+	var shot := {
+		"direction": direction,
+		"speed": 520.0 * projectile_speed_multiplier,
+		"radius": 5.0 * projectile_size_multiplier,
+		"damage": _weapon_base_damage(weapon, target) * damage_scale,
+		"weapon": id,
+		"remaining": INF,
+		"explosive": bool(weapon.get("explosive", false)),
+		"explosion_radius": (44.0 + (float(owned.get("level", 1)) - 1.0) * 9.0) * (1.35 if is_special else 1.0) if bool(weapon.get("explosive", false)) else 0.0,
+		"special_blast": is_special and bool(weapon.get("explosive", false)),
+		"lightning": bool(weapon.get("lightning", false)),
+		"frost": bool(weapon.get("frost", false)),
+		"piercing": is_special and id == "arc",
+		"storm_special": is_special and bool(weapon.get("lightning", false)),
+		"slow_duration": 1.25 * float(_synergy_data(id).get("slowDurationMultiplier", 1.0)) * (2.4 / 1.25 if is_special else 1.0),
+		"slow_factor": 0.42 if is_special else 0.58,
+		"chain_targets": int(owned.get("level", 1)) + (1 if is_special and bool(weapon.get("lightning", false)) else 0),
+		"chain_range": 380.0 if id == "foudre" and _synergy_active(id) else 190.0,
+		"hit_targets": [],
+	}
+	var fan := id == "arc" and _synergy_active(id)
+	if is_special and id in ["arc", "foudre"]:
+		var charge_visual := Sprite2D.new()
+		charge_visual.texture = load("res://assets/xp.svg")
+		charge_visual.modulate = Color("c7a8ff") if id == "foudre" else Color("ffe39a")
+		charge_visual.scale = Vector2(0.12, 0.12)
+		charge_visual.z_index = 3
+		arena.add_child(charge_visual)
+		weapon_effects.append({"kind": "ranged_charge", "delay": 0.14, "shot": shot, "fan": fan, "visual": charge_visual, "weapon": id})
+		return
+	if fan:
+		var offsets := [-0.2, 0.0, 0.2]
+		var damage_scales := [0.72, 1.0, 0.72]
+		for index in offsets.size():
+			var volley_shot := shot.duplicate(true)
+			volley_shot.direction = direction.rotated(float(offsets[index]))
+			volley_shot.damage = float(shot.damage) * float(damage_scales[index])
+			_spawn_player_projectile(volley_shot)
+	else:
+		_spawn_player_projectile(shot)
+	_play_tone(510.0, 0.055, "triangle")
+
+func _spawn_player_projectile(projectile: Dictionary) -> void:
+	var id := str(projectile.weapon)
+	var weapon: Dictionary = catalog.content.weapons[id]
+	var sprite := Sprite2D.new()
+	sprite.texture = load("res://assets/weapons/%s.svg" % id)
+	sprite.scale = Vector2(0.18, 0.18) * projectile_size_multiplier
+	sprite.modulate = Color("c7a8ff") if weapon.get("lightning", false) else Color("91e9ef") if weapon.get("frost", false) else Color("ff9a4e") if weapon.get("explosive", false) else Color("85d8ce")
+	sprite.position = player.position + projectile.direction * 14.0
+	arena.add_child(sprite)
+	projectile.node = sprite
+	projectiles.append(projectile)
+
+func _process_weapon_effects(delta: float) -> void:
+	for index in range(weapon_effects.size() - 1, -1, -1):
+		var effect: Dictionary = weapon_effects[index]
+		if str(effect.kind) == "hammer_shockwave":
+			effect.delay = float(effect.delay) - delta
+			if float(effect.delay) > 0.0:
+				weapon_effects[index] = effect
+				continue
+			for enemy in enemies.duplicate():
+				var away := enemy.position - effect.position
+				if away.length() <= float(effect.radius) and away.length() > 0.0:
+					_move_enemy_around_obstacles(enemy, away.normalized() * 76.0)
+			_play_tone(120.0, 0.09)
+			weapon_effects.remove_at(index)
+			continue
+		if str(effect.kind) == "hammer_wave":
+			effect.delay = float(effect.delay) - delta
+			if float(effect.delay) > 0.0:
+				weapon_effects[index] = effect
+				continue
+			if bool(effect.full_circle):
+				_mark_discovered("discoveredSynergies", "marteau-stone")
+			_play_tone(92.0, 0.13, "sawtooth")
+			var forward := Vector2(cos(float(effect.angle)), sin(float(effect.angle)))
+			var weapon: Dictionary = catalog.content.weapons[str(effect.weapon)]
+			for enemy in enemies.duplicate():
+				var offset := enemy.position - effect.position
+				var distance := offset.length()
+				var facing := offset.normalized().dot(forward) if distance > 0.0 else 1.0
+				if distance <= float(effect.outer) and (bool(effect.full_circle) or facing > float(effect.arc)):
+					_damage_enemy(enemy, _weapon_base_damage(weapon, enemy) * float(effect.damage_scale), str(effect.weapon))
+					if not bool(effect.full_circle) and enemies.has(enemy) and enemy.hp > 0.0 and distance > 0.0:
+						_move_enemy_around_obstacles(enemy, offset.normalized() * 26.0)
+				if state != "playing":
+					break
+			if bool(effect.full_circle):
+				weapon_effects.append({"kind": "hammer_shockwave", "delay": 0.12, "position": effect.position, "radius": float(effect.outer) + 48.0})
+			weapon_effects.remove_at(index)
+			if state != "playing":
+				break
+			continue
+		var direction: Vector2 = effect.shot.direction
+		var charge_distance := 23.0 if str(effect.weapon) == "foudre" else 31.0
+		var visual: Sprite2D = effect.visual
+		visual.position = player.position + direction * charge_distance
+		var pulse := 1.0 + 0.25 * sin((0.14 - float(effect.delay)) * 60.0)
+		visual.scale = Vector2(0.12, 0.12) * pulse
+		effect.delay = float(effect.delay) - delta
+		if float(effect.delay) > 0.0:
+			weapon_effects[index] = effect
+			continue
+		var shot: Dictionary = effect.shot
+		if bool(effect.fan):
+			var offsets := [-0.2, 0.0, 0.2]
+			var damage_scales := [0.72, 1.0, 0.72]
+			for shot_index in offsets.size():
+				var volley_shot := shot.duplicate(true)
+				volley_shot.direction = direction.rotated(float(offsets[shot_index]))
+				volley_shot.damage = float(shot.damage) * float(damage_scales[shot_index])
+				_spawn_player_projectile(volley_shot)
+		else:
+			_spawn_player_projectile(shot)
+		_play_tone(350.0 if bool(catalog.content.weapons[str(effect.weapon)].get("lightning", false)) else 640.0, 0.075, "sawtooth" if str(effect.weapon) == "foudre" else "triangle")
+		if is_instance_valid(visual):
+			visual.queue_free()
+		weapon_effects.remove_at(index)
 
 func _update_projectiles(delta: float) -> void:
 	for index in range(projectiles.size() - 1, -1, -1):
