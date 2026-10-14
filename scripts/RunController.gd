@@ -66,7 +66,12 @@ var objective_progress := 0
 var objective_target := 12
 var objective_complete := false
 var run_challenges: Array[Dictionary] = []
-var profile := {"schema_version": 1, "wins": 0, "bestKills": 0, "shards": 0, "run": null}
+var single_weapon := false
+var uncapped_inventory := false
+var custom_drops := false
+var selected_drop_weapons: Array[String] = []
+var selected_drop_relics: Array[String] = []
+var profile := {"schema_version": 1, "wins": 0, "bestKills": 0, "shards": 0, "run": null, "singleWeapon": false, "uncappedInventory": false, "customDrops": false, "dropWeapons": [], "dropRelics": []}
 var result_recorded := false
 
 var layer: CanvasLayer
@@ -80,6 +85,12 @@ var mode_picker: OptionButton
 var difficulty_picker: OptionButton
 var start_button: Button
 var new_run_button: Button
+var single_weapon_toggle: CheckBox
+var uncapped_inventory_toggle: CheckBox
+var custom_drops_toggle: CheckBox
+var weapon_drop_menu: MenuButton
+var relic_drop_menu: MenuButton
+var drop_filter_row: HBoxContainer
 var hud: Label
 var boss_bar: ProgressBar
 var boss_name_label: Label
@@ -90,6 +101,11 @@ func _ready() -> void:
 	player = arena.get_node("Player")
 	catalog = main.catalog
 	_load_profile()
+	single_weapon = bool(profile.singleWeapon)
+	uncapped_inventory = bool(profile.uncappedInventory)
+	custom_drops = bool(profile.customDrops)
+	selected_drop_weapons.assign(profile.dropWeapons)
+	selected_drop_relics.assign(profile.dropRelics)
 	rng.randomize()
 	_create_interface()
 	player.run_active = false
@@ -163,6 +179,26 @@ func _create_interface() -> void:
 		weapon_picker.set_item_metadata(weapon_picker.item_count - 1, str(weapon.id))
 	mode_picker = _add_picker(column, "Mode", ["Vagues", "Infini"])
 	difficulty_picker = _add_picker(column, "Difficulté", ["Insane", "Nightmare", "Cataclysm"])
+	single_weapon_toggle = CheckBox.new()
+	single_weapon_toggle.text = "Butin : arme de départ uniquement"
+	single_weapon_toggle.button_pressed = single_weapon
+	single_weapon_toggle.toggled.connect(_on_single_weapon_toggled)
+	column.add_child(single_weapon_toggle)
+	uncapped_inventory_toggle = CheckBox.new()
+	uncapped_inventory_toggle.text = "Inventaire sans limite"
+	uncapped_inventory_toggle.button_pressed = uncapped_inventory
+	uncapped_inventory_toggle.toggled.connect(_on_uncapped_inventory_toggled)
+	column.add_child(uncapped_inventory_toggle)
+	custom_drops_toggle = CheckBox.new()
+	custom_drops_toggle.text = "Filtrer les armes et reliques obtenues"
+	custom_drops_toggle.button_pressed = custom_drops
+	custom_drops_toggle.toggled.connect(_on_custom_drops_toggled)
+	column.add_child(custom_drops_toggle)
+	drop_filter_row = HBoxContainer.new()
+	column.add_child(drop_filter_row)
+	weapon_drop_menu = _add_drop_menu(drop_filter_row, "Armes autorisées", "weapons", selected_drop_weapons)
+	relic_drop_menu = _add_drop_menu(drop_filter_row, "Reliques autorisées", "relics", selected_drop_relics)
+	_update_drop_filter_controls()
 	start_button = Button.new()
 	start_button.text = "Entrer dans la forêt"
 	start_button.pressed.connect(_on_start_pressed)
@@ -210,6 +246,78 @@ func _add_picker(parent: VBoxContainer, label_text: String, choices: Array) -> O
 	parent.add_child(picker)
 	return picker
 
+func _add_drop_menu(parent: HBoxContainer, title: String, group: String, selected_ids: Array[String]) -> MenuButton:
+	var button := MenuButton.new()
+	button.text = title
+	var popup := button.get_popup()
+	var records: Array = catalog.content.weapons.values() if group == "weapons" else catalog.content.relics
+	var ids: Array = catalog.content.weapons.keys() if group == "weapons" else catalog.content.relics.map(func(item: Dictionary) -> String: return str(item.id))
+	for index in ids.size():
+		var record: Dictionary = records[index] if group == "relics" else catalog.content.weapons[ids[index]]
+		popup.add_check_item(str(record.get("name", record.get("displayName", ids[index]))), index)
+		popup.set_item_metadata(index, str(ids[index]))
+		popup.set_item_checked(index, selected_ids.has(str(ids[index])))
+	if group == "weapons":
+		popup.id_pressed.connect(_on_weapon_filter_pressed)
+	else:
+		popup.id_pressed.connect(_on_relic_filter_pressed)
+	parent.add_child(button)
+	return button
+
+func _on_weapon_filter_pressed(item_id: int) -> void:
+	var popup := weapon_drop_menu.get_popup()
+	var index := popup.get_item_index(item_id)
+	popup.set_item_checked(index, not popup.is_item_checked(index))
+	selected_drop_weapons.clear()
+	for item_index in popup.item_count:
+		if popup.is_item_checked(item_index):
+			selected_drop_weapons.append(str(popup.get_item_metadata(item_index)))
+	profile.dropWeapons = selected_drop_weapons.duplicate()
+	_save_profile()
+
+func _on_relic_filter_pressed(item_id: int) -> void:
+	var popup := relic_drop_menu.get_popup()
+	var index := popup.get_item_index(item_id)
+	popup.set_item_checked(index, not popup.is_item_checked(index))
+	selected_drop_relics.clear()
+	for item_index in popup.item_count:
+		if popup.is_item_checked(item_index):
+			selected_drop_relics.append(str(popup.get_item_metadata(item_index)))
+	profile.dropRelics = selected_drop_relics.duplicate()
+	_save_profile()
+
+func _on_single_weapon_toggled(enabled: bool) -> void:
+	single_weapon = enabled
+	profile.singleWeapon = enabled
+	_save_profile()
+
+func _on_uncapped_inventory_toggled(enabled: bool) -> void:
+	uncapped_inventory = enabled
+	profile.uncappedInventory = enabled
+	_save_profile()
+
+func _on_custom_drops_toggled(enabled: bool) -> void:
+	custom_drops = enabled
+	profile.customDrops = enabled
+	_update_drop_filter_controls()
+	_save_profile()
+
+func _update_drop_filter_controls() -> void:
+	if is_instance_valid(weapon_drop_menu):
+		weapon_drop_menu.disabled = not custom_drops
+	if is_instance_valid(relic_drop_menu):
+		relic_drop_menu.disabled = not custom_drops
+
+func _refresh_drop_popup_checks() -> void:
+	if is_instance_valid(weapon_drop_menu):
+		var popup := weapon_drop_menu.get_popup()
+		for index in popup.item_count:
+			popup.set_item_checked(index, selected_drop_weapons.has(str(popup.get_item_metadata(index))))
+	if is_instance_valid(relic_drop_menu):
+		var popup := relic_drop_menu.get_popup()
+		for index in popup.item_count:
+			popup.set_item_checked(index, selected_drop_relics.has(str(popup.get_item_metadata(index))))
+
 func _on_start_pressed() -> void:
 	if state == "paused":
 		_set_state("playing")
@@ -223,6 +331,21 @@ func _on_start_pressed() -> void:
 		weapon_id = str(saved_player.get("weapon", "sabre"))
 		mode = str(checkpoint.get("mode", "waves"))
 		difficulty_id = str(checkpoint.get("difficulty", "insane"))
+		single_weapon = bool(checkpoint.get("singleWeapon", profile.singleWeapon))
+		uncapped_inventory = bool(checkpoint.get("uncappedInventory", profile.uncappedInventory))
+		custom_drops = bool(checkpoint.get("customDrops", profile.customDrops))
+		selected_drop_weapons.assign(checkpoint.get("dropWeapons", profile.dropWeapons))
+		selected_drop_relics.assign(checkpoint.get("dropRelics", profile.dropRelics))
+		profile.singleWeapon = single_weapon
+		profile.uncappedInventory = uncapped_inventory
+		profile.customDrops = custom_drops
+		profile.dropWeapons = selected_drop_weapons.duplicate()
+		profile.dropRelics = selected_drop_relics.duplicate()
+		single_weapon_toggle.set_pressed_no_signal(single_weapon)
+		uncapped_inventory_toggle.set_pressed_no_signal(uncapped_inventory)
+		custom_drops_toggle.set_pressed_no_signal(custom_drops)
+		_refresh_drop_popup_checks()
+		_update_drop_filter_controls()
 		hero_picker.select(1 if hero_id == "sentinel" else 0)
 		mode_picker.select(1 if mode == "infinite" else 0)
 		difficulty_picker.select(["insane", "nightmare", "cataclysm"].find(difficulty_id))
@@ -414,6 +537,11 @@ func _save_checkpoint(number: int) -> void:
 		"version": 1,
 		"mode": mode,
 		"difficulty": difficulty_id,
+		"singleWeapon": single_weapon,
+		"uncappedInventory": uncapped_inventory,
+		"customDrops": custom_drops,
+		"dropWeapons": selected_drop_weapons.duplicate(),
+		"dropRelics": selected_drop_relics.duplicate(),
 		"wave": number,
 		"player": saved_player,
 		"defeated": defeated,
@@ -1035,12 +1163,14 @@ func _enemy_drop_xp(position: Vector2, value: float, allow_item_drop := true) ->
 	elif drop_roll < potion_chance + equipment_chance:
 		var choices: Array[String] = []
 		for definition: GameDefinition in catalog.definitions.get("weapons", []):
-			var owned := _owned_weapon(str(definition.id))
-			if owned.is_empty() or int(owned.level) < 5 or not bool(owned.special):
+			var id := str(definition.id)
+			var owned := _owned_weapon(id)
+			var allowed := (not single_weapon or id == weapon_id) and (not custom_drops or selected_drop_weapons.has(id))
+			if allowed and (owned.is_empty() or int(owned.level) < 5 or not bool(owned.special)):
 				choices.append("weapon:%s" % definition.id)
 		for relic: Dictionary in catalog.content.relics:
 			var owned_relic := _owned_relic(str(relic.id))
-			if owned_relic.is_empty() or int(owned_relic.level) < 5:
+			if (not custom_drops or selected_drop_relics.has(str(relic.id))) and (owned_relic.is_empty() or int(owned_relic.level) < 5):
 				choices.append("relic:%s" % relic.id)
 		if not choices.is_empty():
 			var parts := choices[rng.randi_range(0, choices.size() - 1)].split(":")
@@ -1172,7 +1302,7 @@ func _pick_weapon(id: String) -> void:
 		_refresh_relic_stats()
 		return
 	var entry := {"id": id, "level": 1, "special": false, "locked": false}
-	if weapon_inventory.size() < 5:
+	if uncapped_inventory or weapon_inventory.size() < 5:
 		weapon_inventory.append(entry)
 		_refresh_relic_stats()
 		return
@@ -1190,6 +1320,8 @@ func _pick_weapon(id: String) -> void:
 		button.pressed.connect(func() -> void:
 			weapon_inventory.erase(item)
 			weapon_inventory.append(entry)
+			if str(item.id) == weapon_id:
+				weapon_id = id
 			weapon_cooldowns.erase(str(item.id))
 			_refresh_relic_stats()
 			_set_state("playing")
@@ -1216,7 +1348,7 @@ func _pick_relic(id: String) -> void:
 		return
 	entry.level = 1
 	entry.locked = false
-	if relic_inventory.size() < 5:
+	if uncapped_inventory or relic_inventory.size() < 5:
 		relic_inventory.append(entry)
 		_refresh_relic_stats()
 		return
@@ -1378,6 +1510,10 @@ func _set_state(next_state: String) -> void:
 		weapon_picker.visible = show_setup
 		mode_picker.visible = show_setup
 		difficulty_picker.visible = show_setup
+		single_weapon_toggle.visible = show_setup
+		uncapped_inventory_toggle.visible = show_setup
+		custom_drops_toggle.visible = show_setup
+		drop_filter_row.visible = show_setup
 		new_run_button.visible = state == "title" and (profile.get("run") is Dictionary)
 		status_label.visible = state != "playing"
 		for picker_label in picker_labels:
@@ -1471,6 +1607,14 @@ func _result_summary(victory: bool) -> String:
 	return "Durée : %s · Vague atteinte : %d/%d · Créatures vaincues : %d · Niveau : %d · Boss : %s · Reliques : %d%s\nVictoires : %d · Éclats : %d · Meilleur score : %d" % [time_text, wave, catalog.content.waves.size(), defeated, level, boss_result, relic_inventory.size(), reward, profile.wins, profile.shards, profile.bestKills]
 
 func _load_profile() -> void:
+	var all_weapons: Array[String] = []
+	for id in catalog.content.weapons.keys():
+		all_weapons.append(str(id))
+	var all_relics: Array[String] = []
+	for item: Dictionary in catalog.content.relics:
+		all_relics.append(str(item.id))
+	profile.dropWeapons = all_weapons.duplicate()
+	profile.dropRelics = all_relics.duplicate()
 	if not FileAccess.file_exists("user://save.json"):
 		return
 	var file := FileAccess.open("user://save.json", FileAccess.READ)
@@ -1485,9 +1629,25 @@ func _load_profile() -> void:
 		var value: Variant = saved.get(key, 0)
 		if value is int and value >= 0:
 			profile[key] = value
+	for key in ["singleWeapon", "uncappedInventory", "customDrops"]:
+		var value: Variant = saved.get(key, false)
+		if value is bool:
+			profile[key] = value
+	profile.dropWeapons = _sanitize_ids(saved.get("dropWeapons", all_weapons), all_weapons)
+	profile.dropRelics = _sanitize_ids(saved.get("dropRelics", all_relics), all_relics)
 	var saved_run: Variant = saved.get("run")
 	if _checkpoint_is_valid(saved_run):
 		profile.run = saved_run
+
+func _sanitize_ids(value: Variant, valid_ids: Array[String]) -> Array[String]:
+	var result: Array[String] = []
+	if not value is Array:
+		return valid_ids.duplicate()
+	for item in value:
+		var id := str(item)
+		if valid_ids.has(id) and not result.has(id):
+			result.append(id)
+	return result
 
 func _checkpoint_is_valid(checkpoint: Variant) -> bool:
 	if not checkpoint is Dictionary or int(checkpoint.get("version", 0)) != 1:
@@ -1513,6 +1673,21 @@ func _checkpoint_is_valid(checkpoint: Variant) -> bool:
 	var challenges: Variant = checkpoint.get("runChallenges", [])
 	if not challenges is Array:
 		return false
+	for key in ["singleWeapon", "uncappedInventory", "customDrops"]:
+		if checkpoint.has(key) and not (checkpoint[key] is bool):
+			return false
+	var saved_weapon_drops: Variant = checkpoint.get("dropWeapons", [])
+	var saved_relic_drops: Variant = checkpoint.get("dropRelics", [])
+	if checkpoint.has("dropWeapons") and not saved_weapon_drops is Array:
+		return false
+	if checkpoint.has("dropRelics") and not saved_relic_drops is Array:
+		return false
+	for id in saved_weapon_drops:
+		if not catalog.content.weapons.has(str(id)):
+			return false
+	for id in saved_relic_drops:
+		if not catalog.content.relics.any(func(entry: Dictionary) -> bool: return str(entry.id) == str(id)):
+			return false
 	for challenge in challenges:
 		if not challenge is Dictionary:
 			return false
