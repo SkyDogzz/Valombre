@@ -991,6 +991,10 @@ func _show_level_up() -> void:
 			child.queue_free()
 	var choices: Array[GameDefinition] = []
 	var pool: Array = catalog.definitions.upgrades.filter(func(item: GameDefinition) -> bool: return int(upgrade_ranks.get(str(item.id), 0)) < int(item.values.get("maxRanks", 10)))
+	if pool.is_empty():
+		pending_upgrades = 0
+		_set_state("playing")
+		return
 	while choices.size() < 3 and not pool.is_empty():
 		var index := rng.randi_range(0, pool.size() - 1)
 		choices.append(pool.pop_at(index))
