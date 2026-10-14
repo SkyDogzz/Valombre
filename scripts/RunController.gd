@@ -70,6 +70,7 @@ var has_run_seed_override := false
 var run_rng_seed := 0
 var wave_rng_state := 0
 var elapsed := 0.0
+var run_started_ticks_msec := 0
 var objective_type := "kills"
 var objective_progress := 0
 var objective_target := 12
@@ -285,6 +286,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_use_hero_skill()
 
 func _process(delta: float) -> void:
+	_sync_elapsed_clock()
 	_update_audio_buffer()
 	if is_instance_valid(touch_controls):
 		var touch_ui_visible := state == "playing" and _should_show_touch_controls()
@@ -298,7 +300,6 @@ func _process(delta: float) -> void:
 	if state != "playing":
 		return
 	notice_timer = maxf(0.0, notice_timer - delta)
-	elapsed += delta
 	weapon_cooldown = maxf(0.0, weapon_cooldown - delta)
 	for id in weapon_cooldowns.keys():
 		weapon_cooldowns[id] = maxf(0.0, float(weapon_cooldowns[id]) - delta)
@@ -329,6 +330,10 @@ func _process(delta: float) -> void:
 	_update_hud()
 	if inventory_open:
 		_refresh_inventory_panel()
+
+func _sync_elapsed_clock() -> void:
+	if run_started_ticks_msec > 0:
+		elapsed = float(Time.get_ticks_msec() - run_started_ticks_msec) / 1000.0
 
 func _create_interface() -> void:
 	layer = CanvasLayer.new()
@@ -1322,6 +1327,7 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 	skill_cooldown = 0.0
 	wave = 0
 	elapsed = 0.0
+	run_started_ticks_msec = Time.get_ticks_msec()
 	boss_after_wave_id = ""
 	base_hp = hero.health
 	bonus_max_hp = 0.0
@@ -1389,6 +1395,7 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 		var saved_facing: Array = saved_player.get("facing", [0.0, 1.0])
 		player.facing = Vector2(float(saved_facing[0]), float(saved_facing[1])).normalized()
 		elapsed = float(checkpoint.get("elapsedSeconds", 0))
+		run_started_ticks_msec = Time.get_ticks_msec() - int(elapsed * 1000.0)
 		var saved_challenges: Variant = checkpoint.get("runChallenges", [])
 		if saved_challenges is Array:
 			run_challenges = saved_challenges.duplicate(true)
@@ -1456,6 +1463,7 @@ func _start_wave(number: int) -> void:
 	_save_checkpoint(number)
 
 func _save_checkpoint(number: int) -> void:
+	_sync_elapsed_clock()
 	var saved_player := {
 		"hero": hero_id,
 		"weapon": weapon_id,

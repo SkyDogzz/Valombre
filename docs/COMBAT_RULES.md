@@ -25,7 +25,7 @@ Les masses alimentent le plafond de spawn pondéré; elles ne sont pas des nombr
 - Le plafond de base vaut 10 unités de masse. Les presets le multiplient par `spawnCapacity` : 2 / 2,5 / 3. En infini, la base augmente de 24 par minute jusqu’à 200, puis est multipliée par le preset.
 - Une élite ajoute 1 à sa masse, y compris lors du contrôle d’admissibilité de la file d’apparitions. Ses facteurs PV/vitesse/dégâts sont appliqués après le scaling de difficulté.
 - En vague infinie de progression `p = max(0, vague − 1)`, santé × `1,28^p`, dégâts × `1,22^p`; vitesse × `1 + min(1,2, 0,035p)`. Les facteurs de difficulté et d’affixe se multiplient ensuite; PV et dégâts sont arrondis à l’apparition.
-- En infini, cadence initiale de chaque vague et cadence régulière : `max(0,12 s, 0,62 s × 0,7^minutesÉcoulées)`. Seule la première apparition de la toute première vague utilise 1 s.
+- En infini, cadence initiale de chaque vague et cadence régulière : `max(0,12 s, 0,62 s × 0,7^minutesÉcoulées)`. Seule la première apparition de la toute première vague utilise 1 s. Les minutes écoulées sont mesurées depuis le début du run et incluent les pauses et choix tant que l’application reste ouverte; une reprise de checkpoint repart de la durée sauvegardée, sans compter le temps application fermée.
 - Afflux : chance 0,38; minuterie tirée dans `[14, 26]`; taille `min(62, 26 + min(vague, 18) × 2)`; cadence d’apparition 0,12 s. Les espèces reçoivent un poids proportionnel à `min(nombre programmé, 12)` dans la composition applicable.
 - Les vagues fixes contiennent 45, 77, 108 et 151 ennemis ordinaires, puis le Gardien. La vague infinie compose les groupes à partir du numéro de vague; la table historique de README ne s’applique pas.
 
