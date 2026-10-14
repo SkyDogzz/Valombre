@@ -101,7 +101,7 @@ func _update_joystick(position: Vector2) -> void:
 	if offset.length() > max_offset:
 		offset = offset.normalized() * max_offset
 	var vector := offset / max_offset
-	player.touch_move_vector = vector if vector.length() >= 0.16 else Vector2.ZERO
+	player.touch_move_vector = vector
 	queue_redraw()
 
 func _action_layout() -> Array[Dictionary]:
