@@ -85,6 +85,7 @@ var notice_timer := 0.0
 var layer: CanvasLayer
 var menu_panel: PanelContainer
 var overlay_backdrop: ColorRect
+var eyebrow_label: Label
 var title_label: Label
 var status_label: Label
 var loot_preview: TextureRect
@@ -315,6 +316,12 @@ func _create_interface() -> void:
 	menu_column = column
 	column.add_theme_constant_override("separation", 12)
 	menu_panel.add_child(column)
+	eyebrow_label = Label.new()
+	eyebrow_label.text = "UN CONTE DES TERRES BRISÉES"
+	eyebrow_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	eyebrow_label.add_theme_font_size_override("font_size", 9)
+	eyebrow_label.add_theme_color_override("font_color", Color("b4935d"))
+	column.add_child(eyebrow_label)
 	title_label = Label.new()
 	title_label.text = "LES CENDRES DE VALOMBRE"
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -3044,7 +3051,7 @@ func _set_state(next_state: String) -> void:
 		if state == "paused":
 			start_button.visible = true
 			for child in menu_column.get_children():
-				child.visible = child == pause_catalog or child == title_label or child == start_button
+				child.visible = child == eyebrow_label or child == pause_catalog or child == title_label or child == start_button
 			_build_pause_catalog()
 		else:
 			for child in menu_column.get_children():
@@ -3060,7 +3067,7 @@ func _set_state(next_state: String) -> void:
 			new_run_button.visible = state == "title" and (profile.get("run") is Dictionary)
 	if state in ["levelUp", "loot"]:
 		for child in menu_column.get_children():
-			child.visible = child == title_label or child == status_label or (state == "loot" and child == loot_preview) or child == start_button or (state == "levelUp" and child in upgrade_buttons) or (state == "loot" and child in loot_buttons)
+			child.visible = child == eyebrow_label or child == title_label or child == status_label or (state == "loot" and child == loot_preview) or child == start_button or (state == "levelUp" and child in upgrade_buttons) or (state == "loot" and child in loot_buttons)
 	_refresh_hero_preview()
 	var show_character_setup := state == "title" and not (profile.get("run") is Dictionary)
 	hero_preview_panel.visible = show_character_setup
