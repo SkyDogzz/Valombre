@@ -71,7 +71,7 @@ var uncapped_inventory := false
 var custom_drops := false
 var selected_drop_weapons: Array[String] = []
 var selected_drop_relics: Array[String] = []
-var profile := {"schema_version": 1, "wins": 0, "bestKills": 0, "shards": 0, "run": null, "singleWeapon": false, "uncappedInventory": false, "customDrops": false, "dropWeapons": [], "dropRelics": []}
+var profile := {"schema_version": 1, "wins": 0, "bestKills": 0, "shards": 0, "run": null, "singleWeapon": false, "uncappedInventory": false, "customDrops": false, "dropWeapons": [], "dropRelics": [], "bestiary": {}, "discoveredWeapons": {}, "discoveredRelics": {}, "discoveredSynergies": {}}
 var result_recorded := false
 
 var layer: CanvasLayer
@@ -95,6 +95,9 @@ var hud: Label
 var inventory_panel: PanelContainer
 var inventory_list: VBoxContainer
 var inventory_open := false
+var pause_catalog: ScrollContainer
+var pause_catalog_list: VBoxContainer
+var menu_column: VBoxContainer
 var boss_bar: ProgressBar
 var boss_name_label: Label
 
@@ -120,6 +123,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			inventory_panel.visible = false
 			_set_state("paused")
 		elif state == "paused":
+			pause_catalog.visible = false
 			_set_state("playing")
 		elif state in ["victory", "defeat"]:
 			_set_state("title")
@@ -169,6 +173,7 @@ func _create_interface() -> void:
 	menu_panel.custom_minimum_size = Vector2(430, 0)
 	layer.add_child(menu_panel)
 	var column := VBoxContainer.new()
+	menu_column = column
 	column.add_theme_constant_override("separation", 12)
 	menu_panel.add_child(column)
 	title_label = Label.new()
@@ -219,6 +224,13 @@ func _create_interface() -> void:
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(status_label)
+	pause_catalog = ScrollContainer.new()
+	pause_catalog.custom_minimum_size = Vector2(520, 330)
+	pause_catalog.visible = false
+	column.add_child(pause_catalog)
+	pause_catalog_list = VBoxContainer.new()
+	pause_catalog_list.custom_minimum_size.x = 520
+	pause_catalog.add_child(pause_catalog_list)
 	hud = Label.new()
 	hud.position = Vector2(18, 48)
 	hud.add_theme_color_override("font_color", Color("eee2c5"))
@@ -430,6 +442,7 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 	base_hp = float(stats.get("health", 100))
 	bonus_max_hp = 0.0
 	weapon_inventory = [{"id": weapon_id, "level": 1, "special": false, "locked": false}]
+	_mark_discovered("discoveredWeapons", weapon_id)
 	relic_inventory.clear()
 	weapon_cooldowns.clear()
 	equipment_damage = 1.0
@@ -475,6 +488,10 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 		upgrade_ranks = saved_player.get("upgradeRanks", upgrade_ranks).duplicate(true)
 		weapon_inventory = saved_player.get("weaponInventory", weapon_inventory).duplicate(true)
 		relic_inventory = saved_player.get("inventory", []).duplicate(true)
+		for item in weapon_inventory:
+			_mark_discovered("discoveredWeapons", str(item.id))
+		for item in relic_inventory:
+			_mark_discovered("discoveredRelics", str(item.id))
 		player_shield = float(saved_player.get("shield", 0.0))
 		scythe_souls = int(saved_player.get("scytheSouls", 0))
 		var saved_position: Array = saved_player.get("position", [WORLD_SIZE.x * 0.5, WORLD_SIZE.y * 0.5])
@@ -485,6 +502,12 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 		var saved_challenges: Variant = checkpoint.get("runChallenges", [])
 		if saved_challenges is Array:
 			run_challenges = saved_challenges.duplicate(true)
+		var saved_objective: Variant = checkpoint.get("waveObjective", {})
+		if saved_objective is Dictionary:
+			objective_type = str(saved_objective.get("type", objective_type))
+			objective_target = int(saved_objective.get("target", objective_target))
+			objective_progress = int(saved_objective.get("progress", 0))
+			objective_complete = bool(saved_objective.get("complete", false))
 		_refresh_relic_stats()
 		hp = float(saved_player.get("hp", max_hp))
 		max_hp = maxf(max_hp, float(saved_player.get("maxHp", max_hp)))
@@ -562,6 +585,7 @@ func _save_checkpoint(number: int) -> void:
 		"dropWeapons": selected_drop_weapons.duplicate(),
 		"dropRelics": selected_drop_relics.duplicate(),
 		"wave": number,
+		"waveObjective": {"type": objective_type, "target": objective_target, "progress": objective_progress, "complete": objective_complete},
 		"player": saved_player,
 		"defeated": defeated,
 		"runChallenges": run_challenges.duplicate(true),
@@ -651,6 +675,7 @@ func _spawn_enemy(kind: String, is_elite: bool, boss_id: String) -> void:
 	var enemy := ENEMY_SCRIPT.new() as ValombreEnemy
 	enemy.configure(kind, enemy_stats, is_elite)
 	if is_elite:
+		enemy.elite_id = elite_id
 		enemy.elite_name = str(elite_stats.get("name", "Élite"))
 		enemy.elite_color = Color(str(elite_stats.get("color", "#e4c978")))
 	enemy.attack_timer = rng.randf_range(0.3, 1.3)
@@ -698,6 +723,10 @@ func _update_enemies(delta: float) -> void:
 				break
 			continue
 		var to_player := player.position - enemy.position
+		var camera_center := player.get_node("Camera2D").get_screen_center_position()
+		var visible_rect := Rect2(camera_center - Vector2(480.0, 270.0), Vector2(960.0, 540.0))
+		if visible_rect.has_point(enemy.position):
+			_discover_bestiary("boss:%s" % enemy.boss_id if enemy.kind == "boss" else enemy.kind, enemy.elite_id if enemy.elite else "")
 		var distance := maxf(to_player.length(), 0.001)
 		var direction := to_player / distance
 		if enemy.kind == "boss":
@@ -1105,6 +1134,7 @@ func _damage_enemy(enemy: ValombreEnemy, amount: float, _weapon: String) -> void
 	enemy.hit_flash = 0.18
 	if enemy.hp <= 0.0:
 		defeated += 1
+		_record_bestiary_kill(enemy)
 		_on_enemy_killed(enemy, _weapon)
 		if enemy.kind == "boss":
 			_enemy_drop_xp(enemy.position, 1.0, false)
@@ -1308,6 +1338,7 @@ func _owned_relic(id: String) -> Dictionary:
 	return {}
 
 func _pick_weapon(id: String) -> void:
+	_mark_discovered("discoveredWeapons", id)
 	var owned := _owned_weapon(id)
 	if not owned.is_empty():
 		if int(owned.level) < 5:
@@ -1352,6 +1383,7 @@ func _pick_weapon(id: String) -> void:
 	column.add_child(pass_button)
 
 func _pick_relic(id: String) -> void:
+	_mark_discovered("discoveredRelics", id)
 	var owned := _owned_relic(id)
 	if not owned.is_empty():
 		if int(owned.level) < 5:
@@ -1421,6 +1453,7 @@ func _refresh_relic_stats() -> void:
 		var owned_relic := _owned_relic(str(synergy.relicId))
 		if not owned_weapon.is_empty() and int(owned_weapon.level) == 5 and bool(owned_weapon.special) and not owned_relic.is_empty() and int(owned_relic.level) == 5 and bool(synergy.get("globalPickup", false)):
 			global_pickup = true
+			_mark_discovered("discoveredSynergies", str(synergy.id))
 	max_hp = base_hp * (1.0 + (level - 1) * 0.01) + bonus_max_hp + health_bonus
 	hp = minf(max_hp, hp)
 	pickup_range = 90.0 * pickup_range_multiplier * pickup_mult
@@ -1432,6 +1465,7 @@ func _synergy_active(weapon: String) -> bool:
 		var owned_weapon := _owned_weapon(weapon)
 		var owned_relic := _owned_relic(str(synergy.relicId))
 		if not owned_weapon.is_empty() and int(owned_weapon.level) == 5 and bool(owned_weapon.special) and not owned_relic.is_empty() and int(owned_relic.level) == 5:
+			_mark_discovered("discoveredSynergies", str(synergy.id))
 			return true
 	return false
 
@@ -1526,12 +1560,124 @@ func _active_synergy_count() -> int:
 			count += 1
 	return count
 
+func _mark_discovered(collection: String, item_id: String) -> void:
+	if item_id.is_empty():
+		return
+	var records: Dictionary = profile.get(collection, {})
+	if bool(records.get(item_id, false)):
+		return
+	records[item_id] = true
+	profile[collection] = records
+	_save_profile()
+
+func _discover_bestiary(key: String, elite_id: String) -> void:
+	var bestiary: Dictionary = profile.get("bestiary", {})
+	var changed := false
+	for entry_id in [key, "elite:%s" % elite_id if not elite_id.is_empty() else ""]:
+		if str(entry_id).is_empty():
+			continue
+		var record: Dictionary = bestiary.get(entry_id, {"kills": 0, "discovered": false})
+		if not bool(record.get("discovered", false)):
+			record.discovered = true
+			bestiary[entry_id] = record
+			changed = true
+	if changed:
+		profile.bestiary = bestiary
+		_save_profile()
+
+func _record_bestiary_kill(enemy: ValombreEnemy) -> void:
+	var key := "boss:%s" % enemy.boss_id if enemy.kind == "boss" else enemy.kind
+	var bestiary: Dictionary = profile.get("bestiary", {})
+	var record: Dictionary = bestiary.get(key, {"kills": 0, "discovered": true})
+	record.kills = int(record.get("kills", 0)) + 1
+	record.discovered = true
+	bestiary[key] = record
+	if enemy.elite:
+		var elite_key := "elite:%s" % enemy.elite_id
+		var elite_record: Dictionary = bestiary.get(elite_key, {"kills": 0, "discovered": true})
+		elite_record.kills = int(elite_record.get("kills", 0)) + 1
+		elite_record.discovered = true
+		bestiary[elite_key] = elite_record
+	profile.bestiary = bestiary
+	_save_profile()
+
 func _set_inventory_lock(group: String, item_id: String, enabled: bool) -> void:
 	var item := _owned_weapon(item_id) if group == "weapons" else _owned_relic(item_id)
 	if item.is_empty():
 		return
 	item.locked = enabled
 	_save_checkpoint(wave)
+
+func _build_pause_catalog() -> void:
+	if not is_instance_valid(pause_catalog_list):
+		return
+	for child in pause_catalog_list.get_children():
+		child.queue_free()
+	var weapons: Dictionary = catalog.content.weapons
+	var weapon_records: Dictionary = profile.get("discoveredWeapons", {})
+	var owned_weapons: Dictionary = {}
+	for item in weapon_inventory:
+		owned_weapons[str(item.id)] = item
+	_add_catalog_heading("ARMES · %d/%d" % [weapon_records.size(), weapons.size()])
+	for id in weapons:
+		var record: Dictionary = weapons[id]
+		var owned: Dictionary = owned_weapons.get(str(id), {})
+		var discovered := bool(weapon_records.get(str(id), false)) or not owned.is_empty()
+		var detail := str(record.get("description", "")) if discovered else "Arme non découverte."
+		var status := "Possédée · niveau %d%s" % [int(owned.get("level", 1)), " · spéciale" if bool(owned.get("special", false)) else ""] if not owned.is_empty() else "Découverte" if discovered else "Inconnue"
+		_add_catalog_entry(str(record.get("name", record.get("displayName", id))) if discovered else "Inconnue", detail, status)
+	var relic_records: Dictionary = profile.get("discoveredRelics", {})
+	var owned_relics: Dictionary = {}
+	for item in relic_inventory:
+		owned_relics[str(item.id)] = item
+	_add_catalog_heading("RELIQUES · %d/%d" % [relic_records.size(), catalog.content.relics.size()])
+	for relic: Dictionary in catalog.content.relics:
+		var id := str(relic.id)
+		var owned: Dictionary = owned_relics.get(id, {})
+		var discovered := bool(relic_records.get(id, false)) or not owned.is_empty()
+		var detail := str(relic.get("description", "")) if discovered else "Relique non découverte."
+		var status := "Possédée · niveau %d" % int(owned.get("level", 1)) if not owned.is_empty() else "Découverte" if discovered else "Inconnue"
+		_add_catalog_entry(str(relic.get("name", id)) if discovered else "Inconnue", detail, status)
+	var synergy_records: Dictionary = profile.get("discoveredSynergies", {})
+	_add_catalog_heading("SYNERGIES · %d/9" % synergy_records.size())
+	for synergy: Dictionary in catalog.content.synergies:
+		var id := str(synergy.id)
+		var discovered := bool(synergy_records.get(id, false)) or _synergy_active(str(synergy.weaponId))
+		var detail := str(synergy.get("description", "")) if discovered else "Combo non découvert."
+		var status := "Activée" if _synergy_active(str(synergy.weaponId)) else "Découverte · à réactiver" if discovered else "Inconnue"
+		_add_catalog_entry(str(synergy.get("name", "Combo inconnu")) if discovered else "Combo inconnu", detail, status)
+	var bestiary: Dictionary = profile.get("bestiary", {})
+	_add_catalog_heading("BESTIAIRE")
+	var bestiary_entries: Dictionary = catalog.content.bestiary.duplicate(true)
+	for id in catalog.content.bosses:
+		var boss: Dictionary = catalog.content.bosses[id]
+		bestiary_entries["boss:%s" % id] = boss
+	for id in bestiary_entries:
+		var definition: Dictionary = bestiary_entries[id]
+		var record: Dictionary = bestiary.get(str(id), {})
+		var discovered := bool(record.get("discovered", false)) or int(record.get("kills", 0)) > 0
+		var attack: String = str(definition.get("attack", definition.get("behavior", "")))
+		var detail := "%s Attaque : %s" % [str(definition.get("description", "")), attack] if discovered else "Créature non rencontrée."
+		_add_catalog_entry(str(definition.get("name", id)) if discovered else "Inconnu", detail, "Vaincus : %d" % int(record.get("kills", 0)) if discovered else "Non découvert")
+	_add_catalog_heading("AFFIXES ÉLITES")
+	for id in catalog.content.eliteAffixes:
+		var definition: Dictionary = catalog.content.eliteAffixes[id]
+		var record: Dictionary = bestiary.get("elite:%s" % id, {})
+		var discovered := bool(record.get("discovered", false)) or int(record.get("kills", 0)) > 0
+		var detail := "PV ×%s · vitesse ×%s · dégâts ×%s" % [str(definition.health), str(definition.speed), str(definition.damage)] if discovered else "Variante élite non rencontrée."
+		_add_catalog_entry("Élite · %s" % str(definition.name) if discovered else "Élite inconnue", detail, "Vaincus : %d" % int(record.get("kills", 0)) if discovered else "Non découvert")
+
+func _add_catalog_heading(title: String) -> void:
+	var heading := Label.new()
+	heading.text = title
+	heading.add_theme_font_size_override("font_size", 18)
+	pause_catalog_list.add_child(heading)
+
+func _add_catalog_entry(title: String, description: String, status: String) -> void:
+	var label := Label.new()
+	label.text = "%s — %s · %s" % [title, description, status]
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	pause_catalog_list.add_child(label)
 
 func _relic_health() -> float:
 	var total := 0.0
@@ -1583,7 +1729,7 @@ func _set_state(next_state: String) -> void:
 			start_button.text = "Reprendre · vague %d" % int(profile.run.get("wave", 1)) if profile.get("run") is Dictionary else "Entrer dans la forêt"
 		"paused":
 			title_label.text = "LA CHASSE ATTEND"
-			status_label.text = "Échap pour reprendre"
+			status_label.text = "Échap ou le bouton ci-dessous pour reprendre · Tab : arsenal"
 			start_button.text = "Reprendre la chasse"
 		"levelUp":
 			title_label.text = "UNE NOUVELLE FORCE"
@@ -1619,6 +1765,24 @@ func _set_state(next_state: String) -> void:
 		for child in menu_panel.get_child(0).get_children():
 			if child is Button and child != start_button and child != new_run_button:
 				child.queue_free()
+	if is_instance_valid(pause_catalog):
+		pause_catalog.visible = state == "paused"
+		if state == "paused":
+			start_button.visible = true
+			for child in menu_column.get_children():
+				child.visible = child == pause_catalog or child == title_label or child == start_button or child == status_label
+			_build_pause_catalog()
+		else:
+			for child in menu_column.get_children():
+				child.visible = true
+			title_label.visible = true
+			status_label.visible = state != "playing"
+			var show_setup_after_pause := state == "title" and not (profile.get("run") is Dictionary)
+			for picker_label in picker_labels:
+				picker_label.visible = show_setup_after_pause
+			for control in [hero_picker, weapon_picker, mode_picker, difficulty_picker, single_weapon_toggle, uncapped_inventory_toggle, custom_drops_toggle, drop_filter_row]:
+				control.visible = show_setup_after_pause
+			new_run_button.visible = state == "title" and (profile.get("run") is Dictionary)
 
 func _update_hud() -> void:
 	if not is_instance_valid(hud):
@@ -1682,8 +1846,10 @@ func _progress_challenges(target: String) -> void:
 		if int(challenge.progress) >= int(challenge.target):
 			challenge.complete = true
 			profile.shards = int(profile.shards) + 1
-			_save_profile()
+			_save_checkpoint(wave)
 			status_label.text = "Défi accompli · +1 Éclat"
+		else:
+			_save_checkpoint(wave)
 
 func _finish_run(result: String) -> void:
 	if result_recorded:
@@ -1731,6 +1897,13 @@ func _load_profile() -> void:
 		var value: Variant = saved.get(key, false)
 		if value is bool:
 			profile[key] = value
+	var saved_bestiary: Variant = saved.get("bestiary", {})
+	if saved_bestiary is Dictionary:
+		profile.bestiary = _sanitize_bestiary(saved_bestiary)
+	for key in ["discoveredWeapons", "discoveredRelics", "discoveredSynergies"]:
+		var records: Variant = saved.get(key, {})
+		if records is Dictionary:
+			profile[key] = _sanitize_discoveries(key, records)
 	profile.dropWeapons = _sanitize_ids(saved.get("dropWeapons", all_weapons), all_weapons)
 	profile.dropRelics = _sanitize_ids(saved.get("dropRelics", all_relics), all_relics)
 	var saved_run: Variant = saved.get("run")
@@ -1746,6 +1919,43 @@ func _sanitize_ids(value: Variant, valid_ids: Array[String]) -> Array[String]:
 		if valid_ids.has(id) and not result.has(id):
 			result.append(id)
 	return result
+
+func _sanitize_discoveries(collection: String, records: Dictionary) -> Dictionary:
+	var allowed: Array[String] = []
+	match collection:
+		"discoveredWeapons":
+			for id in catalog.content.weapons:
+				allowed.append(str(id))
+		"discoveredRelics":
+			for relic: Dictionary in catalog.content.relics:
+				allowed.append(str(relic.id))
+		"discoveredSynergies":
+			for synergy: Dictionary in catalog.content.synergies:
+				allowed.append(str(synergy.id))
+	var clean := {}
+	for id in records:
+		if allowed.has(str(id)) and records[id] is bool and records[id]:
+			clean[str(id)] = true
+	return clean
+
+func _sanitize_bestiary(records: Dictionary) -> Dictionary:
+	var valid_ids: Array[String] = []
+	for id in catalog.content.bestiary:
+		valid_ids.append(str(id))
+	for id in catalog.content.bosses:
+		valid_ids.append("boss:%s" % id)
+	for id in catalog.content.eliteAffixes:
+		valid_ids.append("elite:%s" % id)
+	var clean := {}
+	for id in records:
+		if not valid_ids.has(str(id)) or not records[id] is Dictionary:
+			continue
+		var entry: Dictionary = records[id]
+		var kills: Variant = entry.get("kills", 0)
+		var discovered: Variant = entry.get("discovered", false)
+		if kills is int and kills >= 0 and discovered is bool:
+			clean[str(id)] = {"kills": kills, "discovered": discovered}
+	return clean
 
 func _checkpoint_is_valid(checkpoint: Variant) -> bool:
 	if not checkpoint is Dictionary or int(checkpoint.get("version", 0)) != 1:

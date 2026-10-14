@@ -10,6 +10,7 @@ var damage := 9.0
 var projectile_damage := 8.0
 var heal_on_hit := 0.0
 var elite := false
+var elite_id := ""
 var elite_color := Color("e4c978")
 var elite_name := ""
 var hit_flash := 0.0
