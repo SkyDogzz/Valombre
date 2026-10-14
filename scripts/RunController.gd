@@ -2687,14 +2687,17 @@ func _update_drops(delta: float) -> void:
 			drops.remove_at(index)
 			if str(drop.get("type", "xp")) == "xp":
 				_progress_objective("xp")
+				var previous_max_hp := max_hp
+				var leveled_up := false
 				while xp >= next_xp:
 					xp -= next_xp
 					level += 1
 					next_xp += 3.0
 					pending_upgrades += 1
-				var old_max_hp := max_hp
-				max_hp = base_hp * (1.0 + (level - 1) * 0.01) + bonus_max_hp + _relic_health()
-				hp = minf(max_hp, hp + max_hp - old_max_hp)
+					leveled_up = true
+				if leveled_up:
+					max_hp = base_hp * (1.0 + (level - 1) * 0.01) + bonus_max_hp + _relic_health()
+					hp = minf(max_hp, hp + max_hp - previous_max_hp)
 				if pending_upgrades > 0:
 					_show_level_up()
 			if state != "playing":
