@@ -2,7 +2,7 @@
 
 Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le guide du dépôt [`README.md`](README.md). L’objectif est une version Godot jouable dont le contenu et les règles reproduisent le snapshot web, puis dont la présentation et les contrôles atteignent la même expérience. Les tâches marquées « parité » doivent suivre le code JavaScript exporté, y compris les comportements qui ne sont pas décrits dans le JSON.
 
-**Avancement global : 40/70 tâches terminées (57,1 %).**
+**Avancement global : 42/70 tâches terminées (60,0 %).**
 
 ## Principes de portage
 
@@ -52,7 +52,7 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 
 **But :** obtenir un déplacement immédiatement jouable et spatialement identique.
 
-- [ ] Construire la clairière : fond, limites, ruines, arbres/débris décoratifs, teinte générale et vignette.
+- [x] Construire la clairière : fond, limites, ruines, arbres/débris décoratifs, teinte générale et vignette.
 - [x] Reproduire monde 1500×1100, caméra 960×540 de référence, suivi du joueur et bornes caméra.
 - [x] Ajouter les quatre obstacles aux coordonnées/rayons du dump. Les obstacles bloquent aussi les projectiles.
 - [x] Porter le mouvement `CharacterBody2D` ou équivalent en conservant la vitesse exacte et la normalisation diagonale.
@@ -128,7 +128,7 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 **But :** retrouver la lisibilité et l’ambiance du navigateur.
 
 - [ ] Importer et assigner les SVG héros, ennemis/boss, icônes d’objets et armes tenues.
-- [ ] Reproduire le fond forêt/ruines, décor secondaire, éclairage et vignette, sans réduire la lisibilité des attaques.
+- [x] Reproduire le fond forêt/ruines, décor secondaire, éclairage et vignette, sans réduire la lisibilité des attaques.
 - [ ] Porter nombres de dégâts, orbes XP, drops, projectiles, arcs électriques, impacts, flashes, zones télégraphiées, givre, explosions, particules et secousses si présentes dans la source.
 - [ ] Reprendre palette, cadres, typographie et proportions UI du CSS ; adapter le layout sans couper le HUD en 16:9, fenêtre redimensionnée et écran étroit.
 - [ ] Créer les sons synthétiques absents de l’archive avec génération audio Godot ou formes d’onde équivalentes ; déclencher sur événements identiques et respecter volume/muet.

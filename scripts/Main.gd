@@ -12,6 +12,18 @@ func _enter_tree() -> void:
 func _ready() -> void:
 	_configure_player()
 	_build_camera()
+	_build_vignette()
+
+func _build_vignette() -> void:
+	var overlay := CanvasLayer.new()
+	overlay.layer = 0
+	add_child(overlay)
+	var vignette := ColorRect.new()
+	vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vignette.material = ShaderMaterial.new()
+	(vignette.material as ShaderMaterial).shader = load("res://shaders/vignette.gdshader")
+	overlay.add_child(vignette)
 
 func _configure_player() -> void:
 	var player: ValombrePlayer = $Arena/Player
