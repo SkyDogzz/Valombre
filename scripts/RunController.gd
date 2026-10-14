@@ -772,6 +772,7 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 	player.run_active = true
 	player.move_speed = hero.speed
 	player.movement_multiplier = 1.0
+	player.equipment_speed = 1.0
 	player.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	_update_player_visuals()
 	player.facing = Vector2.DOWN
@@ -869,6 +870,7 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 		max_hp = maxf(max_hp, float(saved_player.get("maxHp", max_hp)))
 		hp = minf(hp, max_hp)
 		player.movement_multiplier = movement_multiplier
+		player.equipment_speed = equipment_speed
 		player.position = Vector2(float(saved_position[0]), float(saved_position[1]))
 	rng.randomize()
 	_start_wave(int(checkpoint.get("wave", 1)))
@@ -2172,6 +2174,7 @@ func _refresh_relic_stats() -> void:
 	max_hp = base_hp * (1.0 + (level - 1) * 0.01) + bonus_max_hp + health_bonus
 	hp = minf(max_hp, hp)
 	pickup_range = 90.0 * pickup_range_multiplier * pickup_mult
+	player.equipment_speed = equipment_speed
 
 func _synergy_active(weapon: String) -> bool:
 	for synergy: Dictionary in catalog.content.synergies:
