@@ -1410,7 +1410,7 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 		damage_multiplier = float(saved_player.get("damageMultiplier", 1.0))
 		attack_speed_multiplier = float(saved_player.get("attackSpeedMultiplier", 1.0))
 		range_bonus = float(saved_player.get("rangeBonus", 0.0))
-		movement_multiplier = float(saved_player.get("movementMultiplier", 1.0))
+		movement_multiplier = float(saved_player.get("movementSpeedMultiplier", saved_player.get("movementMultiplier", 1.0)))
 		level_defense = float(saved_player.get("levelDefense", saved_player.get("defense", 0.0)))
 		bonus_max_hp = float(saved_player.get("bonusMaxHp", 0.0))
 		projectile_size_multiplier = float(saved_player.get("projectileSize", 1.0))
@@ -1511,7 +1511,7 @@ func _save_checkpoint(number: int) -> void:
 		"damageMultiplier": damage_multiplier,
 		"attackSpeedMultiplier": attack_speed_multiplier,
 		"rangeBonus": range_bonus,
-		"movementMultiplier": movement_multiplier,
+		"movementSpeedMultiplier": movement_multiplier,
 		"levelDefense": level_defense,
 		"bonusMaxHp": bonus_max_hp,
 		"projectileSize": projectile_size_multiplier,
@@ -3880,7 +3880,7 @@ func _checkpoint_is_valid(checkpoint: Variant) -> bool:
 			return false
 	if not (checkpoint_player.get("upgradeRanks", {}) is Dictionary):
 		return false
-	for field in ["hp", "maxHp", "xp", "nextXp", "level", "damageMultiplier", "attackSpeedMultiplier", "rangeBonus", "movementMultiplier", "levelDefense", "defense", "bonusMaxHp", "projectileSize", "projectileSpeed", "pickupRangeMultiplier", "shield", "scytheSouls"]:
+	for field in ["hp", "maxHp", "xp", "nextXp", "level", "damageMultiplier", "attackSpeedMultiplier", "rangeBonus", "movementSpeedMultiplier", "movementMultiplier", "levelDefense", "defense", "bonusMaxHp", "projectileSize", "projectileSpeed", "pickupRangeMultiplier", "shield", "scytheSouls"]:
 		if checkpoint_player.has(field) and not _is_finite_number(checkpoint_player[field]):
 			return false
 	if checkpoint_player.has("level") and int(checkpoint_player.level) < 1:
