@@ -3244,10 +3244,12 @@ func _set_state(next_state: String) -> void:
 			title_label.text = "VALOMBRE EST LIBÉRÉE"
 			status_label.text = _result_summary(true)
 			start_button.text = "Rejouer"
+			new_run_button.text = "Retour au menu"
 		"defeat":
 			title_label.text = "LA FORÊT VOUS REPREND"
 			status_label.text = _result_summary(false)
 			start_button.text = "Rejouer"
+			new_run_button.text = "Retour au menu"
 	if state not in ["levelUp", "loot"]:
 		start_button.visible = true
 		var show_setup := state == "title" and not (profile.get("run") is Dictionary)
@@ -3263,7 +3265,7 @@ func _set_state(next_state: String) -> void:
 		volume_slider.visible = show_setup
 		reset_button.visible = show_setup
 		drop_filter_row.visible = show_setup
-		new_run_button.visible = state == "title" and (profile.get("run") is Dictionary)
+		new_run_button.visible = (state == "title" and (profile.get("run") is Dictionary)) or state in ["victory", "defeat"]
 		status_label.visible = state != "playing"
 		for picker_label in picker_labels:
 			picker_label.visible = show_setup
@@ -3286,7 +3288,7 @@ func _set_state(next_state: String) -> void:
 				picker_label.visible = show_setup_after_pause
 			for control in [hero_picker, weapon_picker, mode_picker, difficulty_picker, single_weapon_toggle, uncapped_inventory_toggle, custom_drops_toggle, auto_pick_toggle, mute_toggle, volume_slider, reset_button, drop_filter_row]:
 				control.visible = show_setup_after_pause
-			new_run_button.visible = state == "title" and (profile.get("run") is Dictionary)
+			new_run_button.visible = (state == "title" and (profile.get("run") is Dictionary)) or state in ["victory", "defeat"]
 	if state in ["levelUp", "loot"]:
 		for child in menu_column.get_children():
 			child.visible = child == eyebrow_label or child == title_label or child == status_label or (state == "loot" and child == loot_preview) or child == start_button or (state == "levelUp" and child in upgrade_buttons) or (state == "loot" and child in loot_buttons)
