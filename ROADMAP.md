@@ -2,7 +2,7 @@
 
 Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le guide du dépôt [`README.md`](README.md). L’objectif est une version Godot jouable dont le contenu et les règles reproduisent le snapshot web, puis dont la présentation et les contrôles atteignent la même expérience. Les tâches marquées « parité » doivent suivre le code JavaScript exporté, y compris les comportements qui ne sont pas décrits dans le JSON.
 
-**Avancement global : 25/70 tâches terminées (35,7 %).**
+**Avancement global : 27/70 tâches terminées (38,6 %).**
 
 ## Principes de portage
 
@@ -88,8 +88,8 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 - [x] Ajouter Gardien, Matriarche et Colosse avec motifs, télégraphes, projectiles, barres de vie et règles de fin associées.
 - [ ] Ajouter mode infini : compositions dynamiques, scaling PV/dégâts/vitesse, plafond croissant, boss à chaque cinquième niveau et Éclat par boss.
 - [ ] Appliquer les trois presets de difficulté aux mêmes paramètres que la source : santé, dégâts, vitesse, cadence, vitesse projectile, capacité et butin.
-- [ ] Porter progression d’objectif cyclique et récompense de soin ; défis d’élimination/élites/XP et Éclats persistants.
-- [ ] Produire les résultats victoire/défaite : durée, vague, éliminations, niveau, état boss, reliques et récompense.
+- [x] Porter progression d’objectif cyclique et récompense de soin ; défis d’élimination/élites/XP et Éclats persistants.
+- [x] Produire les résultats victoire/défaite : durée, vague, éliminations, niveau, état boss, reliques et récompense.
 
 **Critères d’acceptation :** chaque vague génère la composition exportée ; la campagne se termine après le Gardien ; l’infini poursuit après les boss ; tous les multiplicateurs de difficulté affectent les systèmes visés.
 

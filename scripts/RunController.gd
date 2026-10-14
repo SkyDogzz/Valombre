@@ -65,6 +65,9 @@ var objective_type := "kills"
 var objective_progress := 0
 var objective_target := 12
 var objective_complete := false
+var run_challenges: Array[Dictionary] = []
+var profile := {"schema_version": 1, "wins": 0, "bestKills": 0, "shards": 0}
+var result_recorded := false
 
 var layer: CanvasLayer
 var menu_panel: PanelContainer
@@ -85,6 +88,7 @@ func _ready() -> void:
 	arena = main.get_node("Arena")
 	player = arena.get_node("Player")
 	catalog = main.catalog
+	_load_profile()
 	rng.randomize()
 	_create_interface()
 	player.run_active = false
@@ -287,6 +291,12 @@ func _start_wave(number: int) -> void:
 	objective_target = [12, 8, 1][(number - 1) % 3]
 	objective_progress = 0
 	objective_complete = false
+	run_challenges = [
+		{"id": "kills", "label": "Vaincre 50 créatures", "target": 50, "progress": 0, "complete": false},
+		{"id": "elites", "label": "Vaincre 5 élites", "target": 5, "progress": 0, "complete": false},
+		{"id": "xp", "label": "Ramasser 20 orbes d’XP", "target": 20, "progress": 0, "complete": false},
+	]
+	result_recorded = false
 	if mode == "infinite" and number > 4:
 		wave_groups = [
 			{"kind": "ghoul", "count": 35 + number * 6},
@@ -853,9 +863,11 @@ func _damage_enemy(enemy: ValombreEnemy, amount: float, _weapon: String) -> void
 			enemy.queue_free()
 			enemies.erase(enemy)
 			if mode == "infinite":
+				profile.shards = int(profile.shards) + 1
+				_save_profile()
 				intermission = 3.0
 			else:
-				_set_state("victory")
+				_finish_run("victory")
 		else:
 			_enemy_drop_xp(enemy.position, 1.5 if enemy.elite else 1.0)
 			_progress_objective("kills")
@@ -1209,7 +1221,7 @@ func _damage_player(amount: float) -> void:
 	player.invulnerability = 0.55
 	if hp <= 0.0:
 		hp = 0.0
-		_set_state("defeat")
+		_finish_run("defeat")
 
 func _use_hero_skill() -> void:
 	if hero_id != "sentinel" or skill_cooldown > 0.0:
@@ -1235,7 +1247,7 @@ func _set_state(next_state: String) -> void:
 	match state:
 		"title":
 			title_label.text = "LES CENDRES DE VALOMBRE"
-			status_label.text = "Choisissez votre héros, votre arme, le mode et la difficulté.\nWASD / flèches · E capacité · Maj esquive · Échap pause"
+			status_label.text = "Victoires : %d · Éclats : %d · Meilleur score : %d créatures\nChoisissez votre héros, votre arme, le mode et la difficulté.\nWASD / flèches · E capacité · Maj esquive · Échap pause" % [profile.wins, profile.shards, profile.bestKills]
 			start_button.text = "Entrer dans la forêt"
 		"paused":
 			title_label.text = "LA CHASSE ATTEND"
@@ -1251,11 +1263,11 @@ func _set_state(next_state: String) -> void:
 			start_button.visible = false
 		"victory":
 			title_label.text = "VALOMBRE EST LIBÉRÉE"
-			status_label.text = "Ennemis vaincus : %d · niveau %d" % [defeated, level]
+			status_label.text = _result_summary(true)
 			start_button.text = "Rejouer"
 		"defeat":
 			title_label.text = "LA FORÊT VOUS REPREND"
-			status_label.text = "Ennemis vaincus : %d · vague %d" % [defeated, wave]
+			status_label.text = _result_summary(false)
 			start_button.text = "Rejouer"
 	if state not in ["levelUp", "loot"]:
 		start_button.visible = true
@@ -1274,7 +1286,12 @@ func _update_hud() -> void:
 	if not is_instance_valid(hud):
 		return
 	var objective := "%s %d/%d" % [objective_type, mini(objective_progress, objective_target), objective_target]
-	hud.text = "PV %d/%d · Bouclier %d\nNiveau %d · XP %d/%d\nVague %d · %s · %s\nÉliminations %d · Arsenal %d/5 · Reliques %d/5" % [ceili(hp), ceili(max_hp), ceili(player_shield), level, int(xp), int(next_xp), wave, difficulty_id.capitalize(), objective, defeated, weapon_inventory.size(), relic_inventory.size()]
+	var challenge_text := "Défis terminés"
+	for challenge in run_challenges:
+		if not bool(challenge.complete):
+			challenge_text = "%s %d/%d" % [challenge.label, int(challenge.progress), int(challenge.target)]
+			break
+	hud.text = "PV %d/%d · Bouclier %d\nNiveau %d · XP %d/%d\nVague %d · %s · %s\nDéfi : %s\nÉliminations %d · Arsenal %d/5 · Reliques %d/5" % [ceili(hp), ceili(max_hp), ceili(player_shield), level, int(xp), int(next_xp), wave, difficulty_id.capitalize(), objective, challenge_text, defeated, weapon_inventory.size(), relic_inventory.size()]
 	var active_boss: ValombreEnemy
 	for enemy in enemies:
 		if enemy.kind == "boss":
@@ -1303,6 +1320,7 @@ func _format_upgrade_bonus(definition: GameDefinition) -> String:
 		_: return "%d %%" % roundi(value * 100.0)
 
 func _progress_objective(target: String) -> void:
+	_progress_challenges(target)
 	if objective_type != target or objective_complete:
 		return
 	objective_progress = mini(objective_target, objective_progress + 1)
@@ -1310,3 +1328,56 @@ func _progress_objective(target: String) -> void:
 		objective_complete = true
 		hp = minf(max_hp, hp + ceili(max_hp * 0.18))
 		status_label.text = "Objectif accompli · +18 % PV"
+
+func _progress_challenges(target: String) -> void:
+	var challenge_id := "elites" if target == "elite" else target
+	for challenge in run_challenges:
+		if str(challenge.id) != challenge_id or bool(challenge.complete):
+			continue
+		challenge.progress = mini(int(challenge.target), int(challenge.progress) + 1)
+		if int(challenge.progress) >= int(challenge.target):
+			challenge.complete = true
+			profile.shards = int(profile.shards) + 1
+			_save_profile()
+			status_label.text = "Défi accompli · +1 Éclat"
+
+func _finish_run(result: String) -> void:
+	if result_recorded:
+		return
+	result_recorded = true
+	profile.bestKills = maxi(int(profile.bestKills), defeated)
+	if result == "victory":
+		profile.wins = int(profile.wins) + 1
+		profile.shards = int(profile.shards) + 1
+	_save_profile()
+	_set_state(result)
+
+func _result_summary(victory: bool) -> String:
+	var total_seconds := int(elapsed)
+	var time_text := "%d min %02d s" % [int(total_seconds / 60), total_seconds % 60]
+	var boss_result := "vaincu" if victory else "non vaincu"
+	var reward := " · Récompense : 1 Éclat du Gardien" if victory else ""
+	return "Durée : %s · Vague atteinte : %d/%d · Créatures vaincues : %d · Niveau : %d · Boss : %s · Reliques : %d%s\nVictoires : %d · Éclats : %d · Meilleur score : %d" % [time_text, wave, catalog.content.waves.size(), defeated, level, boss_result, relic_inventory.size(), reward, profile.wins, profile.shards, profile.bestKills]
+
+func _load_profile() -> void:
+	if not FileAccess.file_exists("user://save.json"):
+		return
+	var file := FileAccess.open("user://save.json", FileAccess.READ)
+	if file == null:
+		return
+	var saved: Variant = JSON.parse_string(file.get_as_text())
+	if not saved is Dictionary:
+		return
+	if int(saved.get("schema_version", 1)) != 1:
+		return
+	for key in ["wins", "bestKills", "shards"]:
+		var value: Variant = saved.get(key, 0)
+		if value is int and value >= 0:
+			profile[key] = value
+
+func _save_profile() -> void:
+	var file := FileAccess.open("user://save.json", FileAccess.WRITE)
+	if file == null:
+		push_warning("Unable to save profile: %s" % FileAccess.get_open_error())
+		return
+	file.store_string(JSON.stringify(profile))
