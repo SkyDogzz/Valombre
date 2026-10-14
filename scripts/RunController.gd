@@ -1736,6 +1736,8 @@ func _spawn_player_projectile(projectile: Dictionary) -> void:
 	visual.explosive = bool(projectile.get("explosive", false))
 	visual.special_blast = bool(projectile.get("special_blast", false))
 	visual.piercing = bool(projectile.get("piercing", false))
+	visual.lightning = bool(projectile.get("lightning", false))
+	visual.frost = bool(projectile.get("frost", false))
 	visual.rotation = projectile.direction.angle()
 	visual.position = player.position + projectile.direction * 14.0
 	arena.add_child(visual)
@@ -2072,7 +2074,7 @@ func _enemy_drop_xp(position: Vector2, value: float, weapon_xp_multiplier := 1.0
 	arena.add_child(node)
 	var xp_multiplier := equipment_xp * weapon_xp_multiplier
 	var lifetime := float(catalog.content.config.drops.get("lifetime", 18.0))
-	drops.append({"node": node, "position": drop_position, "phase": rng.randf_range(0.0, TAU), "type": "xp", "value": value * xp_multiplier, "life": lifetime})
+		drops.append({"node": node, "position": drop_position, "type": "xp", "value": value * xp_multiplier, "life": lifetime})
 
 func _drop_spawn_position(position: Vector2) -> Vector2:
 	var angle := rng.randf_range(0.0, TAU)
@@ -2095,7 +2097,7 @@ func _roll_enemy_item_drop(position: Vector2) -> void:
 		var drop_position := _drop_spawn_position(position)
 		potion.position = drop_position
 		arena.add_child(potion)
-		drops.append({"node": potion, "position": drop_position, "phase": rng.randf_range(0.0, TAU), "type": "potion", "life": lifetime})
+		drops.append({"node": potion, "position": drop_position, "type": "potion", "life": lifetime})
 	elif drop_roll < potion_chance + equipment_chance:
 		var weapon_choices: Array[String] = []
 		for definition: GameDefinition in catalog.definitions.get("weapons", []):
@@ -2124,7 +2126,7 @@ func _roll_enemy_item_drop(position: Vector2) -> void:
 			var drop_position := _drop_spawn_position(position)
 			loot_node.position = drop_position
 			arena.add_child(loot_node)
-			drops.append({"node": loot_node, "position": drop_position, "phase": rng.randf_range(0.0, TAU), "type": loot_type, "id": loot_id, "life": lifetime})
+			drops.append({"node": loot_node, "position": drop_position, "type": loot_type, "id": loot_id, "life": lifetime})
 
 func _update_drops(delta: float) -> void:
 	var bomb_combo_pickups := 0
@@ -2151,7 +2153,7 @@ func _update_drops(delta: float) -> void:
 				var trail_color := Color("d9a2ff") if str(drop.get("type", "xp")) == "xp" else Color("d6c184")
 				_add_combat_effect({"kind": "drop_trail", "from": trail_start, "to": trail_end, "tint": trail_color, "life": 0.12, "max_life": 0.12})
 		drop.position = drop_position
-		var bob := sin(float(Time.get_ticks_msec()) / 180.0 + float(drop.get("phase", 0.0))) * 3.0 if not pulled else 0.0
+		var bob := sin(float(Time.get_ticks_msec()) / 180.0 + drop_position.x) * 3.0 if not pulled else 0.0
 		node.position = drop_position + Vector2(0.0, bob)
 		if player.position.distance_to(drop_position) <= 22.0:
 			if global_pickup:
