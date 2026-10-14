@@ -2389,8 +2389,6 @@ func _detonate_projectile(projectile: Dictionary, center: Vector2) -> void:
 			_damage_enemy(enemy, float(projectile.damage), str(projectile.weapon))
 			if is_instance_valid(enemy) and enemy.hp > 0.0 and distance > 0.0:
 				_move_enemy_with_bounds(enemy, offset.normalized() * 24.0)
-		if state != "playing":
-			break
 	if bool(projectile.get("special_blast", false)) and not bool(projectile.get("pickup_combo", false)):
 		var bomb_burn := {"kind": "bomb_burn", "position": center, "radius": radius * 0.78, "damage": float(projectile.damage) * 0.18, "weapon": str(projectile.weapon), "tick": 0.16, "interval": 0.2, "life": 0.82}
 		damage_zones.append(bomb_burn)
