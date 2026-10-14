@@ -3203,9 +3203,9 @@ func _set_state(next_state: String) -> void:
 	menu_panel.visible = is_overlay
 	overlay_backdrop.visible = is_overlay
 	if is_instance_valid(particle_layer):
-		particle_layer.set_process(true)
+		particle_layer.set_process(state == "playing")
 	if is_instance_valid(combat_effects):
-		combat_effects.set_process(true)
+		combat_effects.set_process(state == "playing")
 	if is_instance_valid(touch_controls):
 		if state != "playing":
 			touch_controls.release_all()
