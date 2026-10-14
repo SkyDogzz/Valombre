@@ -87,7 +87,7 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 - [x] Reproduire les groupes d’afflux : chance 0,38, intervalle 14–26 s, groupe de base 26, +2 par vague jusqu’à 62, espacement 0,12 s et tirage des types pondéré.
 - [x] Ajouter Gardien, Matriarche et Colosse avec motifs, télégraphes, projectiles, barres de vie et règles de fin associées.
 - [x] Ajouter mode infini : compositions dynamiques, scaling PV/dégâts/vitesse, plafond croissant, boss à chaque cinquième niveau et Éclat par boss.
-- [ ] Appliquer les trois presets de difficulté aux mêmes paramètres que la source : santé, dégâts, vitesse, cadence, vitesse projectile, capacité et butin.
+- [x] Appliquer les trois presets de difficulté aux mêmes paramètres que la source : santé, dégâts, vitesse, cadence, vitesse projectile, capacité et butin.
 - [x] Porter progression d’objectif cyclique et récompense de soin ; défis d’élimination/élites/XP et Éclats persistants.
 - [x] Produire les résultats victoire/défaite : durée, vague, éliminations, niveau, état boss, reliques et récompense.
 
