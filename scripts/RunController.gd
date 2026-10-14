@@ -489,9 +489,9 @@ func _create_interface() -> void:
 	pause_catalog_list = VBoxContainer.new()
 	pause_catalog_list.custom_minimum_size.x = 520
 	pause_catalog.add_child(pause_catalog_list)
-	shield_bar = _create_hud_bar(Vector2(18, 18), Vector2(130, 5), Color("8cb7c5"))
-	health_bar = _create_hud_bar(Vector2(18, 27), Vector2(130, 5), Color("c44c3b"))
-	xp_bar = _create_hud_bar(Vector2(18, 36), Vector2(130, 5), Color("b686c8"))
+	shield_bar = _create_hud_bar(Vector2(18, 18), Vector2(130, 5), Color("8cb7c5"), Color("176a9b"), Color("59c9ff"))
+	health_bar = _create_hud_bar(Vector2(18, 27), Vector2(130, 5), Color("c44c3b"), Color("772d27"), Color("c44c3b"))
+	xp_bar = _create_hud_bar(Vector2(18, 36), Vector2(130, 5), Color("b686c8"), Color("74468f"), Color("d9a2ff"))
 	hud = Label.new()
 	hud.position = Vector2(18, 52)
 	hud.add_theme_font_size_override("font_size", 11)
@@ -533,8 +533,7 @@ func _create_interface() -> void:
 	boss_track.shadow_size = 4
 	boss_track.shadow_offset = Vector2(0.0, 2.0)
 	boss_bar.add_theme_stylebox_override("background", boss_track)
-	var boss_fill := StyleBoxFlat.new()
-	boss_fill.bg_color = Color("b74634")
+	var boss_fill := _create_gradient_fill(Color("812e25"), Color("d45a3f"))
 	boss_bar.add_theme_stylebox_override("fill", boss_fill)
 	layer.add_child(boss_bar)
 	boss_name_label.visible = false
@@ -567,7 +566,7 @@ func _create_interface() -> void:
 	_set_state("title")
 	_update_hud()
 
-func _create_hud_bar(bar_position: Vector2, bar_size: Vector2, tint: Color) -> ProgressBar:
+func _create_hud_bar(bar_position: Vector2, bar_size: Vector2, tint: Color, gradient_start: Color, gradient_end: Color) -> ProgressBar:
 	var bar := ProgressBar.new()
 	bar.position = bar_position
 	bar.size = bar_size
@@ -578,11 +577,24 @@ func _create_hud_bar(bar_position: Vector2, bar_size: Vector2, tint: Color) -> P
 	background.border_color = Color("315c75") if shield_style else Color("464438")
 	background.set_border_width_all(1)
 	bar.add_theme_stylebox_override("background", background)
-	var fill := StyleBoxFlat.new()
-	fill.bg_color = tint
+	var fill := _create_gradient_fill(gradient_start, gradient_end)
 	bar.add_theme_stylebox_override("fill", fill)
 	layer.add_child(bar)
 	return bar
+
+func _create_gradient_fill(start_color: Color, end_color: Color) -> StyleBoxTexture:
+	var gradient := Gradient.new()
+	gradient.colors = PackedColorArray([start_color, end_color])
+	gradient.offsets = PackedFloat32Array([0.0, 1.0])
+	var texture := GradientTexture2D.new()
+	texture.gradient = gradient
+	texture.width = 128
+	texture.height = 1
+	texture.fill_from = Vector2(0.0, 0.5)
+	texture.fill_to = Vector2(1.0, 0.5)
+	var fill := StyleBoxTexture.new()
+	fill.texture = texture
+	return fill
 
 func _add_picker(parent: VBoxContainer, label_text: String, choices: Array) -> OptionButton:
 	var label := Label.new()
