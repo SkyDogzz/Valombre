@@ -240,9 +240,11 @@ func _process(delta: float) -> void:
 		weapon_attack_timers[id] = maxf(0.0, float(weapon_attack_timers[id]) - delta)
 	contact_cooldown = maxf(0.0, contact_cooldown - delta)
 	skill_cooldown = maxf(0.0, skill_cooldown - delta)
+	_update_auto_attack()
+	if state != "playing":
+		return
 	if intermission > 0.0:
 		intermission -= delta
-		_process_weapon_effects(delta)
 		if intermission <= 0.0:
 			_start_wave(wave + 1)
 	else:
@@ -250,16 +252,11 @@ func _process(delta: float) -> void:
 		_update_enemies(delta)
 		if state != "playing":
 			return
-		_process_weapon_effects(delta)
-		_update_projectiles(delta)
-		if state != "playing":
-			return
-		_update_damage_zones(delta)
-		if state != "playing":
-			return
-		_update_auto_attack()
-		if state != "playing":
-			return
+	_process_weapon_effects(delta)
+	_update_damage_zones(delta)
+	_update_projectiles(delta)
+	if state != "playing":
+		return
 	_update_player_visuals()
 	_update_drops(delta)
 	_update_damage_numbers(delta)
