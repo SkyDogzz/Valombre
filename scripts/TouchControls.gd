@@ -55,14 +55,20 @@ func _scale_factor() -> float:
 
 func _joystick_center() -> Vector2:
 	var scale_factor := _scale_factor()
-	return Vector2(104.0 * scale_factor, size.y - 104.0 * scale_factor)
+	var compact := size.x <= 380.0
+	var inset := (9.0 if compact else 14.0) * scale_factor
+	var bottom_inset := (10.0 if compact else 13.0) * scale_factor
+	var diameter := (72.0 if compact else 88.0) * scale_factor
+	return Vector2(inset + diameter * 0.5, size.y - bottom_inset - diameter * 0.5)
 
 func _is_joystick_region(position: Vector2) -> bool:
-	return position.x < size.x * 0.42 and position.y > size.y * 0.42
+	var half_size := (36.0 if size.x <= 380.0 else 44.0) * _scale_factor()
+	var offset := position - _joystick_center()
+	return absf(offset.x) <= half_size and absf(offset.y) <= half_size
 
 func _update_joystick(position: Vector2) -> void:
 	var offset := position - _joystick_center()
-	var max_offset := 38.0 * _scale_factor()
+	var max_offset := 32.0 * _scale_factor()
 	if offset.length() > max_offset:
 		offset = offset.normalized() * max_offset
 	var vector := offset / max_offset
@@ -71,11 +77,20 @@ func _update_joystick(position: Vector2) -> void:
 
 func _action_layout() -> Array[Dictionary]:
 	var scale_factor := _scale_factor()
+	var compact := size.x <= 380.0
+	var button_size := 38.0 if compact else 48.0
+	var gap := 4.0 if compact else 8.0
+	var side_inset := 9.0 if compact else 14.0
+	var bottom_inset := 10.0 if compact else 13.0
+	var center_y := size.y - (bottom_inset + button_size * 0.5) * scale_factor
+	var right_center := size.x - (side_inset + button_size * 0.5) * scale_factor
+	var stride := (button_size + gap) * scale_factor
+	var button_radius := button_size * 0.5 * scale_factor
 	return [
-		{"action": "attack", "label": "⚔", "center": Vector2(size.x - 92.0 * scale_factor, size.y - 100.0 * scale_factor), "radius": 38.0 * scale_factor},
-		{"action": "special", "label": "E", "center": Vector2(size.x - 190.0 * scale_factor, size.y - 170.0 * scale_factor), "radius": 29.0 * scale_factor},
-		{"action": "dodge", "label": "⇧", "center": Vector2(size.x - 190.0 * scale_factor, size.y - 78.0 * scale_factor), "radius": 29.0 * scale_factor},
-		{"action": "pause", "label": "II", "center": Vector2(size.x - 80.0 * scale_factor, size.y - 220.0 * scale_factor), "radius": 24.0 * scale_factor},
+		{"action": "attack", "label": "⚔", "center": Vector2(right_center - stride * 3.0, center_y), "radius": button_radius},
+		{"action": "special", "label": "E", "center": Vector2(right_center - stride * 2.0, center_y), "radius": button_radius},
+		{"action": "dodge", "label": "⇧", "center": Vector2(right_center - stride, center_y), "radius": button_radius},
+		{"action": "pause", "label": "II", "center": Vector2(right_center, center_y), "radius": button_radius},
 	]
 
 func _action_at(position: Vector2) -> String:
@@ -98,12 +113,14 @@ func _send_action(action: String, pressed: bool) -> void:
 func _draw() -> void:
 	var scale_factor := _scale_factor()
 	var center := _joystick_center()
-	var outer_radius := 62.0 * scale_factor
+	var compact := size.x <= 380.0
+	var outer_radius := (36.0 if compact else 44.0) * scale_factor
 	draw_circle(center, outer_radius, Color(0.04, 0.05, 0.05, 0.30))
 	draw_arc(center, outer_radius, 0.0, TAU, 40, Color(0.91, 0.83, 0.65, 0.58), 2.0 * scale_factor)
-	var offset := player.touch_move_vector * 38.0 * scale_factor if is_instance_valid(player) else Vector2.ZERO
-	draw_circle(center + offset, 24.0 * scale_factor, Color(0.82, 0.72, 0.53, 0.52))
-	draw_arc(center + offset, 24.0 * scale_factor, 0.0, TAU, 32, Color(1.0, 0.94, 0.78, 0.78), 1.5 * scale_factor)
+	var offset := player.touch_move_vector * 32.0 * scale_factor if is_instance_valid(player) else Vector2.ZERO
+	var knob_radius := (12.0 if compact else 15.0) * scale_factor
+	draw_circle(center + offset, knob_radius, Color(0.82, 0.72, 0.53, 0.52))
+	draw_arc(center + offset, knob_radius, 0.0, TAU, 32, Color(1.0, 0.94, 0.78, 0.78), 1.5 * scale_factor)
 	for pad in _action_layout():
 		var action := str(pad.action)
 		var pad_center: Vector2 = pad.center
@@ -113,4 +130,5 @@ func _draw() -> void:
 		var edge := Color(1.0, 0.88, 0.61, 0.9) if active else Color(0.91, 0.83, 0.65, 0.62)
 		draw_circle(pad_center, radius, fill)
 		draw_arc(pad_center, radius, 0.0, TAU, 32, edge, 2.0 * scale_factor)
-		draw_string(ThemeDB.fallback_font, pad_center + Vector2(-20.0 * scale_factor, 7.0 * scale_factor), str(pad.label), HORIZONTAL_ALIGNMENT_CENTER, 40.0 * scale_factor, int(21.0 * scale_factor), Color("f1e4c5"))
+		var font_size := 14.0 if size.x <= 380.0 else 17.0
+		draw_string(ThemeDB.fallback_font, pad_center + Vector2(-20.0 * scale_factor, 7.0 * scale_factor), str(pad.label), HORIZONTAL_ALIGNMENT_CENTER, 40.0 * scale_factor, int(font_size * scale_factor), Color("f1e4c5"))
