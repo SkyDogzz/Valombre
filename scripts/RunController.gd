@@ -1666,12 +1666,38 @@ func _spawn_enemy(kind: String, is_elite: bool, boss_id: String) -> void:
 		enemy.set_meta("spawn_weight", float(base.get("weight", 10)))
 	else:
 		enemy.set_meta("spawn_weight", float(base.get("weight", 1)) + (1.0 if is_elite else 0.0))
-	var angle := rng.randf_range(0.0, TAU)
-	var distance := rng.randf_range(350.0, 540.0)
-	enemy.position = Vector2(
-		clampf(player.position.x + cos(angle) * distance, 60.0, WORLD_SIZE.x - 60.0),
-		clampf(player.position.y + sin(angle) * distance, 60.0, WORLD_SIZE.y - 60.0)
-	)
+	var camera_center: Vector2 = player.get_node("Camera2D").get_screen_center_position()
+	var camera_origin := camera_center - Vector2(480.0, 270.0)
+	var viewport_size := Vector2(960.0, 540.0)
+	var spawn_position := player.position
+	for _attempt in 32:
+		var angle := rng.randf_range(0.0, TAU)
+		var direction := Vector2(cos(angle), sin(angle))
+		var edge_x := INF if absf(direction.x) < 0.001 else ((camera_origin.x + viewport_size.x - player.position.x) if direction.x > 0.0 else (player.position.x - camera_origin.x)) / absf(direction.x)
+		var edge_y := INF if absf(direction.y) < 0.001 else ((camera_origin.y + viewport_size.y - player.position.y) if direction.y > 0.0 else (player.position.y - camera_origin.y)) / absf(direction.y)
+		var distance := maxf(0.0, minf(edge_x, edge_y)) + rng.randf_range(50.0, 120.0)
+		spawn_position = Vector2(
+			clampf(player.position.x + direction.x * distance, 60.0, WORLD_SIZE.x - 60.0),
+			clampf(player.position.y + direction.y * distance, 60.0, WORLD_SIZE.y - 60.0)
+		)
+		var visible_rect := Rect2(camera_origin, viewport_size).grow(20.0)
+		if not visible_rect.has_point(spawn_position) and not _position_out_of_bounds(spawn_position, enemy.radius):
+			break
+	var expanded_view := Rect2(camera_origin, viewport_size).grow(20.0)
+	if expanded_view.has_point(spawn_position) or _position_out_of_bounds(spawn_position, enemy.radius):
+		var candidates := [
+			Vector2(camera_origin.x - 80.0, rng.randf_range(camera_origin.y, camera_origin.y + viewport_size.y)),
+			Vector2(camera_origin.x + viewport_size.x + 80.0, rng.randf_range(camera_origin.y, camera_origin.y + viewport_size.y)),
+			Vector2(rng.randf_range(camera_origin.x, camera_origin.x + viewport_size.x), camera_origin.y - 80.0),
+			Vector2(rng.randf_range(camera_origin.x, camera_origin.x + viewport_size.x), camera_origin.y + viewport_size.y + 80.0),
+		]
+		for candidate in candidates:
+			candidate.x = clampf(candidate.x, 60.0, WORLD_SIZE.x - 60.0)
+			candidate.y = clampf(candidate.y, 60.0, WORLD_SIZE.y - 60.0)
+			if not expanded_view.has_point(candidate) and not _position_out_of_bounds(candidate, enemy.radius):
+				spawn_position = candidate
+				break
+	enemy.position = spawn_position
 	if kind == "boss":
 		enemy.name = "Boss_" + boss_id
 	arena.add_child(enemy)
