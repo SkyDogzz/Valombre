@@ -71,7 +71,7 @@ var uncapped_inventory := false
 var custom_drops := false
 var selected_drop_weapons: Array[String] = []
 var selected_drop_relics: Array[String] = []
-var profile := {"schema_version": 1, "wins": 0, "bestKills": 0, "shards": 0, "run": null, "singleWeapon": false, "uncappedInventory": false, "customDrops": false, "dropWeapons": [], "dropRelics": [], "bestiary": {}, "discoveredWeapons": {}, "discoveredRelics": {}, "discoveredSynergies": {}}
+var profile := {"schema_version": 1, "wins": 0, "bestKills": 0, "shards": 0, "run": null, "hero": "pilgrim", "weapon": "sabre", "mode": "waves", "difficulty": "insane", "singleWeapon": false, "uncappedInventory": false, "customDrops": false, "dropWeapons": [], "dropRelics": [], "bestiary": {}, "discoveredWeapons": {}, "discoveredRelics": {}, "discoveredSynergies": {}, "muted": false, "volume": 0.25, "autoPickUpgrade": true}
 var result_recorded := false
 var notice_text := ""
 var notice_timer := 0.0
@@ -108,6 +108,13 @@ var menu_column: VBoxContainer
 var boss_bar: ProgressBar
 var boss_name_label: Label
 var notice_label: Label
+var mute_toggle: CheckBox
+var volume_slider: HSlider
+var reset_button: Button
+var audio_player: AudioStreamPlayer
+var sound_generator: AudioStreamGenerator
+var sound_playback: AudioStreamGeneratorPlayback
+var sound_phase := 0.0
 
 func _ready() -> void:
 	main = get_parent()
@@ -115,6 +122,10 @@ func _ready() -> void:
 	player = arena.get_node("Player")
 	catalog = main.catalog
 	_load_profile()
+	hero_id = str(profile.hero)
+	weapon_id = str(profile.weapon)
+	mode = str(profile.mode)
+	difficulty_id = str(profile.difficulty)
 	single_weapon = bool(profile.singleWeapon)
 	uncapped_inventory = bool(profile.uncappedInventory)
 	custom_drops = bool(profile.customDrops)
@@ -122,6 +133,7 @@ func _ready() -> void:
 	selected_drop_relics.assign(profile.dropRelics)
 	rng.randomize()
 	_create_interface()
+	_create_audio()
 	player.run_active = false
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -206,8 +218,31 @@ func _create_interface() -> void:
 	for weapon in catalog.definitions.get("weapons", []):
 		weapon_picker.add_item(weapon.display_name)
 		weapon_picker.set_item_metadata(weapon_picker.item_count - 1, str(weapon.id))
+	hero_picker.select(1 if hero_id == "sentinel" else 0)
+	for index in weapon_picker.item_count:
+		if str(weapon_picker.get_item_metadata(index)) == weapon_id:
+			weapon_picker.select(index)
+			break
+	hero_picker.item_selected.connect(func(index: int) -> void:
+		profile.hero = "sentinel" if index == 1 else "pilgrim"
+		_save_profile()
+	)
+	weapon_picker.item_selected.connect(func(index: int) -> void:
+		profile.weapon = str(weapon_picker.get_item_metadata(index))
+		_save_profile()
+	)
 	mode_picker = _add_picker(column, "Mode", ["Vagues", "Infini"])
 	difficulty_picker = _add_picker(column, "Difficulté", ["Insane", "Nightmare", "Cataclysm"])
+	mode_picker.select(1 if mode == "infinite" else 0)
+	difficulty_picker.select(["insane", "nightmare", "cataclysm"].find(difficulty_id))
+	mode_picker.item_selected.connect(func(index: int) -> void:
+		profile.mode = "infinite" if index == 1 else "waves"
+		_save_profile()
+	)
+	difficulty_picker.item_selected.connect(func(index: int) -> void:
+		profile.difficulty = ["insane", "nightmare", "cataclysm"][index]
+		_save_profile()
+	)
 	single_weapon_toggle = CheckBox.new()
 	single_weapon_toggle.text = "Butin : arme de départ uniquement"
 	single_weapon_toggle.button_pressed = single_weapon
@@ -228,6 +263,22 @@ func _create_interface() -> void:
 	auto_pick_toggle.button_pressed = bool(profile.get("autoPickUpgrade", true))
 	auto_pick_toggle.toggled.connect(_on_auto_pick_toggled)
 	column.add_child(auto_pick_toggle)
+	mute_toggle = CheckBox.new()
+	mute_toggle.text = "Muet"
+	mute_toggle.button_pressed = bool(profile.muted)
+	mute_toggle.toggled.connect(_on_mute_toggled)
+	column.add_child(mute_toggle)
+	volume_slider = HSlider.new()
+	volume_slider.min_value = 0.0
+	volume_slider.max_value = 1.0
+	volume_slider.step = 0.05
+	volume_slider.value = float(profile.volume)
+	volume_slider.value_changed.connect(_on_volume_changed)
+	column.add_child(volume_slider)
+	reset_button = Button.new()
+	reset_button.text = "Effacer la progression et les options"
+	reset_button.pressed.connect(_reset_profile)
+	column.add_child(reset_button)
 	drop_filter_row = HBoxContainer.new()
 	column.add_child(drop_filter_row)
 	weapon_drop_menu = _add_drop_menu(drop_filter_row, "Armes autorisées", "weapons", selected_drop_weapons)
@@ -366,6 +417,85 @@ func _on_auto_pick_toggled(enabled: bool) -> void:
 		auto_pick_remaining = 3.0 if enabled else -1.0
 	_save_profile()
 
+func _on_mute_toggled(enabled: bool) -> void:
+	profile.muted = enabled
+	_save_profile()
+
+func _on_volume_changed(value: float) -> void:
+	profile.volume = value
+	_save_profile()
+
+func _reset_profile() -> void:
+	var confirmation := ConfirmationDialog.new()
+	confirmation.dialog_text = "Effacer la run, les découvertes, les victoires, les éclats et toutes les options sauvegardées ?"
+	confirmation.confirmed.connect(func() -> void:
+		profile = {"schema_version": 1, "wins": 0, "bestKills": 0, "shards": 0, "run": null, "hero": "pilgrim", "weapon": "sabre", "mode": "waves", "difficulty": "insane", "singleWeapon": false, "uncappedInventory": false, "customDrops": false, "dropWeapons": [], "dropRelics": [], "bestiary": {}, "discoveredWeapons": {}, "discoveredRelics": {}, "discoveredSynergies": {}, "muted": false, "volume": 0.25, "autoPickUpgrade": true}
+		hero_id = "pilgrim"
+		weapon_id = "sabre"
+		mode = "waves"
+		difficulty_id = "insane"
+		single_weapon = false
+		uncapped_inventory = false
+		custom_drops = false
+		selected_drop_weapons.clear()
+		selected_drop_relics.clear()
+		_load_profile_defaults()
+		hero_picker.select(0)
+		mode_picker.select(0)
+		difficulty_picker.select(0)
+		weapon_picker.select(0)
+		single_weapon_toggle.set_pressed_no_signal(false)
+		uncapped_inventory_toggle.set_pressed_no_signal(false)
+		custom_drops_toggle.set_pressed_no_signal(false)
+		auto_pick_toggle.set_pressed_no_signal(true)
+		mute_toggle.set_pressed_no_signal(false)
+		volume_slider.value = 0.25
+		_refresh_drop_popup_checks()
+		_update_drop_filter_controls()
+		_save_profile()
+		_set_state("title")
+	)
+	main.add_child(confirmation)
+	confirmation.popup_centered()
+
+func _load_profile_defaults() -> void:
+	for id in catalog.content.weapons:
+		selected_drop_weapons.append(str(id))
+	for relic: Dictionary in catalog.content.relics:
+		selected_drop_relics.append(str(relic.id))
+	profile.dropWeapons = selected_drop_weapons.duplicate()
+	profile.dropRelics = selected_drop_relics.duplicate()
+	profile.singleWeapon = false
+	profile.uncappedInventory = false
+	profile.customDrops = false
+
+func _create_audio() -> void:
+	audio_player = AudioStreamPlayer.new()
+	sound_generator = AudioStreamGenerator.new()
+	sound_generator.mix_rate = 22050.0
+	sound_generator.buffer_length = 0.12
+	audio_player.stream = sound_generator
+	main.add_child(audio_player)
+	audio_player.play()
+	sound_playback = audio_player.get_stream_playback() as AudioStreamGeneratorPlayback
+
+func _play_tone(frequency: float, duration := 0.08, waveform := "sine") -> void:
+	if bool(profile.muted) or float(profile.volume) <= 0.0 or not is_instance_valid(audio_player):
+		return
+	if sound_playback == null:
+		return
+	var frames := mini(int(duration * sound_generator.mix_rate), sound_playback.get_frames_available())
+	for _frame in frames:
+		var phase := fposmod(sound_phase, 1.0)
+		var sample := sin(TAU * phase)
+		if waveform == "square":
+			sample = 1.0 if phase < 0.5 else -1.0
+		elif waveform == "triangle":
+			sample = 1.0 - 4.0 * absf(phase - 0.5)
+		sample *= float(profile.volume) * 0.16
+		sound_playback.push_frame(Vector2(sample, sample))
+		sound_phase += frequency / sound_generator.mix_rate
+
 func _update_drop_filter_controls() -> void:
 	if is_instance_valid(weapon_drop_menu):
 		weapon_drop_menu.disabled = not custom_drops
@@ -428,6 +558,17 @@ func _on_start_pressed() -> void:
 
 func _on_new_run_pressed() -> void:
 	profile.run = null
+	hero_id = str(profile.hero)
+	weapon_id = str(profile.weapon)
+	mode = str(profile.mode)
+	difficulty_id = str(profile.difficulty)
+	hero_picker.select(1 if hero_id == "sentinel" else 0)
+	mode_picker.select(1 if mode == "infinite" else 0)
+	difficulty_picker.select(["insane", "nightmare", "cataclysm"].find(difficulty_id))
+	for index in weapon_picker.item_count:
+		if str(weapon_picker.get_item_metadata(index)) == weapon_id:
+			weapon_picker.select(index)
+			break
 	_save_profile()
 	_set_state("title")
 
@@ -1341,6 +1482,7 @@ func _show_level_up() -> void:
 
 func _apply_upgrade(definition: GameDefinition) -> void:
 	auto_pick_remaining = -1.0
+	_play_tone(790.0, 0.12)
 	var values: Dictionary = definition.values
 	var rank := int(upgrade_ranks.get(str(definition.id), 0))
 	var bonus := float(values.get("bonus", 0.0)) / float(rank + 1)
@@ -1719,6 +1861,7 @@ func _show_notice(message: String) -> void:
 	notice_timer = 1.8
 	if is_instance_valid(notice_label):
 		notice_label.text = message
+	_play_tone(510.0, 0.035)
 
 func _build_pause_catalog() -> void:
 	if not is_instance_valid(pause_catalog_list):
@@ -1799,6 +1942,7 @@ func _relic_health() -> float:
 	return total
 
 func _damage_player(amount: float) -> void:
+	_play_tone(90.0, 0.11, "square")
 	var incoming := maxf(1.0, amount * (1.0 - minf(0.8, defense + equipment_defense)))
 	var absorbed := minf(player_shield, incoming)
 	player_shield -= absorbed
@@ -1872,6 +2016,9 @@ func _set_state(next_state: String) -> void:
 		uncapped_inventory_toggle.visible = show_setup
 		custom_drops_toggle.visible = show_setup
 		auto_pick_toggle.visible = show_setup
+		mute_toggle.visible = show_setup
+		volume_slider.visible = show_setup
+		reset_button.visible = show_setup
 		drop_filter_row.visible = show_setup
 		new_run_button.visible = state == "title" and (profile.get("run") is Dictionary)
 		status_label.visible = state != "playing"
@@ -1893,7 +2040,7 @@ func _set_state(next_state: String) -> void:
 			var show_setup_after_pause := state == "title" and not (profile.get("run") is Dictionary)
 			for picker_label in picker_labels:
 				picker_label.visible = show_setup_after_pause
-			for control in [hero_picker, weapon_picker, mode_picker, difficulty_picker, single_weapon_toggle, uncapped_inventory_toggle, custom_drops_toggle, auto_pick_toggle, drop_filter_row]:
+			for control in [hero_picker, weapon_picker, mode_picker, difficulty_picker, single_weapon_toggle, uncapped_inventory_toggle, custom_drops_toggle, auto_pick_toggle, mute_toggle, volume_slider, reset_button, drop_filter_row]:
 				control.visible = show_setup_after_pause
 			new_run_button.visible = state == "title" and (profile.get("run") is Dictionary)
 	if state in ["levelUp", "loot"]:
@@ -2017,6 +2164,24 @@ func _load_profile() -> void:
 		var value: Variant = saved.get(key, false)
 		if value is bool:
 			profile[key] = value
+	var saved_hero := str(saved.get("hero", profile.hero))
+	if catalog.content.heroes.has(saved_hero):
+		profile.hero = saved_hero
+	var saved_weapon := str(saved.get("weapon", profile.weapon))
+	if catalog.content.weapons.has(saved_weapon):
+		profile.weapon = saved_weapon
+	var saved_mode := str(saved.get("mode", profile.mode))
+	if saved_mode in ["waves", "infinite"]:
+		profile.mode = saved_mode
+	var saved_difficulty := str(saved.get("difficulty", profile.difficulty))
+	if catalog.content.difficulties.has(saved_difficulty):
+		profile.difficulty = saved_difficulty
+	var saved_muted: Variant = saved.get("muted", profile.muted)
+	if saved_muted is bool:
+		profile.muted = saved_muted
+	var saved_volume: Variant = saved.get("volume", profile.volume)
+	if (saved_volume is int or saved_volume is float) and is_finite(float(saved_volume)):
+		profile.volume = clampf(float(saved_volume), 0.0, 1.0)
 	var saved_bestiary: Variant = saved.get("bestiary", {})
 	if saved_bestiary is Dictionary:
 		profile.bestiary = _sanitize_bestiary(saved_bestiary)
@@ -2096,8 +2261,28 @@ func _checkpoint_is_valid(checkpoint: Variant) -> bool:
 	var saved_position: Variant = checkpoint_player.get("position", [])
 	if not weapons is Array or not relics is Array or not saved_position is Array or saved_position.size() < 2:
 		return false
+	for coordinate in saved_position:
+		if not _is_finite_number(coordinate):
+			return false
 	if not (checkpoint_player.get("upgradeRanks", {}) is Dictionary):
 		return false
+	for field in ["hp", "maxHp", "xp", "nextXp", "level", "damageMultiplier", "attackSpeedMultiplier", "rangeBonus", "movementMultiplier", "defense", "bonusMaxHp", "projectileSize", "projectileSpeed", "pickupRangeMultiplier", "shield", "scytheSouls"]:
+		if checkpoint_player.has(field) and not _is_finite_number(checkpoint_player[field]):
+			return false
+	if checkpoint_player.has("level") and int(checkpoint_player.level) < 1:
+		return false
+	if checkpoint_player.has("maxHp") and float(checkpoint_player.maxHp) <= 0.0:
+		return false
+	if checkpoint_player.has("hp") and (float(checkpoint_player.hp) < 0.0 or (checkpoint_player.has("maxHp") and float(checkpoint_player.hp) > float(checkpoint_player.maxHp))):
+		return false
+	if checkpoint_player.has("facing"):
+		var facing: Variant = checkpoint_player.facing
+		if not facing is Array or facing.size() < 2 or not _is_finite_number(facing[0]) or not _is_finite_number(facing[1]):
+			return false
+	var ranks: Dictionary = checkpoint_player.get("upgradeRanks", {})
+	for rank_id in ranks:
+		if not catalog.definitions.get("upgrades", []).any(func(definition: GameDefinition) -> bool: return str(definition.id) == str(rank_id)) or not _is_finite_number(ranks[rank_id]) or int(ranks[rank_id]) < 0:
+			return false
 	var challenges: Variant = checkpoint.get("runChallenges", [])
 	if not challenges is Array:
 		return false
@@ -2117,15 +2302,36 @@ func _checkpoint_is_valid(checkpoint: Variant) -> bool:
 		if not catalog.content.relics.any(func(entry: Dictionary) -> bool: return str(entry.id) == str(id)):
 			return false
 	for challenge in challenges:
-		if not challenge is Dictionary:
+		if not challenge is Dictionary or not challenge.has("id") or not _is_finite_number(challenge.get("target")) or not _is_finite_number(challenge.get("progress")) or not (challenge.get("complete") is bool):
+			return false
+		if float(challenge.target) <= 0.0 or float(challenge.progress) < 0.0 or float(challenge.progress) > float(challenge.target):
+			return false
+	if checkpoint.has("waveObjective"):
+		var objective: Variant = checkpoint.waveObjective
+		if not objective is Dictionary or str(objective.get("type", "")) not in ["kills", "xp", "elite"] or not _is_finite_number(objective.get("target")) or not _is_finite_number(objective.get("progress")) or not (objective.get("complete") is bool):
+			return false
+		if float(objective.target) <= 0.0 or float(objective.progress) < 0.0 or float(objective.progress) > float(objective.target):
 			return false
 	for item in weapons:
 		if not item is Dictionary or not catalog.content.weapons.has(str(item.get("id", ""))):
 			return false
+		if item.has("level") and (not _is_finite_number(item.level) or int(item.level) < 1 or int(item.level) > 5):
+			return false
+		if item.has("locked") and not (item.locked is bool):
+			return false
+		if item.has("special") and not (item.special is bool):
+			return false
 	for relic in relics:
 		if not relic is Dictionary or not catalog.content.relics.any(func(entry: Dictionary) -> bool: return str(entry.id) == str(relic.get("id", ""))):
 			return false
+		if relic.has("level") and (not _is_finite_number(relic.level) or int(relic.level) < 1 or int(relic.level) > 5):
+			return false
+		if relic.has("locked") and not (relic.locked is bool):
+			return false
 	return true
+
+func _is_finite_number(value: Variant) -> bool:
+	return (value is int or value is float) and is_finite(float(value))
 
 func _save_profile() -> void:
 	var file := FileAccess.open("user://save.json", FileAccess.WRITE)
