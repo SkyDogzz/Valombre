@@ -656,6 +656,7 @@ func _create_interface() -> void:
 	touch_controls.player = player
 	touch_controls.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	touch_controls.visible = false
+	touch_controls.action_button_activated.connect(_play_ui_button_sound)
 	layer.add_child(touch_controls)
 	overlay_backdrop = ColorRect.new()
 	overlay_backdrop.color = Color(0.043, 0.047, 0.035, 0.72)
@@ -665,6 +666,7 @@ func _create_interface() -> void:
 	layer.add_child(overlay_backdrop)
 	layer.move_child(menu_panel, layer.get_child_count() - 1)
 	status_label.visible = false
+	_connect_ui_button_sounds(layer)
 	_set_state("title")
 	_update_hud()
 	get_viewport().size_changed.connect(_update_hud_layout)
@@ -969,6 +971,7 @@ func _create_cheat_button() -> void:
 	cheat_button.add_theme_font_size_override("font_size", 8)
 	_style_hud_button(cheat_button)
 	cheat_button.visible = false
+	cheat_button.pressed.connect(_play_ui_button_sound)
 	cheat_button.pressed.connect(_toggle_infinite_life)
 	layer.add_child(cheat_button)
 
@@ -1117,6 +1120,15 @@ func _play_tone(frequency: float, duration := 0.08, waveform := "sine") -> void:
 		"elapsed": 0.0,
 		"start_gain": 0.08 * float(profile.volume),
 	})
+
+func _play_ui_button_sound() -> void:
+	_play_tone(510.0, 0.035)
+
+func _connect_ui_button_sounds(root: Node) -> void:
+	for child in root.get_children():
+		if child.get_class() == "Button":
+			(child as Button).pressed.connect(_play_ui_button_sound)
+		_connect_ui_button_sounds(child)
 
 func _update_audio_buffer() -> void:
 	if sound_playback == null or sound_generator == null:
@@ -2428,7 +2440,7 @@ func _update_drops(delta: float) -> void:
 				var potion_heal := float(catalog.content.config.drops.get("potionHeal", 32))
 				hp = minf(max_hp, hp + potion_heal)
 				_play_tone(620.0, 0.12)
-				_show_notice("Fiole écarlate · +%d PV" % int(potion_heal), false)
+				_show_notice("Fiole écarlate · +%d PV" % int(potion_heal))
 			else:
 				xp += float(drop.value)
 				_play_tone(790.0, 0.12, "sine")
@@ -2462,6 +2474,7 @@ func _make_upgrade_choice_button(title: String, detail: String) -> Button:
 	button.focus_mode = Control.FOCUS_ALL
 	button.accessibility_name = title
 	button.accessibility_description = detail
+	button.pressed.connect(_play_ui_button_sound)
 	button.custom_minimum_size.y = 68.0
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var normal := StyleBoxFlat.new()
@@ -2541,7 +2554,6 @@ func _show_level_up() -> void:
 
 func _apply_upgrade(definition: GameDefinition) -> void:
 	auto_pick_remaining = -1.0
-	_play_tone(790.0, 0.12)
 	var values: Dictionary = definition.values
 	var rank := int(upgrade_ranks.get(str(definition.id), 0))
 	var bonus := float(values.get("bonus", 0.0)) / float(rank + 1)
@@ -2594,6 +2606,7 @@ func _make_loot_choice_button(title: String, detail: String, incoming_path: Stri
 	button.focus_mode = Control.FOCUS_ALL
 	button.accessibility_name = title
 	button.accessibility_description = detail
+	button.pressed.connect(_play_ui_button_sound)
 	button.custom_minimum_size.y = 60.0
 	var row := HBoxContainer.new()
 	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -3003,13 +3016,11 @@ func _set_inventory_lock(group: String, item_id: String, enabled: bool) -> void:
 	item.locked = enabled
 	_save_checkpoint(wave)
 
-func _show_notice(message: String, play_sound := true) -> void:
+func _show_notice(message: String) -> void:
 	notice_text = message
 	notice_timer = 1.8
 	if is_instance_valid(notice_label):
 		notice_label.text = message
-	if play_sound:
-		_play_tone(510.0, 0.035)
 
 func _build_pause_catalog() -> void:
 	if not is_instance_valid(pause_catalog_list):
@@ -3224,7 +3235,7 @@ func _use_hero_skill() -> void:
 	var notice := str(hero.get("specialName", "Capacité spéciale"))
 	if hit_count > 0:
 		notice += " · %d touché%s" % [hit_count, "s" if hit_count > 1 else ""]
-	_show_notice(notice, false)
+	_show_notice(notice)
 	_update_hud()
 
 func _set_state(next_state: String) -> void:
@@ -3438,7 +3449,7 @@ func _progress_objective(target: String) -> void:
 			objective_complete = true
 			hp = minf(max_hp, hp + ceili(max_hp * 0.18))
 			_play_tone(720.0, 0.16, "sine")
-			_show_notice("Objectif accompli · +18 % PV", false)
+			_show_notice("Objectif accompli · +18 % PV")
 	_progress_challenges(target)
 	if target == "kills" and defeated > 0 and defeated % 10 == 0:
 		_save_checkpoint(wave)
@@ -3456,7 +3467,7 @@ func _progress_challenges(target: String) -> void:
 				profile.run.runChallenges = run_challenges.duplicate(true)
 				profile.run.waveObjective = {"type": objective_type, "target": objective_target, "progress": objective_progress, "complete": objective_complete}
 			_save_checkpoint(wave)
-			_show_notice("Défi accompli · +1 Éclat", false)
+			_show_notice("Défi accompli · +1 Éclat")
 		elif profile.get("run") is Dictionary:
 			profile.run.runChallenges = run_challenges.duplicate(true)
 			profile.run.waveObjective = {"type": objective_type, "target": objective_target, "progress": objective_progress, "complete": objective_complete}

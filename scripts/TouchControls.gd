@@ -1,6 +1,8 @@
 extends Control
 class_name ValombreTouchControls
 
+signal action_button_activated
+
 var player: ValombrePlayer
 var joystick_finger := -1
 var action_fingers: Dictionary = {}
@@ -27,6 +29,7 @@ func _gui_input(event: InputEvent) -> void:
 				if not action.is_empty():
 					action_fingers[event.index] = action
 					_send_action(action, true)
+					action_button_activated.emit()
 			accept_event()
 		else:
 			if event.index == joystick_finger:
@@ -51,6 +54,7 @@ func _gui_input(event: InputEvent) -> void:
 				if not action.is_empty():
 					action_fingers[-1] = action
 					_send_action(action, true)
+					action_button_activated.emit()
 					accept_event()
 		else:
 			if joystick_finger == -2:

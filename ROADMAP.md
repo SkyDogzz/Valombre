@@ -2,7 +2,7 @@
 
 Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le guide du dépôt [`README.md`](README.md). L’objectif est une version Godot jouable dont le contenu et les règles reproduisent le snapshot web, puis dont la présentation et les contrôles atteignent la même expérience. Les tâches marquées « parité » doivent suivre le code JavaScript exporté, y compris les comportements qui ne sont pas décrits dans le JSON.
 
-**Avancement global : 52/70 tâches terminées (74,3 %).**
+**Avancement global : 53/70 tâches terminées (75,7 %).**
 
 ## Principes de portage
 
@@ -131,7 +131,7 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 - [x] Reproduire le fond forêt/ruines, décor secondaire, éclairage et vignette, sans réduire la lisibilité des attaques.
 - [ ] Porter nombres de dégâts, orbes XP, drops, projectiles, arcs électriques, impacts, flashes, zones télégraphiées, givre, explosions, particules et secousses si présentes dans la source.
 - [ ] Reprendre palette, cadres, typographie et proportions UI du CSS ; adapter le layout sans couper le HUD en 16:9, fenêtre redimensionnée et écran étroit.
-- [ ] Créer les sons synthétiques absents de l’archive avec génération audio Godot ou formes d’onde équivalentes ; déclencher sur événements identiques et respecter volume/muet.
+- [x] Créer les sons synthétiques absents de l’archive avec génération audio Godot ; reproduire les formes d’onde, l’enveloppe, les clics de boutons et les sons de combat/collecte, avec respect du volume et du muet.
 - [ ] Comparer des captures avec le canvas web 960×540 pour composition, contraste, taille des sprites et superposition des UI.
 
 **Critères d’acceptation :** toutes les familles de feedback visuel présentes dans le jeu web ont un équivalent lisible ; les icônes et silhouettes viennent des assets fournis ; HUD et contrôles tactiles restent utilisables sur les dimensions cibles.
