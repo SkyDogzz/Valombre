@@ -96,6 +96,7 @@ func _draw() -> void:
 		else:
 			var warning := Color("bd79ce") if boss_behavior == "volley" or kind == "shaman" else Color("f2ae5a") if kind in ["charger", "leaper"] else Color("db5644")
 			var alpha := 0.48 + sin(visual_phase * 4.0) * 0.22
+			draw_line(Vector2.ZERO, aim, Color(warning.r, warning.g, warning.b, alpha), 5.0 if kind in ["charger", "leaper"] else 2.0)
 			if kind == "leaper":
 				var landing := aim
 				draw_circle(landing, landing_radius, Color(0.95, 0.68, 0.35, 0.16))
@@ -104,8 +105,6 @@ func _draw() -> void:
 				_draw_fan(aim_direction, 330.0, 0.2, 5, warning)
 			elif kind == "shaman":
 				_draw_fan(aim_direction, telegraph_range, 0.24, 3, warning)
-			else:
-				draw_line(Vector2.ZERO, aim, Color(warning.r, warning.g, warning.b, alpha), 5.0 if kind == "charger" else 2.0)
 	if elite:
 		draw_arc(Vector2.ZERO, radius + 6.0 + sin(visual_phase * 10.0) * 1.5, 0.0, TAU, 32, elite_color, 3.0)
 	if bool(get_meta("sabre_mark", false)):

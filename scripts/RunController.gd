@@ -1099,7 +1099,7 @@ func _update_enemies(delta: float) -> void:
 		enemy.slow_time = maxf(0.0, enemy.slow_time - delta)
 		if enemy.slow_time <= 0.0:
 			enemy.slow_factor = 1.0
-		enemy.visual_phase += delta
+		enemy.visual_phase += delta * 3.0
 		enemy.queue_redraw()
 		enemy.attack_timer -= delta * attack_speed
 		if enemy.dash_time_left > 0.0:
