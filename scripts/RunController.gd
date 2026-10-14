@@ -1335,13 +1335,13 @@ func _update_auto_attack() -> void:
 			if distance < nearest:
 				nearest = distance
 				target = enemy
-		var manual := Input.is_action_just_pressed("attack")
+		var manual := Input.is_action_pressed("attack")
 		var manual_melee := manual and not ranged
 		var swing_count := int(weapon_swing_counts.get(id, 0)) + 1
 		var special_finisher := bool(owned.special) and swing_count % 3 == 0
 		var level_scale := 1.0 + 0.18 * (int(owned.level) - 1)
 		var reach := (float(weapon.get("range", 108.0)) + range_bonus + equipment_range) * float(_synergy_data(id).get("rangeMultiplier", 1.0))
-		if ((not target or nearest > reach) and not manual_melee) or float(weapon_cooldowns.get(id, 0.0)) > 0.0:
+		if ((not target or nearest > reach) and not manual_melee) or (float(weapon_cooldowns.get(id, 0.0)) > 0.0 and not manual):
 			continue
 		var aim := player.facing
 		if manual_melee and manual_attack_from_mouse:
