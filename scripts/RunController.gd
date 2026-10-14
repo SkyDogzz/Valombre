@@ -3307,6 +3307,9 @@ func _update_hud() -> void:
 		xp_bar.max_value = maxf(1.0, next_xp)
 		xp_bar.value = clampf(xp, 0.0, next_xp)
 		shield_bar.visible = DisplayServer.window_get_size().x > 640 or player_shield > 0.0
+		player.shield_amount = player_shield
+		player.shield_max_health = max_hp
+		player.queue_redraw()
 	var objective_names := {"kills": "Éliminations", "xp": "Orbes d’XP", "elite": "Élites"}
 	var objective := "%s %d/%d" % [objective_names.get(objective_type, objective_type), mini(objective_progress, objective_target), objective_target]
 	var challenge_text := "Défis terminés"

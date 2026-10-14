@@ -20,8 +20,17 @@ var equipment_speed := 1.0
 var touch_move_vector := Vector2.ZERO
 var hammer_swing_progress := -1.0
 var weapon_swing_visuals: Dictionary = {}
+var shield_amount := 0.0
+var shield_max_health := 100.0
 
 func _draw() -> void:
+	if shield_amount > 0.0:
+		var shield_alpha := minf(0.82, 0.3 + shield_amount / maxf(1.0, shield_max_health))
+		var shield_radius := 23.0 + minf(5.0, shield_amount / 10.0)
+		var shield_glow := Color(0.45, 0.84, 0.9, shield_alpha * 0.22)
+		draw_arc(Vector2(0.0, -3.0), shield_radius, 0.0, TAU, 48, shield_glow, 8.0, true)
+		var shield_tint := Color(0.60, 0.91, 0.94, shield_alpha)
+		draw_arc(Vector2(0.0, -3.0), shield_radius, 0.0, TAU, 48, shield_tint, 2.5, true)
 	if dodge_time > 0.0:
 		var direction := dodge_direction.normalized()
 		var start := Vector2(-direction.x * 32.0 - direction.y * 7.0, -direction.y * 32.0 + direction.x * 7.0)
