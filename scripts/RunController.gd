@@ -167,6 +167,14 @@ func _ready() -> void:
 	_update_player_visuals()
 	player.run_active = false
 
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_APPLICATION_FOCUS_OUT:
+		return
+	for action in ["move_left", "move_right", "move_up", "move_down", "attack", "special", "dodge", "pause", "inventory"]:
+		Input.action_release(action)
+	if is_instance_valid(player):
+		player.touch_move_vector = Vector2.ZERO
+
 func _configure_gamepad_inputs() -> void:
 	_add_gamepad_axis("move_left", JOY_AXIS_LEFT_X, -1.0)
 	_add_gamepad_axis("move_right", JOY_AXIS_LEFT_X, 1.0)

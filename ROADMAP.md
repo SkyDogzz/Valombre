@@ -2,7 +2,7 @@
 
 Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le guide du dépôt [`README.md`](README.md). L’objectif est une version Godot jouable dont le contenu et les règles reproduisent le snapshot web, puis dont la présentation et les contrôles atteignent la même expérience. Les tâches marquées « parité » doivent suivre le code JavaScript exporté, y compris les comportements qui ne sont pas décrits dans le JSON.
 
-**Avancement global : 46/70 tâches terminées (65,7 %).**
+**Avancement global : 47/70 tâches terminées (67,1 %).**
 
 ## Principes de portage
 
@@ -58,7 +58,7 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 - [x] Porter le mouvement `CharacterBody2D` ou équivalent en conservant la vitesse exacte et la normalisation diagonale.
 - [x] Reproduire le glissement le long des obstacles et des limites avec le mouvement physique de Godot.
 - [ ] Ajouter les deux héros, leurs animations/poses, états de dégâts et orientation ; porter les statistiques et la compétence de la Sentinelle.
-- [ ] Déclarer actions InputMap pour directions, attaque, capacité, esquive, pause, inventaire ; gérer relâchement au changement de focus.
+- [x] Déclarer actions InputMap pour directions, attaque, capacité, esquive, pause, inventaire ; gérer relâchement au changement de focus.
 - [ ] Créer les commandes tactiles adaptées à écran étroit et écran tactile : joystick et boutons d’action.
 
 **Critères d’acceptation :** Pèlerin à 190 unités/s, Sentinelle à 165 ; direction diagonale normalisée ; collision avec les quatre blocs et glissement ; changement de focus ne laisse pas une touche bloquée ; chaque commande fonctionne au clavier et au tactile ciblé.
