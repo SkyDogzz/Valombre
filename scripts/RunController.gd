@@ -1450,7 +1450,6 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 			objective_complete = bool(saved_objective.get("complete", false))
 		_refresh_relic_stats()
 		hp = float(saved_player.get("hp", max_hp))
-		max_hp = maxf(max_hp, float(saved_player.get("maxHp", max_hp)))
 		hp = minf(hp, max_hp)
 		player.movement_multiplier = movement_multiplier
 		player.equipment_speed = equipment_speed
