@@ -92,6 +92,9 @@ var weapon_drop_menu: MenuButton
 var relic_drop_menu: MenuButton
 var drop_filter_row: HBoxContainer
 var hud: Label
+var inventory_panel: PanelContainer
+var inventory_list: VBoxContainer
+var inventory_open := false
 var boss_bar: ProgressBar
 var boss_name_label: Label
 
@@ -113,6 +116,8 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pause"):
 		if state == "playing":
+			inventory_open = false
+			inventory_panel.visible = false
 			_set_state("paused")
 		elif state == "paused":
 			_set_state("playing")
@@ -120,8 +125,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			_set_state("title")
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("inventory") and state == "playing":
-		status_label.text = _inventory_summary()
-		status_label.visible = not status_label.visible
+		inventory_open = not inventory_open
+		inventory_panel.visible = inventory_open
+		_refresh_inventory_panel()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("special") and state == "playing":
 		_use_hero_skill()
@@ -152,6 +158,8 @@ func _process(delta: float) -> void:
 			return
 	_update_drops(delta)
 	_update_hud()
+	if inventory_open:
+		_refresh_inventory_panel()
 
 func _create_interface() -> void:
 	layer = CanvasLayer.new()
@@ -232,6 +240,17 @@ func _create_interface() -> void:
 	layer.add_child(boss_bar)
 	boss_name_label.visible = false
 	boss_bar.visible = false
+	inventory_panel = PanelContainer.new()
+	inventory_panel.position = Vector2(18, 92)
+	inventory_panel.custom_minimum_size = Vector2(360, 0)
+	inventory_panel.visible = false
+	layer.add_child(inventory_panel)
+	var inventory_scroll := ScrollContainer.new()
+	inventory_scroll.custom_minimum_size = Vector2(360, 360)
+	inventory_panel.add_child(inventory_scroll)
+	inventory_list = VBoxContainer.new()
+	inventory_list.custom_minimum_size.x = 340
+	inventory_scroll.add_child(inventory_list)
 	status_label.visible = false
 	_set_state("title")
 
@@ -1439,6 +1458,81 @@ func _inventory_summary() -> String:
 		lines.append("Aucune")
 	return "\n".join(lines)
 
+func _refresh_inventory_panel() -> void:
+	if not is_instance_valid(inventory_list):
+		return
+	for child in inventory_list.get_children():
+		child.queue_free()
+	var weapon_heading := Label.new()
+	weapon_heading.text = "ARMES · %d/%s" % [weapon_inventory.size(), "∞" if uncapped_inventory else "5"]
+	inventory_list.add_child(weapon_heading)
+	for index in weapon_inventory.size():
+		var item: Dictionary = weapon_inventory[index]
+		var definition := _find_definition("weapons", str(item.id))
+		var row := HBoxContainer.new()
+		var label := Label.new()
+		var starting := " · DÉPART" if str(item.id) == weapon_id else ""
+		var special := " · SPÉCIALE" if bool(item.get("special", false)) else ""
+		label.text = "%s · niv. %d%s%s" % [definition.display_name if definition else str(item.id), int(item.level), starting, special]
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(label)
+		var lock := CheckBox.new()
+		lock.text = "Verrouiller"
+		lock.button_pressed = bool(item.get("locked", false))
+		lock.toggled.connect(func(enabled: bool) -> void: _set_inventory_lock("weapons", str(item.id), enabled))
+		row.add_child(lock)
+		inventory_list.add_child(row)
+	var relic_heading := Label.new()
+	relic_heading.text = "RELIQUES · %d/%s" % [relic_inventory.size(), "∞" if uncapped_inventory else "5"]
+	inventory_list.add_child(relic_heading)
+	for item in relic_inventory:
+		var row := HBoxContainer.new()
+		var label := Label.new()
+		label.text = "%s · niv. %d" % [str(item.get("name", item.id)), int(item.level)]
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(label)
+		var lock := CheckBox.new()
+		lock.text = "Verrouiller"
+		lock.button_pressed = bool(item.get("locked", false))
+		lock.toggled.connect(func(enabled: bool) -> void: _set_inventory_lock("relics", str(item.id), enabled))
+		row.add_child(lock)
+		inventory_list.add_child(row)
+	var synergy_heading := Label.new()
+	synergy_heading.text = "SYNERGIES · %d/9" % _active_synergy_count()
+	inventory_list.add_child(synergy_heading)
+	var active_count := 0
+	for synergy: Dictionary in catalog.content.synergies:
+		if _synergy_active(str(synergy.weaponId)):
+			active_count += 1
+			var label := Label.new()
+			label.text = str(synergy.name)
+			inventory_list.add_child(label)
+	if active_count == 0:
+		var empty_label := Label.new()
+		empty_label.text = "Aucune active"
+		inventory_list.add_child(empty_label)
+	var objective_heading := Label.new()
+	objective_heading.text = "OBJECTIF · %s %d/%d%s" % [objective_type, mini(objective_progress, objective_target), objective_target, " · terminé" if objective_complete else ""]
+	inventory_list.add_child(objective_heading)
+	for challenge in run_challenges:
+		var label := Label.new()
+		label.text = "%s · %s %d/%d · %s" % ["✓" if bool(challenge.complete) else "Défi", str(challenge.label), int(challenge.progress), int(challenge.target), str(challenge.reward)]
+		inventory_list.add_child(label)
+
+func _active_synergy_count() -> int:
+	var count := 0
+	for synergy: Dictionary in catalog.content.synergies:
+		if _synergy_active(str(synergy.weaponId)):
+			count += 1
+	return count
+
+func _set_inventory_lock(group: String, item_id: String, enabled: bool) -> void:
+	var item := _owned_weapon(item_id) if group == "weapons" else _owned_relic(item_id)
+	if item.is_empty():
+		return
+	item.locked = enabled
+	_save_checkpoint(wave)
+
 func _relic_health() -> float:
 	var total := 0.0
 	for item in relic_inventory:
@@ -1477,6 +1571,10 @@ func _set_state(next_state: String) -> void:
 	var is_overlay := state != "playing"
 	menu_panel.visible = is_overlay
 	player.run_active = state == "playing"
+	if state != "playing":
+		inventory_open = false
+		if is_instance_valid(inventory_panel):
+			inventory_panel.visible = false
 	match state:
 		"title":
 			title_label.text = "LES CENDRES DE VALOMBRE"

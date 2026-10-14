@@ -114,7 +114,7 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 
 - [x] Recréer écran titre, options de départ, sélecteurs, catégories de butin et options run.
 - [ ] Créer HUD : PV, bouclier, XP/niveau, vague, difficulté, objectif, capacité, barre de boss et notifications.
-- [ ] Porter panneau Tab avec équipement, reliques, synergies, bestiaire/découvertes et défis.
+- [ ] Porter panneau Tab avec équipement, reliques, synergies, bestiaire/découvertes et défis. (inventaire de run, verrous et progression défis/synergies en place ; catalogue bestiaire/découvertes restant.)
 - [ ] Recréer overlays pause, montée de niveau, butin, victoire et défaite ; navigation clavier/manette tactile et focus accessible.
 - [ ] Ajouter réglage de volume/muet, reprise, nouvelle run, remise à zéro, partage de configuration URL si pertinent à l’export Godot.
 - [ ] Porter profil et checkpoint complet en `user://save.json` (ou ConfigFile), ajouter `schema_version`, validation et migration.
