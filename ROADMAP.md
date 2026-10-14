@@ -69,9 +69,9 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 - [x] Ajouter modèles runtime de joueur, ennemi, projectile, dégâts, statut, cible, minuterie et effets temporaires.
 - [ ] Porter attaque manuelle et automatique, recherche de cible, portée, orientation, cadence, anim/flash et invulnérabilité.
 - [ ] Porter les neuf armes : sabre, marteau, dagues, arc, foudre, bombe, lance, faux et givre. Inclure percement, rebonds, explosion, ralentissement et choix de cibles exacts.
-- [ ] Ajouter les huit espèces avec leurs comportements, temps de télégraphie, déplacements, projectiles, dégâts et collision.
-- [ ] Ajouter les trois affixes élites, leurs multiplicateurs, couleurs/signalement et conséquences de récompense.
-- [ ] Porter la charge de cendre de la Sentinelle, l’esquive (570, 0,18 s, 0,24 s d’invulnérabilité, 2,6 s de recharge) et leurs collisions.
+- [x] Ajouter les huit espèces avec leurs comportements, temps de télégraphie, déplacements, projectiles, dégâts et collision.
+- [x] Ajouter les trois affixes élites, leurs multiplicateurs, couleurs/signalement et conséquences de récompense.
+- [x] Porter la charge de cendre de la Sentinelle, l’esquive (570, 0,18 s, 0,24 s d’invulnérabilité, 2,6 s de recharge) et leurs collisions.
 - [ ] Respecter l’ordre exact des événements : impacts multiples, mort, XP, synergie, vol de vie, butin, défis et progression bestiaire.
 
 **Critères d’acceptation :** les mêmes entrées et cibles causent les mêmes impacts attendus pour chaque arme ; projectiles et zones respectent obstacles et limites ; télégraphes précèdent leurs attaques ; élites appliquent PV/vitesse/dégâts et attribution d’XP corrects.
@@ -82,8 +82,8 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 
 - [x] Porter les quatre compositions exactes (45 ; 48+24+5 ; 54+30+12+6+6 ; 66+32+4+15+9+3+12+10) et le boss final des vagues.
 - [x] Porter apparitions initiales (1 s), intervalle (0,62 s), intermission (3 s), distance de spawn (350–540) et plafond actif (base 10, modulé par difficulté).
-- [ ] Reproduire les groupes d’afflux : chance 0,38, intervalle 14–26 s, groupe de base 26, +2 par vague jusqu’à 62, espacement 0,12 s et tirage des types pondéré.
-- [ ] Ajouter Gardien, Matriarche et Colosse avec motifs, télégraphes, projectiles, barres de vie et règles de fin associées.
+- [x] Reproduire les groupes d’afflux : chance 0,38, intervalle 14–26 s, groupe de base 26, +2 par vague jusqu’à 62, espacement 0,12 s et tirage des types pondéré.
+- [x] Ajouter Gardien, Matriarche et Colosse avec motifs, télégraphes, projectiles, barres de vie et règles de fin associées.
 - [ ] Ajouter mode infini : compositions dynamiques, scaling PV/dégâts/vitesse, plafond croissant, boss à chaque cinquième niveau et Éclat par boss.
 - [ ] Appliquer les trois presets de difficulté aux mêmes paramètres que la source : santé, dégâts, vitesse, cadence, vitesse projectile, capacité et butin.
 - [ ] Porter progression d’objectif cyclique et récompense de soin ; défis d’élimination/élites/XP et Éclats persistants.

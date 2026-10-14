@@ -19,23 +19,24 @@ var skill_dash_speed := 0.0
 var skill_dash_direction := Vector2.DOWN
 
 func _physics_process(delta: float) -> void:
-	invulnerability = maxf(0.0, invulnerability - delta)
-	dodge_cooldown = maxf(0.0, dodge_cooldown - delta)
 	if not run_active:
 		velocity = Vector2.ZERO
 		return
+	invulnerability = maxf(0.0, invulnerability - delta)
+	dodge_cooldown = maxf(0.0, dodge_cooldown - delta)
 	var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
-	skill_dash_time = maxf(0.0, skill_dash_time - delta)
 	if Input.is_action_just_pressed("dodge") and dodge_cooldown <= 0.0:
 		dodge_direction = direction.normalized() if direction != Vector2.ZERO else facing
 		dodge_time = dodge_duration
 		dodge_cooldown = dodge_recharge
 		invulnerability = maxf(invulnerability, dodge_invulnerability)
 	if skill_dash_time > 0.0:
-		velocity = skill_dash_direction * skill_dash_speed
+		var skill_step := minf(delta, skill_dash_time)
+		velocity = skill_dash_direction * skill_dash_speed * skill_step / delta
+		skill_dash_time -= skill_step
 	elif dodge_time > 0.0:
 		var step := minf(delta, dodge_time)
-		velocity = dodge_direction * dodge_speed * movement_multiplier
+		velocity = dodge_direction * dodge_speed * movement_multiplier * step / delta
 		dodge_time -= step
 	else:
 		velocity = direction * move_speed * movement_multiplier

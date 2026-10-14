@@ -38,6 +38,9 @@ var intermission := 0.0
 var contact_cooldown := 0.0
 var skill_cooldown := 0.0
 var pending_spawns: Array[Dictionary] = []
+var wave_groups: Array[Dictionary] = []
+var swarm_timer := -1.0
+var boss_after_wave_id := ""
 var enemies: Array[ValombreEnemy] = []
 var drops: Array[Dictionary] = []
 var projectiles: Array[Dictionary] = []
@@ -61,6 +64,8 @@ var mode_picker: OptionButton
 var difficulty_picker: OptionButton
 var start_button: Button
 var hud: Label
+var boss_bar: ProgressBar
+var boss_name_label: Label
 
 func _ready() -> void:
 	main = get_parent()
@@ -101,8 +106,14 @@ func _process(delta: float) -> void:
 	else:
 		_update_spawns(delta)
 		_update_enemies(delta)
+		if state != "playing":
+			return
 		_update_projectiles(delta)
+		if state != "playing":
+			return
 		_update_auto_attack()
+		if state != "playing":
+			return
 	_update_drops(delta)
 	_update_hud()
 
@@ -147,6 +158,20 @@ func _create_interface() -> void:
 	hud.add_theme_constant_override("shadow_offset_x", 2)
 	hud.add_theme_constant_override("shadow_offset_y", 2)
 	layer.add_child(hud)
+	boss_name_label = Label.new()
+	boss_name_label.position = Vector2(300, 15)
+	boss_name_label.size = Vector2(360, 24)
+	boss_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	boss_name_label.add_theme_color_override("font_color", Color("eee2c5"))
+	layer.add_child(boss_name_label)
+	boss_bar = ProgressBar.new()
+	boss_bar.position = Vector2(300, 40)
+	boss_bar.size = Vector2(360, 13)
+	boss_bar.show_percentage = false
+	boss_bar.modulate = Color("bc594b")
+	layer.add_child(boss_bar)
+	boss_name_label.visible = false
+	boss_bar.visible = false
 	status_label.visible = false
 	_set_state("title")
 
@@ -208,11 +233,13 @@ func _start_run() -> void:
 	pickup_range = 90.0
 	weapon_cooldown = 0.0
 	spawn_clock = 1.0
+	swarm_timer = -1.0
 	intermission = 0.0
 	contact_cooldown = 0.0
 	skill_cooldown = 0.0
 	wave = 0
 	elapsed = 0.0
+	boss_after_wave_id = ""
 	base_hp = float(stats.get("health", 100))
 	bonus_max_hp = 0.0
 	attack_speed_multiplier = 1.0
@@ -233,7 +260,7 @@ func _start_wave(number: int) -> void:
 	objective_progress = 0
 	objective_complete = false
 	if mode == "infinite" and number > 4:
-		pending_spawns = [
+		wave_groups = [
 			{"kind": "ghoul", "count": 35 + number * 6},
 			{"kind": "brute", "count": 12 + number * 3},
 			{"kind": "caster", "count": mini(2 + int(number / 2), 9)},
@@ -244,22 +271,46 @@ func _start_wave(number: int) -> void:
 			{"kind": "leaper", "count": mini(3 + number, 18)},
 		]
 	else:
-		pending_spawns = (catalog.content.waves[number - 1] if number <= catalog.content.waves.size() else []).duplicate(true)
-	if mode == "infinite" and number % 5 == 0:
-		pending_spawns.append({"kind": "boss", "count": 1, "boss_id": ["guardian", "matriarch", "colossus"][(int(number / 5) - 1) % 3]})
-	for index in range(pending_spawns.size()):
-		var entry := pending_spawns[index]
+		wave_groups = (catalog.content.waves[number - 1] if number <= catalog.content.waves.size() else []).duplicate(true)
+	boss_after_wave_id = ["guardian", "matriarch", "colossus"][(int(number / 5) - 1) % 3] if mode == "infinite" and number % 5 == 0 else ""
+	pending_spawns.clear()
+	for entry in wave_groups:
 		var count := int(entry.get("count", 1))
 		for spawn_index in count:
 			pending_spawns.append({"kind": str(entry.kind), "elite": entry.kind != "boss" and (spawn_index + 1) % (18 if mode == "infinite" else 24) == 0, "boss_id": entry.get("boss_id", "guardian")})
-		pending_spawns[index] = {"kind": "__group_expanded__"}
-	pending_spawns = pending_spawns.filter(func(item: Dictionary) -> bool: return item.kind != "__group_expanded__")
 	spawn_clock = 1.0 if number == 1 else 0.62
+	swarm_timer = rng.randf_range(14.0, 26.0) if rng.randf() < 0.38 else -1.0
 	intermission = 0.0
 	status_label.text = "Vague %d" % number
 
 func _update_spawns(delta: float) -> void:
+	if swarm_timer > 0.0:
+		swarm_timer -= delta
+		if swarm_timer <= 0.0:
+			var swarm_count := mini(62, 26 + mini(wave, 18) * 2)
+			var swarm: Array[Dictionary] = []
+			for _index in swarm_count:
+				var total_weight := 0
+				for group in wave_groups:
+					total_weight += mini(int(group.get("count", 1)), 12)
+				var selected_weight := rng.randi_range(1, max(1, total_weight))
+				var kind := "ghoul"
+				for group in wave_groups:
+					selected_weight -= mini(int(group.get("count", 1)), 12)
+					if selected_weight <= 0:
+						kind = str(group.kind)
+						break
+				swarm.append({"kind": kind, "elite": false, "swarm": true, "boss_id": "guardian"})
+			swarm.append_array(pending_spawns)
+			pending_spawns = swarm
+			spawn_clock = 0.0
+			swarm_timer = -1.0
 	if pending_spawns.is_empty() and enemies.is_empty():
+		if not boss_after_wave_id.is_empty():
+			var next_boss := boss_after_wave_id
+			boss_after_wave_id = ""
+			_spawn_enemy("boss", false, next_boss)
+			return
 		if mode == "infinite" or wave < catalog.content.waves.size():
 			intermission = 3.0
 			return
@@ -285,7 +336,7 @@ func _update_spawns(delta: float) -> void:
 	if spawn_clock <= 0.0 and pending_index >= 0:
 		var spawn := pending_spawns.pop_at(pending_index)
 		_spawn_enemy(str(spawn.kind), bool(spawn.get("elite", false)), str(spawn.get("boss_id", "guardian")))
-		spawn_clock = 0.62
+		spawn_clock = 0.12 if spawn.get("swarm", false) else maxf(0.12, 0.62 * pow(0.7, elapsed / 60.0)) if mode == "infinite" else 0.62
 
 func _spawn_enemy(kind: String, is_elite: bool, boss_id: String) -> void:
 	var base: Dictionary
@@ -313,10 +364,21 @@ func _spawn_enemy(kind: String, is_elite: bool, boss_id: String) -> void:
 		enemy_stats.sprite = "boss" if boss_id == "guardian" else boss_id
 	var enemy := ENEMY_SCRIPT.new() as ValombreEnemy
 	enemy.configure(kind, enemy_stats, is_elite)
+	if is_elite:
+		enemy.elite_name = str(elite_stats.get("name", "Élite"))
+		enemy.elite_color = Color(str(elite_stats.get("color", "#e4c978")))
+	enemy.attack_timer = rng.randf_range(0.3, 1.3)
+	enemy.heal_on_hit = float(base.get("healOnHit", 0.0))
 	if kind == "boss":
 		enemy.radius = float(base.get("radius", 33))
-		enemy.damage = float(base.get("slamDamage", 26))
+		enemy.damage = roundf(float(base.get("slamDamage", 26)) * float(difficulty.damage) * infinite_damage)
+		enemy.projectile_damage = float(base.get("projectileDamage", enemy.damage)) * float(difficulty.damage) * infinite_damage
+		enemy.boss_id = boss_id
+		enemy.boss_behavior = str(base.get("behavior", "guardian"))
+		enemy.attack_mode = "volley" if enemy.boss_behavior == "volley" else "slam"
+		enemy.approach_cooldown = rng.randf_range(0.8, 2.0)
 		enemy.set_meta("boss_id", boss_id)
+		enemy.set_meta("display_name", str(base.get("name", boss_id)))
 		enemy.set_meta("spawn_weight", float(base.get("weight", 10)))
 	else:
 		enemy.set_meta("spawn_weight", float(base.get("weight", 1)) + (1.0 if is_elite else 0.0))
@@ -333,6 +395,7 @@ func _spawn_enemy(kind: String, is_elite: bool, boss_id: String) -> void:
 
 func _update_enemies(delta: float) -> void:
 	var to_remove: Array[ValombreEnemy] = []
+	var attack_speed := float(catalog.content.difficulties[difficulty_id].attackSpeed)
 	for enemy in enemies:
 		if not is_instance_valid(enemy):
 			to_remove.append(enemy)
@@ -342,22 +405,200 @@ func _update_enemies(delta: float) -> void:
 		if enemy.slow_time <= 0.0:
 			enemy.slow_factor = 1.0
 		enemy.queue_redraw()
-		var offset: Vector2 = player.position - enemy.position
-		var distance := offset.length()
-		if distance > enemy.radius + 17.0:
-			var step := offset.normalized() * enemy.speed * enemy.slow_factor * delta
-			_move_enemy_around_obstacles(enemy, step)
-		elif contact_cooldown <= 0.0 and player.invulnerability <= 0.0:
-			_damage_player(enemy.damage)
-			contact_cooldown = 0.55
-		if enemy.kind == "boss" and distance <= 108.0 and contact_cooldown <= 0.0 and player.invulnerability <= 0.0:
-			_damage_player(enemy.damage)
-			contact_cooldown = 0.55
+		enemy.attack_timer -= delta * attack_speed
+		if enemy.dash_time_left > 0.0:
+			_advance_enemy_dash(enemy, delta)
+			if state != "playing":
+				break
+			continue
+		var to_player := player.position - enemy.position
+		var distance := maxf(to_player.length(), 0.001)
+		var direction := to_player / distance
+		if enemy.kind == "boss":
+			_update_boss(enemy, delta, attack_speed, to_player, distance, direction)
+		elif enemy.kind == "charger":
+			_update_charger(enemy, delta, attack_speed, distance, direction)
+		elif enemy.kind == "leaper":
+			_update_leaper(enemy, delta, attack_speed, distance, direction)
+		elif enemy.kind == "caster" or enemy.kind == "shaman":
+			_update_caster(enemy, delta, attack_speed, distance, direction)
+		else:
+			_update_contact_enemy(enemy, delta, direction)
+		if state != "playing":
+			break
 	for enemy in to_remove:
 		enemies.erase(enemy)
-	if pending_spawns.is_empty() and enemies.is_empty() and intermission <= 0.0 and state == "playing":
-		if mode == "waves" and wave >= catalog.content.waves.size():
-			_spawn_enemy("boss", false, "guardian")
+
+func _update_contact_enemy(enemy: ValombreEnemy, delta: float, direction: Vector2) -> void:
+	var reach := enemy.radius + 24.0
+	if enemy.position.distance_to(player.position) > reach:
+		_move_enemy_around_obstacles(enemy, direction * enemy.speed * enemy.slow_factor * delta)
+		return
+	if enemy.attack_timer <= 0.0 and player.invulnerability <= 0.0:
+		_damage_player(enemy.damage)
+		if enemy.heal_on_hit > 0.0 and hp > 0.0:
+			enemy.hp = minf(enemy.max_hp, enemy.hp + enemy.heal_on_hit)
+		enemy.attack_timer = float(catalog.content.config.enemies.attackCooldown)
+
+func _update_charger(enemy: ValombreEnemy, delta: float, attack_speed: float, distance: float, direction: Vector2) -> void:
+	var spec: Dictionary = catalog.content.config.enemies.charger
+	if enemy.telegraph > 0.0:
+		enemy.telegraph = maxf(0.0, enemy.telegraph - delta * attack_speed)
+		if enemy.telegraph <= 0.0:
+			var dash := enemy.aim_position - enemy.position
+			var dash_length := maxf(dash.length(), 0.001)
+			var along := (player.position - enemy.position).dot(dash / dash_length)
+			var across := absf((player.position - enemy.position).cross(dash / dash_length))
+			if along > 0.0 and along < float(spec.range) and across < 30.0 and player.invulnerability <= 0.0:
+				_damage_player(enemy.damage)
+			var amount := float(spec.chargeSpeed) * float(catalog.content.difficulties[difficulty_id].speed) * 0.45
+			_move_enemy_around_obstacles(enemy, (dash / dash_length) * amount)
+			enemy.attack_timer = float(spec.attackCooldown)
+	elif enemy.attack_timer <= 0.0 and distance < float(spec.range):
+		enemy.aim_position = player.position
+		enemy.telegraph = float(spec.windup)
+	else:
+		_move_enemy_around_obstacles(enemy, direction * enemy.speed * enemy.slow_factor * delta)
+
+func _update_leaper(enemy: ValombreEnemy, delta: float, attack_speed: float, distance: float, direction: Vector2) -> void:
+	var spec: Dictionary = catalog.content.config.enemies.leaper
+	if enemy.telegraph > 0.0:
+		enemy.telegraph = maxf(0.0, enemy.telegraph - delta * attack_speed)
+		if enemy.telegraph <= 0.0:
+			var leap := enemy.aim_position - enemy.position
+			enemy.dash_direction = leap.normalized()
+			enemy.dash_distance_left = leap.length()
+			enemy.dash_time_left = 0.24
+			enemy.dash_damage = enemy.damage
+			enemy.dash_width = float(spec.landingRadius)
+			enemy.dash_hit = false
+			enemy.dash_landing_damage = true
+			enemy.dash_sets_recovery = false
+			enemy.attack_timer = float(spec.attackCooldown)
+		return
+	if enemy.attack_timer <= 0.0 and distance < float(spec.leapRange):
+		enemy.aim_position = player.position
+		enemy.telegraph = float(spec.windup)
+	elif distance > enemy.radius + 24.0:
+		_move_enemy_around_obstacles(enemy, direction * enemy.speed * enemy.slow_factor * delta)
+
+func _update_caster(enemy: ValombreEnemy, delta: float, attack_speed: float, distance: float, direction: Vector2) -> void:
+	var spec: Dictionary = catalog.content.config.enemies[enemy.kind]
+	if distance < float(spec.range) * 0.72:
+		_move_enemy_around_obstacles(enemy, -direction * enemy.speed * enemy.slow_factor * delta)
+	elif distance > float(spec.range):
+		_move_enemy_around_obstacles(enemy, direction * enemy.speed * enemy.slow_factor * delta)
+	if enemy.telegraph > 0.0:
+		enemy.telegraph = maxf(0.0, enemy.telegraph - delta * attack_speed)
+		if enemy.telegraph <= 0.0:
+			var count := 3 if enemy.kind == "shaman" else 1
+			_fire_enemy_fan(enemy, count, 0.24, float(spec.projectileSpeed), enemy.damage, 2.0, "#bd79ce" if count == 3 else "#d7bb8d")
+			enemy.attack_timer = float(spec.attackCooldown)
+	elif enemy.attack_timer <= 0.0 and distance < float(spec.range) + 115.0:
+		enemy.aim_position = player.position
+		enemy.telegraph = float(spec.windup)
+
+func _update_boss(enemy: ValombreEnemy, delta: float, attack_speed: float, to_player: Vector2, distance: float, direction: Vector2) -> void:
+	var spec: Dictionary = catalog.content.bosses[enemy.boss_id]
+	if enemy.approach_telegraph > 0.0:
+		enemy.approach_telegraph = maxf(0.0, enemy.approach_telegraph - delta * attack_speed)
+		if enemy.approach_telegraph <= 0.0:
+			var approach_distance := minf(float(spec.dashDistance), maxf(0.0, distance - float(spec.dashStopDistance)))
+			enemy.dash_direction = direction
+			enemy.dash_distance_left = approach_distance
+			enemy.dash_time_left = float(spec.dashDuration)
+			enemy.dash_damage = roundf(float(spec.chargeDamage) * float(catalog.content.difficulties[difficulty_id].damage) * (pow(1.22, maxf(0.0, wave - 1.0)) if mode == "infinite" else 1.0))
+			enemy.dash_width = float(spec.dashWidth)
+			enemy.dash_hit = false
+			enemy.dash_landing_damage = false
+			enemy.dash_sets_recovery = true
+			enemy.dash_is_approach = true
+		return
+	enemy.approach_cooldown -= delta * attack_speed
+	if distance > float(spec.approachRange) and enemy.approach_cooldown <= 0.0 and enemy.telegraph <= 0.0:
+		enemy.aim_position = player.position
+		enemy.approach_telegraph = float(spec.dashWindup)
+		return
+	if enemy.boss_behavior == "volley":
+		if distance < 210.0:
+			_move_enemy_around_obstacles(enemy, -direction * enemy.speed * enemy.slow_factor * delta)
+		elif distance > 330.0:
+			_move_enemy_around_obstacles(enemy, direction * enemy.speed * enemy.slow_factor * delta)
+		if enemy.telegraph > 0.0:
+			enemy.telegraph = maxf(0.0, enemy.telegraph - delta * attack_speed)
+			if enemy.telegraph <= 0.0:
+				_fire_enemy_fan(enemy, 5, 0.2, float(spec.projectileSpeed), enemy.projectile_damage, 3.0, "#a8d978")
+				enemy.attack_timer = float(spec.cooldown)
+		elif enemy.attack_timer <= 0.0:
+			enemy.aim_position = player.position
+			enemy.telegraph = float(spec.telegraph)
+		return
+	if enemy.telegraph > 0.0:
+		enemy.telegraph = maxf(0.0, enemy.telegraph - delta * attack_speed)
+		if enemy.telegraph <= 0.0:
+			if enemy.attack_mode == "slam":
+				if distance < float(spec.slamRadius) and player.invulnerability <= 0.0:
+					_damage_player(enemy.damage)
+			else:
+				var vector := enemy.aim_position - enemy.position
+				var dash_distance := minf(float(spec.chargeDistance), maxf(0.0, vector.length() - float(spec.dashStopDistance)))
+				enemy.dash_direction = vector.normalized() if vector.length_squared() > 0.0 else direction
+				enemy.dash_distance_left = dash_distance
+				enemy.dash_time_left = float(spec.dashDuration)
+				enemy.dash_damage = roundf(float(spec.chargeDamage) * float(catalog.content.difficulties[difficulty_id].damage) * (pow(1.22, maxf(0.0, wave - 1.0)) if mode == "infinite" else 1.0))
+				enemy.dash_width = float(spec.chargeWidth)
+				enemy.dash_hit = false
+				enemy.dash_landing_damage = false
+				enemy.dash_sets_recovery = true
+				enemy.dash_is_approach = false
+			enemy.attack_timer = float(spec.cooldown)
+			enemy.attack_mode = "charge" if enemy.attack_mode == "slam" else "slam"
+	elif enemy.attack_timer <= 0.0:
+		enemy.aim_position = player.position
+		enemy.telegraph = float(spec.telegraph)
+	elif distance > enemy.radius + 85.0:
+		_move_enemy_around_obstacles(enemy, direction * enemy.speed * enemy.slow_factor * delta)
+
+func _fire_enemy_fan(enemy: ValombreEnemy, count: int, spread: float, speed: float, damage: float, lifetime: float, tint: String) -> void:
+	var base_angle := (enemy.aim_position - enemy.position).angle()
+	var difficulty: Dictionary = catalog.content.difficulties[difficulty_id]
+	for shot in count:
+		var angle := base_angle + (float(shot) - float(count - 1) * 0.5) * spread
+		var direction := Vector2(cos(angle), sin(angle))
+		var sprite := Sprite2D.new()
+		sprite.texture = load("res://assets/xp.svg")
+		sprite.scale = Vector2(0.18, 0.18)
+		sprite.modulate = Color(tint)
+		sprite.position = enemy.position
+		arena.add_child(sprite)
+		projectiles.append({"node": sprite, "team": "enemy", "velocity": direction * speed * float(difficulty.projectileSpeed), "damage": damage, "radius": 7.0, "life": lifetime, "source": enemy.kind})
+
+func _advance_enemy_dash(enemy: ValombreEnemy, delta: float) -> void:
+	var step_length := minf(enemy.dash_distance_left, enemy.dash_distance_left * delta / maxf(enemy.dash_time_left, delta))
+	var start := enemy.position
+	var step := enemy.dash_direction * step_length
+	_move_enemy_around_obstacles(enemy, step)
+	var finish := enemy.position
+	if not enemy.dash_landing_damage and not enemy.dash_hit and player.invulnerability <= 0.0 and _distance_to_segment(player.position, start, finish) < enemy.dash_width + 12.0:
+		_damage_player(enemy.dash_damage)
+		enemy.dash_hit = true
+	enemy.dash_distance_left = maxf(0.0, enemy.dash_distance_left - step_length)
+	enemy.dash_time_left = maxf(0.0, enemy.dash_time_left - delta)
+	if enemy.dash_time_left <= 0.0 or enemy.dash_distance_left <= 0.0:
+		if enemy.dash_landing_damage and player.invulnerability <= 0.0 and player.position.distance_to(enemy.position) < enemy.dash_width:
+			_damage_player(enemy.dash_damage)
+		enemy.dash_landing_damage = false
+		if enemy.dash_sets_recovery:
+			enemy.attack_timer = maxf(enemy.attack_timer, 0.65)
+		if enemy.dash_is_approach:
+			enemy.approach_cooldown = float(catalog.content.bosses[enemy.boss_id].dashCooldown)
+			enemy.dash_is_approach = false
+
+func _distance_to_segment(point: Vector2, start: Vector2, finish: Vector2) -> float:
+	var segment := finish - start
+	var length_squared := segment.length_squared()
+	var t := clampf((point - start).dot(segment) / length_squared, 0.0, 1.0) if length_squared > 0.0 else 0.0
+	return point.distance_to(start + segment * t)
 
 func _move_enemy_around_obstacles(enemy: ValombreEnemy, step: Vector2) -> void:
 	var candidate := enemy.position + step
@@ -442,6 +683,17 @@ func _update_projectiles(delta: float) -> void:
 	for index in range(projectiles.size() - 1, -1, -1):
 		var projectile: Dictionary = projectiles[index]
 		var node: Sprite2D = projectile.node
+		if projectile.get("team", "player") == "enemy":
+			node.position += projectile.velocity * delta
+			projectile.life -= delta
+			if node.position.distance_to(player.position) < float(projectile.radius) + 10.0:
+				if player.invulnerability <= 0.0:
+					_damage_player(float(projectile.damage))
+				_remove_projectile(index)
+				continue
+			if float(projectile.life) <= 0.0 or _position_blocked(node.position, float(projectile.radius)):
+				_remove_projectile(index)
+			continue
 		var step := float(projectile.speed) * delta
 		node.position += projectile.direction * step
 		projectile.remaining -= step
@@ -509,7 +761,7 @@ func _damage_enemy(enemy: ValombreEnemy, amount: float, _weapon: String) -> void
 	if enemy.hp <= 0.0:
 		defeated += 1
 		if enemy.kind == "boss":
-			_enemy_drop_xp(enemy.position, 5.0)
+			_enemy_drop_xp(enemy.position, 1.0)
 			enemy.queue_free()
 			enemies.erase(enemy)
 			if mode == "infinite":
@@ -517,7 +769,7 @@ func _damage_enemy(enemy: ValombreEnemy, amount: float, _weapon: String) -> void
 			else:
 				_set_state("victory")
 		else:
-			_enemy_drop_xp(enemy.position, 1.0)
+			_enemy_drop_xp(enemy.position, 1.5 if enemy.elite else 1.0)
 			_progress_objective("kills")
 			if enemy.elite:
 				_progress_objective("elite")
@@ -622,7 +874,7 @@ func _use_hero_skill() -> void:
 		var offset := enemy.position - player.position
 		var forward_distance := offset.dot(forward)
 		var side_distance := absf(offset.cross(forward))
-		if forward_distance >= 0.0 and forward_distance <= 190.0 and side_distance <= 17.0:
+		if forward_distance >= 0.0 and forward_distance <= 190.0 and side_distance <= 34.0:
 			_damage_enemy(enemy, 58.0, weapon_id)
 	player.skill_dash_direction = forward
 	player.skill_dash_speed = 190.0 / 0.42
@@ -673,6 +925,17 @@ func _update_hud() -> void:
 		return
 	var objective := "%s %d/%d" % [objective_type, mini(objective_progress, objective_target), objective_target]
 	hud.text = "PV %d/%d\nNiveau %d · XP %d/%d\nVague %d · %s · %s\nÉliminations %d" % [ceili(hp), ceili(max_hp), level, int(xp), int(next_xp), wave, difficulty_id.capitalize(), objective, defeated]
+	var active_boss: ValombreEnemy
+	for enemy in enemies:
+		if enemy.kind == "boss":
+			active_boss = enemy
+			break
+	boss_bar.visible = active_boss != null
+	boss_name_label.visible = active_boss != null
+	if active_boss:
+		boss_name_label.text = str(active_boss.get_meta("display_name", "Boss"))
+		boss_bar.max_value = active_boss.max_hp
+		boss_bar.value = active_boss.hp
 
 func _find_definition(group: String, target_id: String) -> GameDefinition:
 	for definition: GameDefinition in catalog.definitions.get(group, []):
