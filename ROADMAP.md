@@ -2,7 +2,7 @@
 
 Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le guide du dépôt [`README.md`](README.md). L’objectif est une version Godot jouable dont le contenu et les règles reproduisent le snapshot web, puis dont la présentation et les contrôles atteignent la même expérience. Les tâches marquées « parité » doivent suivre le code JavaScript exporté, y compris les comportements qui ne sont pas décrits dans le JSON.
 
-**Avancement global : 54/70 tâches terminées (77,1 %).**
+**Avancement global : 55/70 tâches terminées (78,6 %).**
 
 ## Principes de portage
 
@@ -29,7 +29,7 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 - [ ] Relever précisément les règles insuffisamment résumées : dégâts par espèce, rayons de collision, séquences d’attaque, cadence, projectiles, expérience donnée par ennemi, générateur d’afflux, choix/remplacement d’équipement, niveaux cumulés de relique, synergies et ordre des multiplicateurs.
 - [ ] Comparer `CONTENT_DATA.json` au code source et consigner les divergences connues (incluant le tableau de vagues historique du README source).
 - [x] Documenter tous les champs du checkpoint et du profil, la validation du schéma et les transitions où ils sont écrits ([`docs/SAVE_SCHEMA.md`](docs/SAVE_SCHEMA.md)).
-- [ ] Relever les dimensions exactes des éléments d’interface, les libellés, les couleurs et les règles responsive depuis HTML/CSS.
+- [x] Relever les dimensions exactes des éléments d’interface, les libellés, les couleurs et les règles responsive depuis HTML/CSS ([`docs/WEB_UI_REFERENCE.md`](docs/WEB_UI_REFERENCE.md)).
 - [x] Vérifier les empreintes SVG via le manifeste et associer chacun aux entités/éléments d’interface ([`docs/ASSET_MAPPING.md`](docs/ASSET_MAPPING.md)).
 
 **Livrable :** une fiche de référence complète et versionnée, sans données en double. Les ambiguïtés restantes sont déclarées au lieu d’être remplacées par des suppositions.
