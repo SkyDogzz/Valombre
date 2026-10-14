@@ -129,12 +129,19 @@ var sound_phase := 0.0
 var held_weapon_sprite: Sprite2D
 var manual_attack_from_mouse := false
 var touch_controls: ValombreTouchControls
+var particle_layer: ValombreParticleLayer
 
 func _ready() -> void:
 	_configure_gamepad_inputs()
 	main = get_parent()
 	arena = main.get_node("Arena")
 	player = arena.get_node("Player")
+	particle_layer = ValombreParticleLayer.new()
+	particle_layer.name = "CombatParticles"
+	particle_layer.z_index = 10
+	particle_layer.set_process(false)
+	arena.add_child(particle_layer)
+	player.dodge_started.connect(func(position: Vector2) -> void: _spawn_burst(position, Color("d9c18a"), 8))
 	catalog = main.catalog
 	_load_profile()
 	hero_id = str(profile.hero)
@@ -728,6 +735,8 @@ func _on_new_run_pressed() -> void:
 	_set_state("title")
 
 func _start_run(checkpoint: Dictionary = {}) -> void:
+	if is_instance_valid(particle_layer):
+		particle_layer.clear()
 	for enemy in enemies:
 		enemy.queue_free()
 	for drop in drops:
@@ -1255,8 +1264,10 @@ func _advance_enemy_dash(enemy: ValombreEnemy, delta: float) -> void:
 	enemy.dash_distance_left = maxf(0.0, enemy.dash_distance_left - step_length)
 	enemy.dash_time_left = maxf(0.0, enemy.dash_time_left - delta)
 	if enemy.dash_time_left <= 0.0 or enemy.dash_distance_left <= 0.0:
-		if enemy.dash_landing_damage and player.invulnerability <= 0.0 and player.position.distance_to(enemy.position) < enemy.dash_width:
-			_damage_player(enemy.dash_damage)
+		if enemy.dash_landing_damage:
+			if player.invulnerability <= 0.0 and player.position.distance_to(enemy.position) < enemy.dash_width:
+				_damage_player(enemy.dash_damage)
+			_spawn_burst(enemy.position, Color("e7a35c"), 8)
 		enemy.dash_landing_damage = false
 		if enemy.dash_sets_recovery:
 			enemy.attack_timer = maxf(enemy.attack_timer, 0.65)
@@ -1328,6 +1339,7 @@ func _update_auto_attack() -> void:
 			continue
 		_play_tone(155.0, 0.045, "triangle")
 		weapon_swing_counts[id] = swing_count
+		var attack_hit := false
 		for enemy in enemies.duplicate():
 			var offset := enemy.position - player.position
 			var distance := offset.length()
@@ -1342,6 +1354,7 @@ func _update_auto_attack() -> void:
 				var alignment := offset.normalized().dot(player.facing) if distance > 0.0 else 1.0
 				in_shape = distance < reach and alignment > float(weapon.get("arc", -1.0))
 			if in_shape:
+				attack_hit = true
 				var sabre_burst := false
 				if id == "sabre" and _synergy_active(id):
 					var marks := int(enemy.get_meta("sabre_combo_marks", 0)) + 1
@@ -1361,6 +1374,12 @@ func _update_auto_attack() -> void:
 							_damage_enemy(nearby, _weapon_base_damage(weapon, nearby) * damage_scale * 1.35, id)
 				if state != "playing":
 					break
+		if attack_hit:
+			var tint := Color("e99b58") if id == "marteau" else Color("bce7a0") if id == "faux" else Color("f0dfa8") if id == "lance" else Color("b4e2cd") if id == "dagues" else Color("e8c57e")
+			_spawn_burst(player.position + player.facing * 65.0, tint, 11 if id == "marteau" else 5)
+			if id == "dagues" and special_finisher:
+				_play_tone(460.0, 0.08, "sawtooth")
+				_spawn_burst(player.position + player.facing * 48.0, Color("a9ffe1"), 12)
 		if state != "playing":
 			break
 		if id == "marteau" and bool(owned.special):
@@ -1395,6 +1414,7 @@ func _launch_projectile(weapon: Dictionary, target: ValombreEnemy, damage_scale:
 		"frost": bool(weapon.get("frost", false)),
 		"piercing": is_special and id == "arc",
 		"storm_special": is_special and bool(weapon.get("lightning", false)),
+		"has_special": is_special,
 		"slow_duration": 1.25 * float(_synergy_data(id).get("slowDurationMultiplier", 1.0)) * (2.4 / 1.25 if is_special else 1.0),
 		"slow_factor": 0.42 if is_special else 0.58,
 		"chain_targets": int(owned.get("level", 1)) + (1 if is_special and bool(weapon.get("lightning", false)) else 0),
@@ -1402,6 +1422,7 @@ func _launch_projectile(weapon: Dictionary, target: ValombreEnemy, damage_scale:
 		"hit_targets": [],
 	}
 	var fan := id == "arc" and _synergy_active(id)
+	var projectile_tint := Color("c7a8ff") if weapon.get("lightning", false) else Color("91e9ef") if weapon.get("frost", false) else Color("ff9a4e") if weapon.get("explosive", false) else Color("ffe39a") if is_special else Color("85d8ce")
 	if is_special and id in ["arc", "foudre"]:
 		var charge_visual := Sprite2D.new()
 		charge_visual.texture = load("res://assets/xp.svg")
@@ -1421,6 +1442,7 @@ func _launch_projectile(weapon: Dictionary, target: ValombreEnemy, damage_scale:
 			_spawn_player_projectile(volley_shot)
 	else:
 		_spawn_player_projectile(shot)
+	_spawn_burst(player.position + direction * 12.0, projectile_tint, 7 if is_special else 3)
 	_play_tone(510.0, 0.055, "triangle")
 
 func _spawn_player_projectile(projectile: Dictionary) -> void:
@@ -1429,7 +1451,7 @@ func _spawn_player_projectile(projectile: Dictionary) -> void:
 	var sprite := Sprite2D.new()
 	sprite.texture = load("res://assets/weapons/%s.svg" % id)
 	sprite.scale = Vector2(0.18, 0.18) * projectile_size_multiplier
-	sprite.modulate = Color("c7a8ff") if weapon.get("lightning", false) else Color("91e9ef") if weapon.get("frost", false) else Color("ff9a4e") if weapon.get("explosive", false) else Color("85d8ce")
+	sprite.modulate = Color("c7a8ff") if weapon.get("lightning", false) else Color("91e9ef") if weapon.get("frost", false) else Color("ff9a4e") if weapon.get("explosive", false) else Color("ffe39a") if bool(projectile.get("has_special", false)) else Color("85d8ce")
 	sprite.position = player.position + projectile.direction * 14.0
 	arena.add_child(sprite)
 	projectile.node = sprite
@@ -1472,6 +1494,7 @@ func _process_weapon_effects(delta: float) -> void:
 					break
 			if bool(effect.full_circle):
 				weapon_effects.append({"kind": "hammer_shockwave", "delay": 0.12, "position": effect.position, "radius": float(effect.outer) + 48.0})
+			_spawn_burst(effect.position, Color("ffd184"), 14)
 			weapon_effects.remove_at(index)
 			if state != "playing":
 				break
@@ -1497,6 +1520,7 @@ func _process_weapon_effects(delta: float) -> void:
 				_spawn_player_projectile(volley_shot)
 		else:
 			_spawn_player_projectile(shot)
+		_spawn_burst(visual.position, visual.modulate, 7)
 		_play_tone(350.0 if bool(catalog.content.weapons[str(effect.weapon)].get("lightning", false)) else 640.0, 0.075, "sawtooth" if str(effect.weapon) == "foudre" else "triangle")
 		if is_instance_valid(visual):
 			visual.queue_free()
@@ -1540,6 +1564,7 @@ func _update_projectiles(delta: float) -> void:
 				hit_target.slow_time = maxf(hit_target.slow_time, float(projectile.get("slow_duration", 1.25)))
 				hit_target.slow_factor = float(projectile.get("slow_factor", 0.58))
 			_damage_enemy(hit_target, float(projectile.damage), str(projectile.weapon))
+			_spawn_burst(node.position, node.modulate, 5)
 			if state != "playing":
 				_remove_projectile(index)
 				return
@@ -1606,6 +1631,7 @@ func _update_damage_zones(delta: float) -> void:
 func _detonate_projectile(projectile: Dictionary, center: Vector2) -> void:
 	var radius := float(projectile.get("explosion_radius", 44.0))
 	_play_tone(78.0 if bool(projectile.get("special_blast", false)) else 112.0, 0.18, "sawtooth")
+	_spawn_burst(center, Color("ffe18a") if bool(projectile.get("special_blast", false)) else Color("ff9a4e"), 16)
 	for enemy in enemies.duplicate():
 		var offset := enemy.position - center
 		var distance := offset.length()
@@ -1650,6 +1676,7 @@ func _damage_enemy(enemy: ValombreEnemy, amount: float, _weapon: String) -> void
 		_on_enemy_killed(enemy, _weapon)
 		var weapon_xp_multiplier := float(_synergy_data(_weapon).get("experienceMultiplier", 1.0)) if not _weapon.is_empty() else 1.0
 		if is_boss:
+			_spawn_burst(death_position, Color("d6ad68"), 32)
 			_enemy_drop_xp(death_position, 1.0, weapon_xp_multiplier)
 			if mode == "infinite":
 				profile.shards = int(profile.shards) + 1
@@ -1658,6 +1685,7 @@ func _damage_enemy(enemy: ValombreEnemy, amount: float, _weapon: String) -> void
 			else:
 				_finish_run("victory")
 		else:
+			_spawn_burst(death_position, Color("9d5744") if enemy.kind == "brute" else Color("b99e68"), 9)
 			_roll_enemy_item_drop(death_position)
 			_enemy_drop_xp(death_position, 1.5 if enemy.elite else 1.0, weapon_xp_multiplier)
 
@@ -1675,6 +1703,10 @@ func _spawn_damage_number(position: Vector2, damage: int) -> void:
 	label.z_index = 12
 	arena.add_child(label)
 	damage_numbers.append({"node": label, "life": 0.65, "max_life": 0.65})
+
+func _spawn_burst(position: Vector2, tint: Color, count: int) -> void:
+	if is_instance_valid(particle_layer):
+		particle_layer.burst(position, tint, count, rng)
 
 func _update_damage_numbers(delta: float) -> void:
 	for index in range(damage_numbers.size() - 1, -1, -1):
@@ -2341,6 +2373,7 @@ func _damage_player(amount: float) -> bool:
 	player_shield -= absorbed
 	hp -= incoming - absorbed
 	player.invulnerability = 0.55
+	_spawn_burst(player.position, Color("bb493c"), 4)
 	if hp <= 0.0:
 		hp = 0.0
 		_finish_run("defeat")
@@ -2374,6 +2407,7 @@ func _use_hero_skill() -> void:
 		clampf(start.y + forward.y * charge_distance, 35.0, WORLD_SIZE.y - 35.0)
 	)
 	player.invulnerability = maxf(player.invulnerability, float(hero.get("chargeInvulnerability", 0.32)))
+	_spawn_burst(player.position, Color("d5ae69"), 16)
 	var notice := str(hero.get("specialName", "Capacité spéciale"))
 	if hit_count > 0:
 		notice += " · %d touché%s" % [hit_count, "s" if hit_count > 1 else ""]
@@ -2384,6 +2418,8 @@ func _set_state(next_state: String) -> void:
 	state = next_state
 	var is_overlay := state != "playing"
 	menu_panel.visible = is_overlay
+	if is_instance_valid(particle_layer):
+		particle_layer.set_process(state == "playing")
 	if is_instance_valid(touch_controls):
 		if state != "playing":
 			touch_controls.release_all()

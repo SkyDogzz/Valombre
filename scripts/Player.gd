@@ -1,6 +1,8 @@
 extends CharacterBody2D
 class_name ValombrePlayer
 
+signal dodge_started(position: Vector2)
+
 @export var move_speed := 190.0
 @export var world_size := Vector2(1500.0, 1100.0)
 var run_active := false
@@ -36,6 +38,7 @@ func _physics_process(delta: float) -> void:
 		dodge_time = dodge_duration
 		dodge_cooldown = dodge_recharge
 		invulnerability = maxf(invulnerability, dodge_invulnerability)
+		dodge_started.emit(global_position)
 	if dodge_time > 0.0:
 		var step := minf(delta, dodge_time)
 		velocity = dodge_direction * dodge_speed * movement_multiplier * step / delta
