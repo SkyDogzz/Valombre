@@ -155,6 +155,7 @@ func _ready() -> void:
 	arena.add_child(particle_layer)
 	combat_effects = ValombreCombatEffects.new()
 	combat_effects.name = "CombatEffects"
+	combat_effects.z_index = 2
 	combat_effects.set_process(false)
 	arena.add_child(combat_effects)
 	player.dodge_started.connect(func(position: Vector2) -> void: _spawn_burst(position, Color("d9c18a"), 8))
@@ -1508,6 +1509,7 @@ func _fire_enemy_fan(enemy: ValombreEnemy, count: int, spread: float, speed: flo
 		var angle := base_angle + (float(shot) - float(count - 1) * 0.5) * spread
 		var direction := Vector2(cos(angle), sin(angle))
 		var visual := ValombreProjectileVisual.new()
+		visual.z_index = 1
 		visual.radius = projectile_radius
 		visual.tint = Color(tint)
 		visual.rotation = angle
@@ -1711,7 +1713,7 @@ func _launch_projectile(weapon: Dictionary, target: ValombreEnemy, damage_scale:
 		charge_visual.texture = load("res://assets/xp.svg")
 		charge_visual.modulate = Color("c7a8ff") if id == "foudre" else Color("ffe39a")
 		charge_visual.scale = Vector2(0.12, 0.12)
-		charge_visual.z_index = 3
+		charge_visual.z_index = 2
 		arena.add_child(charge_visual)
 		weapon_effects.append({"kind": "ranged_charge", "delay": 0.14, "shot": shot, "fan": fan, "visual": charge_visual, "weapon": id})
 		return
@@ -1732,6 +1734,7 @@ func _spawn_player_projectile(projectile: Dictionary) -> void:
 	var id := str(projectile.weapon)
 	var weapon: Dictionary = catalog.content.weapons[id]
 	var visual := ValombreProjectileVisual.new()
+	visual.z_index = 1
 	visual.team = "player"
 	visual.radius = float(projectile.radius)
 	visual.tint = Color("c7a8ff") if weapon.get("lightning", false) else Color("91e9ef") if weapon.get("frost", false) else Color("ff9a4e") if weapon.get("explosive", false) else Color("ffe39a") if bool(projectile.get("has_special", false)) else Color("85d8ce")
@@ -2051,6 +2054,7 @@ func _on_enemy_killed(enemy: ValombreEnemy, weapon: String) -> void:
 		targets.sort_custom(func(a: ValombreEnemy, b: ValombreEnemy) -> bool: return a.position.distance_to(death_position) < b.position.distance_to(death_position))
 		for target in targets.slice(0, mini(3, targets.size())):
 			var dagger := ValombreProjectileVisual.new()
+			dagger.z_index = 1
 			dagger.team = "player"
 			dagger.radius = 6.0
 			dagger.tint = Color("a9ffe1")
@@ -2069,6 +2073,7 @@ func _on_enemy_killed(enemy: ValombreEnemy, weapon: String) -> void:
 
 func _enemy_drop_xp(position: Vector2, value: float, weapon_xp_multiplier := 1.0) -> void:
 	var node := Sprite2D.new()
+	node.z_index = 0
 	node.texture = load("res://assets/xp.svg")
 	node.scale = Vector2.ONE
 	var drop_position := _drop_spawn_position(position)
@@ -2094,6 +2099,7 @@ func _roll_enemy_item_drop(position: Vector2) -> void:
 	var equipment_chance := float(catalog.content.config.drops.get("relicChance", 0.22)) * float(difficulty.get("itemDrop", 1.0))
 	if drop_roll < potion_chance:
 		var potion := Sprite2D.new()
+		potion.z_index = 0
 		potion.texture = load("res://assets/relics/heart.svg")
 		potion.scale = Vector2(22.0 / 32.0, 22.0 / 32.0)
 		var drop_position := _drop_spawn_position(position)
@@ -2123,6 +2129,7 @@ func _roll_enemy_item_drop(position: Vector2) -> void:
 			var loot_choices := weapon_choices if loot_type == "weapon" else relic_choices
 			var loot_id := loot_choices[rng.randi_range(0, loot_choices.size() - 1)]
 			var loot_node := Sprite2D.new()
+			loot_node.z_index = 0
 			loot_node.texture = load("res://assets/weapons/category.svg") if loot_type == "weapon" else load("res://assets/relics/category.svg")
 			loot_node.scale = Vector2(22.0 / 32.0, 22.0 / 32.0)
 			var drop_position := _drop_spawn_position(position)

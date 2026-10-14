@@ -49,6 +49,7 @@ var elite_label: Label
 
 func configure(record_kind: String, definition: Dictionary, is_elite: bool = false) -> void:
 	kind = record_kind
+	z_index = 4
 	hp = float(definition.get("health", 34))
 	max_hp = hp
 	radius = float(definition.get("radius", 14))
