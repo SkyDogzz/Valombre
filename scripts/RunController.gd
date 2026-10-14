@@ -2284,6 +2284,16 @@ func _inventory_summary() -> String:
 		lines.append("Aucune")
 	return "\n".join(lines)
 
+func _add_inventory_icon(row: HBoxContainer, path: String) -> void:
+	if not ResourceLoader.exists(path):
+		return
+	var icon := TextureRect.new()
+	icon.texture = load(path)
+	icon.custom_minimum_size = Vector2(30.0, 30.0)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	row.add_child(icon)
+
 func _refresh_inventory_panel() -> void:
 	if not is_instance_valid(inventory_list):
 		return
@@ -2296,6 +2306,7 @@ func _refresh_inventory_panel() -> void:
 		var item: Dictionary = weapon_inventory[index]
 		var definition := _find_definition("weapons", str(item.id))
 		var row := HBoxContainer.new()
+		_add_inventory_icon(row, "res://assets/weapons/%s.svg" % str(item.id))
 		var label := Label.new()
 		var starting := " · DÉPART" if str(item.id) == weapon_id else ""
 		var special := " · SPÉCIALE" if bool(item.get("special", false)) else ""
@@ -2313,6 +2324,7 @@ func _refresh_inventory_panel() -> void:
 	inventory_list.add_child(relic_heading)
 	for item in relic_inventory:
 		var row := HBoxContainer.new()
+		_add_inventory_icon(row, "res://assets/relics/%s.svg" % str(item.id))
 		var label := Label.new()
 		label.text = "%s · niv. %d" % [str(item.get("name", item.id)), int(item.level)]
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
