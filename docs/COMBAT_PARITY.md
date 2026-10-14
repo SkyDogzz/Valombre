@@ -33,7 +33,7 @@ Après les étapes communes jusqu’aux effets de kill, le boss désactive l’�
 - Godot regroupe les deux chemins dans `_update_auto_attack`. Il conserve donc l’orientation de cible automatique lorsqu’une cible proche est disponible, n’emploie la visée souris que pour une attaque manuelle de mêlée sans cible automatique proche, et permet à une arme de mêlée manuelle d’amorcer un coup sans cible.
 - Les projectiles touchent si `distance < rayon ennemi + rayon projectile`. Ils traversent les obstacles circulaires et disparaissent aux bords définis par `CONFIG.enemies.edge`, car `isBlocked` ne teste que ces limites. Les bombes explosent à l’impact ou à la sortie du monde.
 - La vague spéciale de faux touche si `distance <= rayon de vague + rayon ennemi`; son balayage direct garde la portée propre de l’arme.
-- Les dagues spectrales et les dégâts de nova de givre appliquent les bonus globaux du joueur, de relique, de niveau joueur et de synergie. Ils ne prennent pas les bonus de niveau/spécial de l’arme, comme le montrent les formules fournies à `damageEnemy` par le dump.
+- Les dagues spectrales et la nova de givre multiplient leurs dégâts de base par `getWeaponCombatStats().damageMultiplier` (niveau/spécial de l’arme et synergie), puis `damageEnemy` applique les multiplicateurs de dégâts, d’équipement et de niveau du joueur. Ils ne passent pas d’identifiant d’arme à `damageEnemy`, ce qui évite de déclencher une deuxième synergie de kill.
 - L’explosion de collecte de la synergie aimant utilise un rayon de 92, les dégâts de l’arme bombe avec la mise à l’échelle du joueur et le signal spécial d’explosion. Elle n’ajoute pas la brûlure secondaire (`pickupCombo`).
 
 ## Points de contrôle dans le code

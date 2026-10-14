@@ -2101,7 +2101,7 @@ func _update_projectiles(delta: float) -> void:
 				_remove_projectile(index)
 			continue
 		var step := float(projectile.speed) * delta
-		if projectile.has("homing_target") and is_instance_valid(projectile.homing_target):
+		if projectile.has("homing_target") and enemies.has(projectile.homing_target) and is_instance_valid(projectile.homing_target):
 			projectile.direction = node.position.direction_to(projectile.homing_target.position)
 		if node is ValombreProjectileVisual:
 			node.rotation = projectile.direction.angle()
@@ -2323,7 +2323,7 @@ func _on_enemy_killed(enemy: ValombreEnemy, weapon: String) -> void:
 			dagger.rotation = death_position.direction_to(target.position).angle()
 			dagger.position = death_position
 			arena.add_child(dagger)
-			projectiles.append({"node": dagger, "direction": death_position.direction_to(target.position), "speed": 620.0, "radius": 6.0, "damage": float(catalog.content.weapons.dagues.ghoulDamage) * _player_damage_scale("dagues") * 1.4, "weapon": "", "remaining": 900.0, "homing_target": target, "explosive": false, "lightning": false, "frost": false, "hit_targets": []})
+			projectiles.append({"node": dagger, "direction": death_position.direction_to(target.position), "speed": 620.0, "radius": 6.0, "damage": float(catalog.content.weapons.dagues.ghoulDamage) * _weapon_scale("dagues") * 1.4, "weapon": "", "remaining": 620.0 * 1.4, "homing_target": target, "explosive": false, "lightning": false, "frost": false, "hit_targets": []})
 	if weapon == "givre" and enemy.slow_time > 0.0 and _synergy_active("givre"):
 		_add_combat_effect({"kind": "frost_nova", "position": death_position, "radius": 124.0, "life": 0.42, "max_life": 0.42})
 		for target in enemies.duplicate():
@@ -2331,7 +2331,7 @@ func _on_enemy_killed(enemy: ValombreEnemy, weapon: String) -> void:
 				continue
 			target.slow_time = maxf(target.slow_time, 1.8)
 			target.slow_factor = 0.35
-			_damage_enemy(target, float(catalog.content.weapons.givre.ghoulDamage) * _player_damage_scale("givre") * 1.35, "")
+			_damage_enemy(target, float(catalog.content.weapons.givre.ghoulDamage) * _weapon_scale("givre") * 1.35, "")
 
 func _enemy_drop_xp(position: Vector2, value: float, weapon_xp_multiplier := 1.0) -> void:
 	var node := ValombrePickupVisual.new()
