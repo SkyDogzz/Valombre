@@ -21,8 +21,6 @@ La sauvegarde persistante est le JSON `user://save.json`, écrit par `RunControl
 | Champ | Contenu |
 | --- | --- |
 | `version` | Version du checkpoint, actuellement `1`. |
-| `rngSeed` | Seed de la run ; optionnelle dans les anciens checkpoints. |
-| `waveRngState` | État du générateur juste avant les tirages de construction de la vague, pour pouvoir la reconstruire à l’identique ; optionnel dans les anciens checkpoints. |
 | `mode`, `difficulty` | Mode et difficulté actifs. |
 | `singleWeapon`, `uncappedInventory`, `customDrops` | Options utilisées pour cette run. |
 | `dropWeapons`, `dropRelics` | Filtres actifs de la run. |

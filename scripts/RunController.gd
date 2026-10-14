@@ -68,7 +68,6 @@ var rng := RandomNumberGenerator.new()
 var run_seed_override := 0
 var has_run_seed_override := false
 var run_rng_seed := 0
-var wave_rng_state := 0
 var elapsed := 0.0
 var run_started_ticks_msec := 0
 var objective_type := "kills"
@@ -1454,16 +1453,7 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 		player.position = Vector2(float(saved_position[0]), float(saved_position[1]))
 	else:
 		run_started_ticks_msec = Time.get_ticks_msec()
-	if not checkpoint.is_empty() and has_run_seed_override:
-		# Keep explicit seeded replay available when restarting from a checkpoint.
-		run_rng_seed = run_seed_override
-		rng.seed = run_rng_seed
-	elif not checkpoint.is_empty():
-		# The source checkpoint stores neither PRNG state nor pending spawns. Resume
-		# with a fresh run seed, just as its Math.random-based runtime does.
-		run_rng_seed = int(Time.get_ticks_usec())
-		rng.seed = run_rng_seed
-	elif has_run_seed_override:
+	if has_run_seed_override:
 		run_rng_seed = run_seed_override
 		rng.seed = run_rng_seed
 	else:
@@ -1492,7 +1482,6 @@ func _start_wave(number: int) -> void:
 	else:
 		wave_groups = (catalog.content.waves[number - 1] if number <= catalog.content.waves.size() else []).duplicate(true)
 	boss_after_wave_id = ["guardian", "matriarch", "colossus"][(int(number / 5) - 1) % 3] if mode == "infinite" and number % 5 == 0 else ""
-	wave_rng_state = rng.state
 	pending_spawns.clear()
 	for entry in wave_groups:
 		var count := int(entry.get("count", 1))
@@ -1539,8 +1528,6 @@ func _save_checkpoint(number: int) -> void:
 	}
 	profile.run = {
 		"version": 1,
-		"rngSeed": run_rng_seed,
-		"waveRngState": wave_rng_state,
 		"mode": mode,
 		"difficulty": difficulty_id,
 		"singleWeapon": single_weapon,
@@ -3869,11 +3856,6 @@ func _sanitize_bestiary(records: Dictionary) -> Dictionary:
 func _checkpoint_is_valid(checkpoint: Variant) -> bool:
 	if not checkpoint is Dictionary or not (checkpoint.get("version") is int) or int(checkpoint.version) != 1:
 		return false
-	if checkpoint.has("rngSeed") != checkpoint.has("waveRngState"):
-		return false
-	for field in ["rngSeed", "waveRngState"]:
-		if checkpoint.has(field) and not (checkpoint[field] is int):
-			return false
 	var checkpoint_mode := str(checkpoint.get("mode", ""))
 	var checkpoint_wave_value: Variant = checkpoint.get("wave", 0)
 	var checkpoint_wave := int(checkpoint_wave_value) if checkpoint_wave_value is int else 0
