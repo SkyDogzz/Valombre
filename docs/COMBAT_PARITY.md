@@ -7,7 +7,7 @@ Cette fiche consigne le chemin d’impact et de mort comparé entre `dump/projec
 1. Consommer la marque du sabre avant le calcul des dégâts (multiplicateur ×1,5).
 2. Arrondir les dégâts et calculer la part réellement infligée aux PV restants.
 3. Retirer les PV de l’ennemi, puis appliquer le vol de vie sur la part réellement infligée.
-4. Déclencher le flash et le nombre de dégâts, puis traiter sa mort si ses PV sont à zéro ou moins.
+4. Déclencher le flash de 0,18 s et le nombre de dégâts, puis traiter sa mort si ses PV sont à zéro ou moins. Le sprite Godot reprend maintenant la teinte claire du flash pendant ce timer.
 
 Les armes calculent leur échelle avant l’impact : dégâts globaux, bonus de niveau du joueur et de l’arme, reliques, arme spéciale et synergie. Les tirs secondaires peuvent donc rappeler le traitement d’impact pendant l’effet d’un premier kill.
 
