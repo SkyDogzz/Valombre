@@ -1092,7 +1092,12 @@ func _spawn_enemy(kind: String, is_elite: bool, boss_id: String) -> void:
 		enemy.elite_name = str(elite_stats.get("name", "Élite"))
 		enemy.elite_color = Color(str(elite_stats.get("color", "#e4c978")))
 		enemy.update_elite_label()
-	enemy.attack_timer = rng.randf_range(0.3, 1.3)
+	if kind == "caster":
+		enemy.attack_timer = rng.randf_range(1.0, 1.8)
+	elif kind == "boss":
+		enemy.attack_timer = 1.4
+	else:
+		enemy.attack_timer = rng.randf_range(float(catalog.content.config.enemies.firstAttackMin), float(catalog.content.config.enemies.firstAttackMax))
 	enemy.heal_on_hit = float(base.get("healOnHit", 0.0))
 	if kind == "boss":
 		enemy.radius = float(base.get("radius", 33))
