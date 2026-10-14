@@ -2,6 +2,7 @@ extends Control
 class_name ValombreTouchControls
 
 signal action_button_activated
+signal attack_pressed
 
 var player: ValombrePlayer
 var joystick_finger := -1
@@ -29,6 +30,8 @@ func _gui_input(event: InputEvent) -> void:
 				if not action.is_empty():
 					action_fingers[event.index] = action
 					_send_action(action, true)
+					if action == "attack":
+						attack_pressed.emit()
 					action_button_activated.emit()
 			accept_event()
 		else:
@@ -54,6 +57,8 @@ func _gui_input(event: InputEvent) -> void:
 				if not action.is_empty():
 					action_fingers[-1] = action
 					_send_action(action, true)
+					if action == "attack":
+						attack_pressed.emit()
 					action_button_activated.emit()
 					accept_event()
 		else:

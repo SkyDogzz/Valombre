@@ -159,7 +159,6 @@ var damage_number_font: SystemFont
 var held_weapon_sprite: Sprite2D
 var secondary_weapon_sprites: Dictionary = {}
 var mouse_aim_active := false
-var manual_attack_requested := false
 var reset_simulation_clock := false
 var touch_controls: ValombreTouchControls
 var particle_layer: ValombreParticleLayer
@@ -213,7 +212,6 @@ func _notification(what: int) -> void:
 		return
 	for action in ["move_left", "move_right", "move_up", "move_down", "attack", "special", "dodge", "pause", "inventory"]:
 		Input.action_release(action)
-	manual_attack_requested = false
 	if is_instance_valid(player):
 		player.touch_move_vector = Vector2.ZERO
 
@@ -274,11 +272,17 @@ func _add_gamepad_button(action: String, button: int) -> void:
 func _should_show_touch_controls() -> bool:
 	return DisplayServer.is_touchscreen_available() or DisplayServer.window_get_size().x <= 760
 
+func _on_touch_attack_pressed() -> void:
+	if state == "playing":
+		_update_manual_attack()
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion or event is InputEventMouseButton:
 		mouse_aim_active = true
-	if event.is_action_pressed("attack") and state == "playing":
-		manual_attack_requested = true
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if state == "playing":
+			_update_manual_attack()
+		return
 	if event.is_action_pressed("pause"):
 		if state == "playing":
 			inventory_open = false
@@ -324,9 +328,8 @@ func _process(delta: float) -> void:
 	_update_auto_attack()
 	var held_attack := Input.is_action_pressed("attack") and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 	var held_attack_key := Input.is_physical_key_pressed(KEY_SPACE) or Input.is_physical_key_pressed(KEY_J)
-	if state == "playing" and (manual_attack_requested or held_attack or held_attack_key):
+	if state == "playing" and (held_attack or held_attack_key):
 		_update_manual_attack()
-	manual_attack_requested = false
 	if state != "playing":
 		return
 	if intermission > 0.0:
@@ -699,6 +702,7 @@ func _create_interface() -> void:
 	touch_controls.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	touch_controls.visible = false
 	touch_controls.action_button_activated.connect(_play_ui_button_sound)
+	touch_controls.attack_pressed.connect(_on_touch_attack_pressed)
 	layer.add_child(touch_controls)
 	overlay_backdrop = ColorRect.new()
 	overlay_backdrop.color = Color(0.043, 0.047, 0.035, 0.72)
