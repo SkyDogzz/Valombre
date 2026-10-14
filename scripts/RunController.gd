@@ -1748,8 +1748,6 @@ func _spawn_player_projectile(projectile: Dictionary) -> void:
 	visual.explosive = bool(projectile.get("explosive", false))
 	visual.special_blast = bool(projectile.get("special_blast", false))
 	visual.piercing = bool(projectile.get("piercing", false))
-	visual.lightning = bool(projectile.get("lightning", false))
-	visual.frost = bool(projectile.get("frost", false))
 	visual.rotation = projectile.direction.angle()
 	visual.position = player.position + projectile.direction * 14.0
 	arena.add_child(visual)
