@@ -115,6 +115,11 @@ var hero_name_hud: Label
 var hero_class_hud: Label
 var weapon_name_hud: Label
 var hero_stats_hud: Label
+var hero_hud_card: Panel
+var hero_hud_portrait: Panel
+var hero_hud_portrait_glyph: Label
+var wave_hud_card: Panel
+var wave_hud_separator: ColorRect
 var wave_title_hud: Label
 var wave_detail_hud: Label
 var difficulty_hud: Label
@@ -502,40 +507,40 @@ func _create_interface() -> void:
 	pause_catalog_list = VBoxContainer.new()
 	pause_catalog_list.custom_minimum_size.x = 520
 	pause_catalog.add_child(pause_catalog_list)
-	var hero_card := Panel.new()
-	hero_card.position = Vector2(16.0, 14.0)
-	hero_card.size = Vector2(290.0, 112.0)
+	hero_hud_card = Panel.new()
+	hero_hud_card.position = Vector2(16.0, 14.0)
+	hero_hud_card.size = Vector2(290.0, 112.0)
 	var hero_card_style := StyleBoxFlat.new()
 	hero_card_style.bg_color = Color("10110edb")
 	hero_card_style.border_color = Color("4b4539")
 	hero_card_style.set_border_width_all(1)
-	hero_card.add_theme_stylebox_override("panel", hero_card_style)
-	layer.add_child(hero_card)
-	var portrait_panel := Panel.new()
-	portrait_panel.position = Vector2(12.0, 10.0)
-	portrait_panel.size = Vector2(39.0, 39.0)
+	hero_hud_card.add_theme_stylebox_override("panel", hero_card_style)
+	layer.add_child(hero_hud_card)
+	hero_hud_portrait = Panel.new()
+	hero_hud_portrait.position = Vector2(12.0, 10.0)
+	hero_hud_portrait.size = Vector2(39.0, 39.0)
 	var portrait_style := StyleBoxFlat.new()
 	portrait_style.bg_color = Color("302b22")
 	portrait_style.border_color = Color("94764d")
 	portrait_style.set_border_width_all(1)
-	portrait_panel.add_theme_stylebox_override("panel", portrait_style)
-	hero_card.add_child(portrait_panel)
-	var portrait := Label.new()
-	portrait.text = "♙"
-	portrait.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	portrait.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	portrait.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	portrait.add_theme_font_size_override("font_size", 21)
-	portrait.add_theme_color_override("font_color", Color("e2c995"))
-	portrait_panel.add_child(portrait)
+	hero_hud_portrait.add_theme_stylebox_override("panel", portrait_style)
+	hero_hud_card.add_child(hero_hud_portrait)
+	hero_hud_portrait_glyph = Label.new()
+	hero_hud_portrait_glyph.text = "♙"
+	hero_hud_portrait_glyph.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hero_hud_portrait_glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hero_hud_portrait_glyph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	hero_hud_portrait_glyph.add_theme_font_size_override("font_size", 21)
+	hero_hud_portrait_glyph.add_theme_color_override("font_color", Color("e2c995"))
+	hero_hud_portrait.add_child(hero_hud_portrait_glyph)
 	hero_name_hud = _make_hud_label(Vector2(62.0, 7.0), Vector2(210.0, 17.0), 12, Color("e5d3ad"))
 	hero_class_hud = _make_hud_label(Vector2(62.0, 23.0), Vector2(210.0, 14.0), 9, Color("8d8878"))
 	weapon_name_hud = _make_hud_label(Vector2(62.0, 38.0), Vector2(210.0, 14.0), 9, Color("d6bb81"))
 	hero_stats_hud = _make_hud_label(Vector2(62.0, 87.0), Vector2(215.0, 14.0), 9, Color("a6a08f"))
-	hero_card.add_child(hero_name_hud)
-	hero_card.add_child(hero_class_hud)
-	hero_card.add_child(weapon_name_hud)
-	hero_card.add_child(hero_stats_hud)
+	hero_hud_card.add_child(hero_name_hud)
+	hero_hud_card.add_child(hero_class_hud)
+	hero_hud_card.add_child(weapon_name_hud)
+	hero_hud_card.add_child(hero_stats_hud)
 	shield_bar = _create_hud_bar(Vector2(18, 18), Vector2(130, 5), Color("8cb7c5"), Color("176a9b"), Color("59c9ff"))
 	health_bar = _create_hud_bar(Vector2(18, 27), Vector2(130, 5), Color("c44c3b"), Color("772d27"), Color("c44c3b"))
 	xp_bar = _create_hud_bar(Vector2(18, 36), Vector2(130, 5), Color("b686c8"), Color("74468f"), Color("d9a2ff"))
@@ -545,24 +550,29 @@ func _create_interface() -> void:
 	health_bar.size = Vector2(130.0, 7.0)
 	xp_bar.position = Vector2(78.0, 86.0)
 	xp_bar.size = Vector2(130.0, 7.0)
-	var wave_card := Panel.new()
-	wave_card.position = Vector2(784.0, 14.0)
-	wave_card.size = Vector2(160.0, 74.0)
+	wave_hud_card = Panel.new()
+	wave_hud_card.position = Vector2(784.0, 14.0)
+	wave_hud_card.size = Vector2(160.0, 74.0)
 	var wave_card_style := StyleBoxFlat.new()
 	wave_card_style.bg_color = Color("10110edb")
 	wave_card_style.border_color = Color("4b4539")
 	wave_card_style.set_border_width_all(1)
-	wave_card.add_theme_stylebox_override("panel", wave_card_style)
-	layer.add_child(wave_card)
+	wave_hud_card.add_theme_stylebox_override("panel", wave_card_style)
+	layer.add_child(wave_hud_card)
 	wave_title_hud = _make_hud_label(Vector2(10.0, 8.0), Vector2(140.0, 20.0), 12, Color("dfc38c"))
 	wave_title_hud.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	wave_detail_hud = _make_hud_label(Vector2(10.0, 28.0), Vector2(140.0, 14.0), 9, Color("8e897a"))
 	wave_detail_hud.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	difficulty_hud = _make_hud_label(Vector2(10.0, 49.0), Vector2(140.0, 14.0), 9, Color("d6bb81"))
+	wave_hud_separator = ColorRect.new()
+	wave_hud_separator.position = Vector2(10.0, 45.0)
+	wave_hud_separator.size = Vector2(140.0, 1.0)
+	wave_hud_separator.color = Color("4b4539")
+	wave_hud_card.add_child(wave_hud_separator)
+	difficulty_hud = _make_hud_label(Vector2(10.0, 51.0), Vector2(140.0, 14.0), 9, Color("d6bb81"))
 	difficulty_hud.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	wave_card.add_child(wave_title_hud)
-	wave_card.add_child(wave_detail_hud)
-	wave_card.add_child(difficulty_hud)
+	wave_hud_card.add_child(wave_title_hud)
+	wave_hud_card.add_child(wave_detail_hud)
+	wave_hud_card.add_child(difficulty_hud)
 	inventory_button = Button.new()
 	inventory_button.text = "ARMES & RELIQUES · TAB"
 	inventory_button.position = Vector2(784.0, 96.0)
@@ -647,6 +657,8 @@ func _create_interface() -> void:
 	status_label.visible = false
 	_set_state("title")
 	_update_hud()
+	get_viewport().size_changed.connect(_update_hud_layout)
+	_update_hud_layout()
 
 func _create_hud_bar(bar_position: Vector2, bar_size: Vector2, tint: Color, gradient_start: Color, gradient_end: Color) -> ProgressBar:
 	var bar := ProgressBar.new()
@@ -674,6 +686,62 @@ func _make_hud_label(label_position: Vector2, label_size: Vector2, font_size: in
 	label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.9))
 	label.add_theme_constant_override("shadow_offset_y", 1)
 	return label
+
+func _update_hud_layout() -> void:
+	if not is_instance_valid(hero_hud_card) or not is_instance_valid(wave_hud_card):
+		return
+	var window_width := float(DisplayServer.window_get_size().x)
+	var compact := window_width <= 640.0
+	var ui_scale := window_width / 960.0 if compact else 1.0
+	var scale_factor := 1.0 / maxf(0.1, ui_scale) if compact else 1.0
+	var logical_width := get_viewport_rect().size.x
+	hero_hud_card.size = Vector2(200.0, 58.0) * scale_factor if compact else Vector2(290.0, 112.0)
+	hero_hud_portrait.position = Vector2(6.0, 5.0) * scale_factor if compact else Vector2(12.0, 10.0)
+	hero_hud_portrait.size = Vector2(27.0, 27.0) * scale_factor if compact else Vector2(39.0, 39.0)
+	hero_hud_portrait_glyph.add_theme_font_size_override("font_size", 15 if compact else 21)
+	hero_name_hud.position = Vector2(39.0, 4.0) * scale_factor if compact else Vector2(62.0, 7.0)
+	hero_name_hud.size = Vector2(154.0, 15.0) * scale_factor if compact else Vector2(210.0, 17.0)
+	hero_name_hud.add_theme_font_size_override("font_size", 10 if compact else 12)
+	hero_class_hud.visible = not compact
+	weapon_name_hud.visible = not compact
+	hero_stats_hud.position = Vector2(39.0, 42.0) * scale_factor if compact else Vector2(62.0, 87.0)
+	hero_stats_hud.size = Vector2(154.0, 13.0) * scale_factor if compact else Vector2(215.0, 14.0)
+	hero_stats_hud.add_theme_font_size_override("font_size", 8 if compact else 9)
+	shield_bar.visible = not compact or float(shield_bar.value) > 0.0
+	shield_bar.position = Vector2(39.0, 23.0) * scale_factor if compact else Vector2(78.0, 68.0)
+	shield_bar.size = Vector2(82.0, 4.0) * scale_factor if compact else Vector2(130.0, 7.0)
+	health_bar.position = Vector2(39.0, 28.0) * scale_factor if compact else Vector2(78.0, 77.0)
+	health_bar.size = Vector2(82.0, 4.0) * scale_factor if compact else Vector2(130.0, 7.0)
+	xp_bar.position = Vector2(39.0, 33.0) * scale_factor if compact else Vector2(78.0, 86.0)
+	xp_bar.size = Vector2(82.0, 4.0) * scale_factor if compact else Vector2(130.0, 7.0)
+	wave_hud_card.position = Vector2(logical_width - (7.0 if compact else 16.0) - (116.0 if compact else 160.0), 7.0 if compact else 14.0)
+	wave_hud_card.size = Vector2(116.0, 60.0) * scale_factor if compact else Vector2(160.0, 74.0)
+	if compact:
+		wave_hud_card.position *= scale_factor
+	wave_title_hud.position = Vector2(6.0, 4.0) * scale_factor if compact else Vector2(10.0, 8.0)
+	wave_title_hud.size = Vector2(104.0, 17.0) * scale_factor if compact else Vector2(140.0, 20.0)
+	wave_title_hud.add_theme_font_size_override("font_size", 10 if compact else 12)
+	wave_detail_hud.position = Vector2(6.0, 21.0) * scale_factor if compact else Vector2(10.0, 28.0)
+	wave_detail_hud.size = Vector2(104.0, 12.0) * scale_factor if compact else Vector2(140.0, 14.0)
+	wave_detail_hud.add_theme_font_size_override("font_size", 8 if compact else 9)
+	wave_hud_separator.position = Vector2(6.0, 36.0) * scale_factor if compact else Vector2(10.0, 45.0)
+	wave_hud_separator.size = Vector2(104.0, 1.0) * scale_factor if compact else Vector2(140.0, 1.0)
+	difficulty_hud.position = Vector2(6.0, 39.0) * scale_factor if compact else Vector2(10.0, 51.0)
+	difficulty_hud.size = Vector2(104.0, 12.0) * scale_factor if compact else Vector2(140.0, 14.0)
+	difficulty_hud.add_theme_font_size_override("font_size", 8 if compact else 9)
+	inventory_button.position = Vector2(wave_hud_card.position.x, wave_hud_card.position.y + wave_hud_card.size.y + (4.0 * scale_factor if compact else 8.0))
+	inventory_button.size = Vector2(wave_hud_card.size.x, 22.0 * scale_factor if compact else 24.0)
+	inventory_button.custom_minimum_size = inventory_button.size
+	inventory_button.add_theme_font_size_override("font_size", 7 if compact else 8)
+	var boss_width := minf(260.0, window_width * 0.7) * scale_factor if compact else minf(380.0, logical_width * 0.4)
+	boss_name_label.position = Vector2((logical_width - boss_width) * 0.5, 52.0 * scale_factor if compact else 82.0)
+	boss_name_label.size.x = boss_width
+	boss_bar.position = Vector2((logical_width - boss_width) * 0.5, 70.0 * scale_factor if compact else 100.0)
+	boss_bar.size.x = boss_width
+	if is_instance_valid(inventory_panel):
+		inventory_panel.position = Vector2(maxf(8.0, logical_width - 340.0), 74.0 if compact else 90.0)
+		if compact:
+			inventory_panel.position *= scale_factor
 
 func _style_hud_button(button: Button) -> void:
 	var normal := StyleBoxFlat.new()
@@ -1730,9 +1798,6 @@ func _update_auto_attack() -> void:
 				nearest = distance
 				target = enemy
 		var manual := Input.is_action_pressed("attack")
-		var manual_melee := manual and not ranged
-		var swing_count := int(weapon_swing_counts.get(id, 0)) + 1
-		var special_finisher := bool(owned.special) and swing_count % 3 == 0
 		var level_scale := 1.0 + 0.18 * (int(owned.level) - 1)
 		var reach := (float(weapon.get("range", 108.0)) + range_bonus + equipment_range) * float(_synergy_data(id).get("rangeMultiplier", 1.0))
 		if float(weapon_cooldowns.get(id, 0.0)) > 0.0:
@@ -1742,6 +1807,8 @@ func _update_auto_attack() -> void:
 				continue
 		elif not target or nearest >= reach:
 			continue
+		var swing_count := int(weapon_swing_counts.get(id, 0)) + 1
+		var special_finisher := bool(owned.special) and swing_count % 3 == 0
 		var aim := player.facing
 		if manual and mouse_aim_active:
 			var mouse_direction := player.get_global_mouse_position() - player.global_position
@@ -3239,6 +3306,7 @@ func _update_hud() -> void:
 		shield_bar.value = clampf(player_shield, 0.0, max_hp)
 		xp_bar.max_value = maxf(1.0, next_xp)
 		xp_bar.value = clampf(xp, 0.0, next_xp)
+		shield_bar.visible = DisplayServer.window_get_size().x > 640 or player_shield > 0.0
 	var objective_names := {"kills": "Éliminations", "xp": "Orbes d’XP", "elite": "Élites"}
 	var objective := "%s %d/%d" % [objective_names.get(objective_type, objective_type), mini(objective_progress, objective_target), objective_target]
 	var challenge_text := "Défis terminés"
@@ -3251,7 +3319,7 @@ func _update_hud() -> void:
 	var weapon_data: Dictionary = catalog.content.weapons.get(weapon_id, {})
 	var owned_weapon := _owned_weapon(weapon_id)
 	hero_name_hud.text = str(hero_data.get("name", hero_id)).to_upper()
-	hero_class_hud.text = str(hero_data.get("className", ""))
+	hero_class_hud.text = str(hero_data.get("className", "")).to_upper()
 	weapon_name_hud.text = "Départ · %s · niv. %d%s" % [str(weapon_data.get("name", weapon_id)), int(owned_weapon.get("level", 1)), " · spéciale" if bool(owned_weapon.get("special", false)) else ""]
 	hero_stats_hud.text = "PV %d/%d · B %d   XP %d/%d   NIV. %d" % [ceili(hp), ceili(max_hp), ceili(player_shield), int(xp), int(next_xp), level]
 	var capacity := 10.0 * float(catalog.content.difficulties[difficulty_id].spawnCapacity)
@@ -3265,7 +3333,7 @@ func _update_hud() -> void:
 		if enemy.kind == "boss":
 			active_boss = enemy
 			break
-	wave_title_hud.text = str(active_boss.get_meta("display_name", "Boss")) if active_boss else ("Survie infinie · Vague %d" % wave if mode == "infinite" and wave > 0 else "Vague %d / %d" % [wave, catalog.content.waves.size()] if wave > 0 else "La forêt sommeille")
+	wave_title_hud.text = (str(active_boss.get_meta("display_name", "Boss")) if active_boss else ("Survie infinie · Vague %d" % wave if mode == "infinite" and wave > 0 else "Vague %d / %d" % [wave, catalog.content.waves.size()] if wave > 0 else "La forêt sommeille")).to_upper()
 	if active_boss:
 		wave_detail_hud.text = "Affrontez %s" % str(active_boss.get_meta("display_name", "le boss")).to_lower()
 	elif intermission > 0.0:
