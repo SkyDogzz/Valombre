@@ -160,6 +160,8 @@ var held_weapon_sprite: Sprite2D
 var secondary_weapon_sprites: Dictionary = {}
 var mouse_aim_active := false
 var reset_simulation_clock := false
+var application_focus_lost := false
+var simulation_clock_reset_ticks_msec := 0
 var touch_controls: ValombreTouchControls
 var particle_layer: ValombreParticleLayer
 var combat_effects: ValombreCombatEffects
@@ -206,10 +208,14 @@ func _ready() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_IN:
-		reset_simulation_clock = true
+		if application_focus_lost:
+			application_focus_lost = false
+			reset_simulation_clock = true
+			simulation_clock_reset_ticks_msec = Time.get_ticks_msec()
 		return
 	if what != NOTIFICATION_APPLICATION_FOCUS_OUT:
 		return
+	application_focus_lost = true
 	for action in ["move_left", "move_right", "move_up", "move_down", "attack", "special", "dodge", "pause", "inventory"]:
 		Input.action_release(action)
 	if is_instance_valid(player):
@@ -301,6 +307,11 @@ func _unhandled_input(event: InputEvent) -> void:
 func _process(delta: float) -> void:
 	_sync_elapsed_clock()
 	_update_audio_buffer()
+	var frame_delta := delta
+	if reset_simulation_clock:
+		var resumed_msec := Time.get_ticks_msec() - simulation_clock_reset_ticks_msec
+		frame_delta = maxf(0.0, float(resumed_msec) / 1000.0)
+		reset_simulation_clock = false
 	if is_instance_valid(touch_controls):
 		var touch_ui_visible := state == "playing" and _should_show_touch_controls()
 		if touch_controls.visible != touch_ui_visible:
@@ -312,10 +323,7 @@ func _process(delta: float) -> void:
 			return
 	if state != "playing":
 		return
-	var simulation_delta := minf(delta, 0.04) * (1.25 if mode == "infinite" else 1.0)
-	if reset_simulation_clock:
-		simulation_delta = 0.0
-		reset_simulation_clock = false
+	var simulation_delta := minf(frame_delta, 0.04) * (1.25 if mode == "infinite" else 1.0)
 	player.advance(simulation_delta)
 	notice_timer = maxf(0.0, notice_timer - simulation_delta)
 	weapon_cooldown = maxf(0.0, weapon_cooldown - simulation_delta)
