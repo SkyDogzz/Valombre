@@ -40,6 +40,9 @@ var skill_cooldown := 0.0
 var pending_spawns: Array[Dictionary] = []
 var enemies: Array[ValombreEnemy] = []
 var drops: Array[Dictionary] = []
+var projectiles: Array[Dictionary] = []
+var projectile_size_multiplier := 1.0
+var projectile_speed_multiplier := 1.0
 var rng := RandomNumberGenerator.new()
 var elapsed := 0.0
 var objective_type := "kills"
@@ -98,6 +101,7 @@ func _process(delta: float) -> void:
 	else:
 		_update_spawns(delta)
 		_update_enemies(delta)
+		_update_projectiles(delta)
 		_update_auto_attack()
 	_update_drops(delta)
 	_update_hud()
@@ -176,6 +180,10 @@ func _start_run() -> void:
 		drop.node.queue_free()
 	enemies.clear()
 	drops.clear()
+	for projectile in projectiles:
+		if is_instance_valid(projectile.get("node")):
+			projectile.node.queue_free()
+	projectiles.clear()
 	pending_spawns.clear()
 	var hero: GameDefinition = _find_definition("heroes", hero_id)
 	var stats: Dictionary = hero.values
@@ -209,6 +217,8 @@ func _start_run() -> void:
 	bonus_max_hp = 0.0
 	attack_speed_multiplier = 1.0
 	range_bonus = 0.0
+	projectile_size_multiplier = 1.0
+	projectile_speed_multiplier = 1.0
 	pickup_range_multiplier = 1.0
 	upgrade_ranks = {"damage": 0, "attackSpeed": 0, "range": 0, "projectileSize": 0, "projectileSpeed": 0, "movementSpeed": 0, "health": 0, "defense": 0, "pickupRange": 0}
 	pending_upgrades = 0
@@ -327,10 +337,15 @@ func _update_enemies(delta: float) -> void:
 		if not is_instance_valid(enemy):
 			to_remove.append(enemy)
 			continue
+		enemy.hit_flash = maxf(0.0, enemy.hit_flash - delta)
+		enemy.slow_time = maxf(0.0, enemy.slow_time - delta)
+		if enemy.slow_time <= 0.0:
+			enemy.slow_factor = 1.0
+		enemy.queue_redraw()
 		var offset: Vector2 = player.position - enemy.position
 		var distance := offset.length()
 		if distance > enemy.radius + 17.0:
-			var step := offset.normalized() * enemy.speed * delta
+			var step := offset.normalized() * enemy.speed * enemy.slow_factor * delta
 			_move_enemy_around_obstacles(enemy, step)
 		elif contact_cooldown <= 0.0 and player.invulnerability <= 0.0:
 			_damage_player(enemy.damage)
@@ -371,11 +386,120 @@ func _update_auto_attack() -> void:
 			nearest = distance
 			target = enemy
 	var manual := Input.is_action_just_pressed("attack")
-	if target and nearest <= float(weapon.get("range", 108.0)) + range_bonus and (weapon_cooldown <= 0.0 or manual):
-		var base_damage := float(weapon.get("bruteDamage", 25) if target.kind == "brute" else weapon.get("ghoulDamage", 32))
-		_damage_enemy(target, base_damage * damage_multiplier * (1.0 + (level - 1) * 0.005), weapon_id)
-		weapon_cooldown = 1.0 / maxf(0.1, float(weapon.speed) * attack_speed_multiplier)
-		player.facing = (target.position - player.position).normalized()
+	if not target or nearest > float(weapon.get("range", 108.0)) + range_bonus or (weapon_cooldown > 0.0 and not manual):
+		return
+	var aim := (target.position - player.position).normalized()
+	if aim != Vector2.ZERO:
+		player.facing = aim
+	var damage_scale := damage_multiplier * (1.0 + (level - 1) * 0.005)
+	var frequency := maxf(0.1, float(weapon.speed) * attack_speed_multiplier)
+	weapon_cooldown = 0.26 / frequency
+	if bool(weapon.get("ranged", false)):
+		_launch_projectile(weapon, target, damage_scale)
+		return
+	for enemy in enemies.duplicate():
+		var offset := enemy.position - player.position
+		var distance := offset.length()
+		var in_shape := false
+		if bool(weapon.get("circular", false)):
+			in_shape = distance < float(weapon.range) + range_bonus
+		elif bool(weapon.get("piercing", false)):
+			var along := clampf(offset.dot(player.facing), 0.0, float(weapon.range) + range_bonus)
+			var closest := player.position + player.facing * along
+			in_shape = enemy.position.distance_to(closest) < 18.0 + enemy.radius
+		else:
+			var alignment := offset.normalized().dot(player.facing) if distance > 0.0 else 1.0
+			in_shape = distance < float(weapon.range) + range_bonus and alignment > float(weapon.get("arc", -1.0))
+		if in_shape:
+			_damage_enemy(enemy, _weapon_base_damage(weapon, enemy) * damage_scale, weapon_id)
+
+func _weapon_base_damage(weapon: Dictionary, enemy: ValombreEnemy) -> float:
+	return float(weapon.get("bruteDamage", 25) if enemy.kind == "brute" else weapon.get("ghoulDamage", 32))
+
+func _launch_projectile(weapon: Dictionary, target: ValombreEnemy, damage_scale: float) -> void:
+	var direction := (target.position - player.position).normalized()
+	var sprite := Sprite2D.new()
+	sprite.texture = load("res://assets/weapons/%s.svg" % weapon_id)
+	sprite.scale = Vector2(0.18, 0.18) * projectile_size_multiplier
+	sprite.modulate = Color("c7a8ff") if weapon.get("lightning", false) else Color("91e9ef") if weapon.get("frost", false) else Color("ff9a4e") if weapon.get("explosive", false) else Color("85d8ce")
+	sprite.position = player.position + direction * 14.0
+	arena.add_child(sprite)
+	projectiles.append({
+		"node": sprite,
+		"direction": direction,
+		"speed": 520.0 * projectile_speed_multiplier,
+		"radius": 5.0 * projectile_size_multiplier,
+		"damage": _weapon_base_damage(weapon, target) * damage_scale,
+		"weapon": weapon_id,
+		"remaining": float(weapon.get("range", 330.0)) + 40.0,
+		"explosive": bool(weapon.get("explosive", false)),
+		"lightning": bool(weapon.get("lightning", false)),
+		"frost": bool(weapon.get("frost", false)),
+		"hit_targets": [],
+	})
+
+func _update_projectiles(delta: float) -> void:
+	for index in range(projectiles.size() - 1, -1, -1):
+		var projectile: Dictionary = projectiles[index]
+		var node: Sprite2D = projectile.node
+		var step := float(projectile.speed) * delta
+		node.position += projectile.direction * step
+		projectile.remaining -= step
+		var hit_target: ValombreEnemy
+		for enemy in enemies:
+			if projectile.hit_targets.has(enemy):
+				continue
+			if enemy.position.distance_to(node.position) <= enemy.radius + float(projectile.radius):
+				hit_target = enemy
+				break
+		if hit_target:
+			if projectile.explosive:
+				_detonate_projectile(projectile, node.position)
+				_remove_projectile(index)
+				continue
+			if projectile.frost:
+				hit_target.slow_time = maxf(hit_target.slow_time, 1.25)
+				hit_target.slow_factor = 0.58
+			_damage_enemy(hit_target, float(projectile.damage), str(projectile.weapon))
+			if projectile.lightning:
+				_chain_lightning(hit_target, projectile)
+			_remove_projectile(index)
+			continue
+		if projectile.remaining <= 0.0 or _position_blocked(node.position, float(projectile.radius)):
+			if projectile.explosive:
+				_detonate_projectile(projectile, node.position)
+			_remove_projectile(index)
+
+func _chain_lightning(first: ValombreEnemy, projectile: Dictionary) -> void:
+	var current := first
+	var hit: Array[ValombreEnemy] = [first]
+	for _bounce in 1:
+		var nearest: ValombreEnemy
+		var nearest_distance := 190.0
+		for enemy in enemies:
+			if hit.has(enemy):
+				continue
+			var distance := current.position.distance_to(enemy.position)
+			if distance <= nearest_distance:
+				nearest = enemy
+				nearest_distance = distance
+		if not nearest:
+			break
+		hit.append(nearest)
+		_damage_enemy(nearest, float(projectile.damage) * 0.72, str(projectile.weapon))
+		current = nearest
+
+func _detonate_projectile(projectile: Dictionary, center: Vector2) -> void:
+	var radius := 44.0
+	for enemy in enemies.duplicate():
+		if enemy.position.distance_to(center) <= radius + enemy.radius:
+			_damage_enemy(enemy, float(projectile.damage), str(projectile.weapon))
+
+func _remove_projectile(index: int) -> void:
+	var projectile: Dictionary = projectiles[index]
+	if is_instance_valid(projectile.node):
+		projectile.node.queue_free()
+	projectiles.remove_at(index)
 
 func _damage_enemy(enemy: ValombreEnemy, amount: float, _weapon: String) -> void:
 	if not is_instance_valid(enemy):
@@ -462,6 +586,8 @@ func _apply_upgrade(definition: GameDefinition) -> void:
 		"damage": damage_multiplier *= 1.0 + bonus
 		"attackSpeed": attack_speed_multiplier *= 1.0 + bonus
 		"range": range_bonus += bonus
+	"projectileSize": projectile_size_multiplier *= 1.0 + bonus
+	"projectileSpeed": projectile_speed_multiplier *= 1.0 + bonus
 		"movementSpeed":
 			movement_multiplier *= 1.0 + bonus
 			player.movement_multiplier = movement_multiplier

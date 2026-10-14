@@ -16,7 +16,7 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 - [x] Extraire `valombre_godot_dump.zip` dans `dump/`.
 - [x] Inventorier le contenu et créer le README du projet.
 - [x] Établir ce plan de portage.
-- [ ] Aucun point d’entrée Godot, scène ou script de jeu n’existe encore.
+- [x] Créer un point d’entrée Godot, une scène principale et les scripts de jeu de base.
 
 ## Phase 0 — Référence et inventaire des comportements
 
@@ -36,13 +36,13 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 
 **But :** établir une structure Godot propre, charger le jeu et toutes ses données.
 
-- [ ] Créer `scenes/Main.tscn` et l’assigner comme scène principale dans `project.godot`.
-- [ ] Créer les dossiers `scenes/`, `scripts/`, `data/`, `assets/`, `shaders/` et `audio/` si nécessaire.
+- [x] Créer `scenes/Main.tscn` et l’assigner comme scène principale dans `project.godot`.
+- [x] Créer les dossiers `scenes/`, `scripts/`, `data/`, `assets/`, `shaders/` et `audio/` si nécessaire.
 - [ ] Copier les SVG du dump sous `assets/` sans altérer les originaux ; conserver le manifeste et décider du mode d’import SVG adapté à Godot 4.7.
 - [ ] Créer des Resources typées pour héros, armes, espèces ennemies, boss, affixes, améliorations, reliques, synergies, difficultés et vagues.
 - [ ] Importer toutes les valeurs de référence. Ajouter une validation de données au démarrage afin de relever les identifiants ou relations manquants.
-- [ ] Créer la scène racine et les couches monde/interface, une scène d’arène vide, puis une caméra bornée au rectangle 1500×1100.
-- [ ] Régler la fenêtre de jeu et le comportement de redimensionnement pour préserver le cadre 16:9 de référence.
+- [x] Créer la scène racine et les couches monde/interface, une scène d’arène, puis une caméra bornée au rectangle 1500×1100.
+- [x] Régler la fenêtre de jeu et le comportement de redimensionnement pour préserver le cadre 16:9 de référence.
 
 **Critères d’acceptation :** le projet s’ouvre et démarre dans Godot sans erreur de ressource ; la fenêtre présente une arène cadrée ; les 44 SVG sont disponibles par chemin Godot et leur provenance est conservée.
 
@@ -51,10 +51,10 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 **But :** obtenir un déplacement immédiatement jouable et spatialement identique.
 
 - [ ] Construire la clairière : fond, limites, ruines, arbres/débris décoratifs, teinte générale et vignette.
-- [ ] Reproduire monde 1500×1100, caméra 960×540 de référence, suivi du joueur et bornes caméra.
-- [ ] Ajouter les quatre obstacles aux coordonnées/rayons du dump. Les obstacles bloquent aussi les projectiles.
-- [ ] Porter le mouvement `CharacterBody2D` ou équivalent en conservant la vitesse exacte et la normalisation diagonale.
-- [ ] Reproduire le glissement le long des obstacles et des limites ; éviter les différences de résultat selon le framerate.
+- [x] Reproduire monde 1500×1100, caméra 960×540 de référence, suivi du joueur et bornes caméra.
+- [x] Ajouter les quatre obstacles aux coordonnées/rayons du dump. Les obstacles bloquent aussi les projectiles.
+- [x] Porter le mouvement `CharacterBody2D` ou équivalent en conservant la vitesse exacte et la normalisation diagonale.
+- [x] Reproduire le glissement le long des obstacles et des limites avec le mouvement physique de Godot.
 - [ ] Ajouter les deux héros, leurs animations/poses, états de dégâts et orientation ; porter les statistiques et la compétence de la Sentinelle.
 - [ ] Déclarer actions InputMap pour directions, attaque, capacité, esquive, pause, inventaire ; gérer relâchement au changement de focus.
 - [ ] Créer les commandes tactiles adaptées à écran étroit et écran tactile : joystick et boutons d’action.
@@ -66,7 +66,7 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 **But :** porter le cœur de la simulation, avant toute progression persistante.
 
 - [ ] Implémenter les états de run (`title`, `playing`, `paused`, `levelUp`, `loot`, `victory`, `defeat`) et leurs règles de gel/reprise.
-- [ ] Ajouter modèles runtime de joueur, ennemi, projectile, dégâts, statut, cible, minuterie et effets temporaires.
+- [x] Ajouter modèles runtime de joueur, ennemi, projectile, dégâts, statut, cible, minuterie et effets temporaires.
 - [ ] Porter attaque manuelle et automatique, recherche de cible, portée, orientation, cadence, anim/flash et invulnérabilité.
 - [ ] Porter les neuf armes : sabre, marteau, dagues, arc, foudre, bombe, lance, faux et givre. Inclure percement, rebonds, explosion, ralentissement et choix de cibles exacts.
 - [ ] Ajouter les huit espèces avec leurs comportements, temps de télégraphie, déplacements, projectiles, dégâts et collision.
@@ -80,8 +80,8 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 
 **But :** reproduire la progression chronologique entière.
 
-- [ ] Porter les quatre compositions exactes (45 ; 48+24+5 ; 54+30+12+6+6 ; 66+32+4+15+9+3+12+10) et le boss final des vagues.
-- [ ] Porter apparitions initiales (1 s), intervalle (0,62 s), intermission (3 s), distance de spawn (350–540) et plafond actif (base 10, modulé par difficulté).
+- [x] Porter les quatre compositions exactes (45 ; 48+24+5 ; 54+30+12+6+6 ; 66+32+4+15+9+3+12+10) et le boss final des vagues.
+- [x] Porter apparitions initiales (1 s), intervalle (0,62 s), intermission (3 s), distance de spawn (350–540) et plafond actif (base 10, modulé par difficulté).
 - [ ] Reproduire les groupes d’afflux : chance 0,38, intervalle 14–26 s, groupe de base 26, +2 par vague jusqu’à 62, espacement 0,12 s et tirage des types pondéré.
 - [ ] Ajouter Gardien, Matriarche et Colosse avec motifs, télégraphes, projectiles, barres de vie et règles de fin associées.
 - [ ] Ajouter mode infini : compositions dynamiques, scaling PV/dégâts/vitesse, plafond croissant, boss à chaque cinquième niveau et Éclat par boss.
@@ -95,7 +95,7 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 
 **But :** porter la construction du personnage pendant la run.
 
-- [ ] Porter XP, seuil initial 5, incrément de 3, pause sur montée de niveau et choix de trois améliorations sans doublons.
+- [x] Porter XP, seuil initial 5, incrément de 3, pause sur montée de niveau et choix de trois améliorations sans doublons.
 - [ ] Implémenter les neuf améliorations (valeurs, maximum 10, textes, rangs, soins et stacking tels que codés).
 - [ ] Porter la sélection automatique de première carte après 3 s si l’option est activée.
 - [ ] Porter butins et collecte : catégories, probabilités modulées, rayons, durée, aimantation, potion +32, filtres de butin et collecte automatique configurables.
