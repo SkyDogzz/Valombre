@@ -2466,11 +2466,11 @@ func _damage_player(amount: float) -> bool:
 	if state != "playing" or player.invulnerability > 0.0 or cheat_infinite_life:
 		return false
 	_play_tone(90.0, 0.11, "square")
-	var incoming := maxf(1.0, amount * (1.0 - minf(0.8, defense + equipment_defense)))
+	var incoming := amount * (1.0 - minf(0.8, defense + equipment_defense))
 	var absorbed := minf(player_shield, incoming)
 	player_shield -= absorbed
 	hp -= incoming - absorbed
-	player.invulnerability = 0.55
+	player.invulnerability = float(catalog.content.config.combat.playerInvulnerability)
 	_spawn_burst(player.position, Color("bb493c"), 4)
 	if hp <= 0.0:
 		hp = 0.0
