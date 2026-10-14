@@ -1454,7 +1454,11 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 		player.position = Vector2(float(saved_position[0]), float(saved_position[1]))
 	else:
 		run_started_ticks_msec = Time.get_ticks_msec()
-	if not checkpoint.is_empty():
+	if not checkpoint.is_empty() and has_run_seed_override:
+		# Keep explicit seeded replay available when restarting from a checkpoint.
+		run_rng_seed = run_seed_override
+		rng.seed = run_rng_seed
+	elif not checkpoint.is_empty():
 		# The source checkpoint stores neither PRNG state nor pending spawns. Resume
 		# with a fresh run seed, just as its Math.random-based runtime does.
 		run_rng_seed = int(Time.get_ticks_usec())
