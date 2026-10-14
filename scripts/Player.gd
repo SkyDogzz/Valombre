@@ -5,6 +5,7 @@ signal dodge_started(position: Vector2)
 
 @export var move_speed := 190.0
 @export var world_size := Vector2(1500.0, 1100.0)
+@export var arena_edge := 35.0
 @export var world_edge := 71.0
 var run_active := false
 var dodge_time := 0.0
@@ -153,12 +154,28 @@ func advance(delta: float) -> void:
 	dodge_cooldown = maxf(0.0, dodge_cooldown - delta)
 	if dodge_time > 0.0:
 		var step := minf(delta, dodge_time)
-		global_position += dodge_direction * dodge_speed * movement_multiplier * equipment_speed * step
+		var dodge_displacement := dodge_direction * dodge_speed * movement_multiplier * equipment_speed * step
+		_move_with_source_bounds(dodge_displacement)
 		dodge_time -= step
 	else:
-		global_position += direction * move_speed * movement_multiplier * equipment_speed * delta
+		var movement_displacement := direction * move_speed * movement_multiplier * equipment_speed * delta
+		_move_with_source_bounds(movement_displacement)
 		if direction != Vector2.ZERO:
 			facing = direction
-	global_position.x = clampf(global_position.x, world_edge, world_size.x - world_edge)
-	global_position.y = clampf(global_position.y, world_edge, world_size.y - world_edge)
 	queue_redraw()
+
+func _move_with_source_bounds(displacement: Vector2) -> void:
+	var next_x := clampf(
+		global_position.x + displacement.x,
+		arena_edge,
+		world_size.x - arena_edge
+	)
+	if next_x >= world_edge and next_x <= world_size.x - world_edge:
+		global_position.x = next_x
+	var next_y := clampf(
+		global_position.y + displacement.y,
+		arena_edge,
+		world_size.y - arena_edge
+	)
+	if next_y >= world_edge and next_y <= world_size.y - world_edge:
+		global_position.y = next_y
