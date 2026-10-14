@@ -37,6 +37,7 @@ Après les étapes communes jusqu’aux effets de kill, le boss désactive l’�
 - L’explosion de collecte de la synergie aimant utilise un rayon de 92, les dégâts de l’arme bombe avec la mise à l’échelle du joueur et le signal spécial d’explosion. Elle n’ajoute pas la brûlure secondaire (`pickupCombo`).
 - La collecte parcourt les drops en ordre inverse. Si un ramassage ouvre l’écran de niveau ou de butin, le source arrête les autres collectes de la frame, puis résout quand même l’explosion agrégée de synergie aimant; il découvre alors `bombe-magnet`. Godot interrompt aussi la boucle, mais doit laisser cette explosion et cette découverte s’exécuter avant de terminer la frame.
 - Un projectile ennemi qui tue le joueur est retiré, puis `update` retourne immédiatement dès que l’état n’est plus `playing`. La boucle Godot doit donc aussi s’arrêter à cet impact pour qu’aucun projectile restant ne touche un ennemi après la défaite.
+- Une explosion de bombe et les ticks de brûlure/foudre n’interrompent pas leurs boucles quand un kill change l’état de la run : leurs cibles restantes sont quand même traitées. Le retour après projectile fatal est propre au projectile ennemi qui touche le joueur; les explosions et zones ne doivent pas hériter de cet arrêt.
 
 ## Points de contrôle dans le code
 

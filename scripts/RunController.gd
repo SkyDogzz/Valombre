@@ -2146,8 +2146,6 @@ func _update_projectiles(delta: float) -> void:
 			if projectile.explosive:
 				_detonate_projectile(projectile, node.position)
 				_remove_projectile(index)
-				if state != "playing":
-					return
 				continue
 			if projectile.frost:
 				hit_target.slow_time = maxf(hit_target.slow_time, float(projectile.get("slow_duration", 1.25)))
@@ -2169,8 +2167,6 @@ func _update_projectiles(delta: float) -> void:
 			if projectile.explosive:
 				_detonate_projectile(projectile, node.position)
 			_remove_projectile(index)
-			if state != "playing":
-				return
 
 func _chain_lightning(first: ValombreEnemy, projectile: Dictionary) -> void:
 	var current := first
@@ -2207,8 +2203,6 @@ func _update_damage_zones(delta: float) -> void:
 			for enemy in enemies.duplicate():
 				if enemy.position.distance_to(zone.position) < float(zone.radius):
 					_damage_enemy(enemy, float(zone.damage), str(zone.weapon))
-					if state != "playing":
-						break
 			zone.tick = float(zone.tick) + float(zone.interval)
 		if is_instance_valid(combat_effects):
 			combat_effects.update_persistent_effect(zone)
@@ -2216,8 +2210,6 @@ func _update_damage_zones(delta: float) -> void:
 			damage_zones.remove_at(index)
 		else:
 			damage_zones[index] = zone
-		if state != "playing":
-			return
 
 func _detonate_projectile(projectile: Dictionary, center: Vector2) -> void:
 	var radius := float(projectile.get("explosion_radius", 44.0))
