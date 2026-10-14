@@ -2053,12 +2053,13 @@ func _on_enemy_killed(enemy: ValombreEnemy, weapon: String) -> void:
 func _enemy_drop_xp(position: Vector2, value: float, weapon_xp_multiplier := 1.0) -> void:
 	var node := Sprite2D.new()
 	node.texture = load("res://assets/xp.svg")
-	node.scale = Vector2(0.18, 0.18)
-	node.position = _drop_spawn_position(position)
+	node.scale = Vector2.ONE
+	var drop_position := _drop_spawn_position(position)
+	node.position = drop_position
 	arena.add_child(node)
 	var xp_multiplier := equipment_xp * weapon_xp_multiplier
 	var lifetime := float(catalog.content.config.drops.get("lifetime", 18.0))
-	drops.append({"node": node, "type": "xp", "value": value * xp_multiplier, "life": lifetime})
+	drops.append({"node": node, "position": drop_position, "phase": rng.randf_range(0.0, TAU), "type": "xp", "value": value * xp_multiplier, "life": lifetime})
 
 func _drop_spawn_position(position: Vector2) -> Vector2:
 	var angle := rng.randf_range(0.0, TAU)
@@ -2077,10 +2078,11 @@ func _roll_enemy_item_drop(position: Vector2) -> void:
 	if drop_roll < potion_chance:
 		var potion := Sprite2D.new()
 		potion.texture = load("res://assets/relics/heart.svg")
-		potion.scale = Vector2(0.17, 0.17)
-		potion.position = _drop_spawn_position(position)
+		potion.scale = Vector2(22.0 / 32.0, 22.0 / 32.0)
+		var drop_position := _drop_spawn_position(position)
+		potion.position = drop_position
 		arena.add_child(potion)
-		drops.append({"node": potion, "type": "potion", "life": lifetime})
+		drops.append({"node": potion, "position": drop_position, "phase": rng.randf_range(0.0, TAU), "type": "potion", "life": lifetime})
 	elif drop_roll < potion_chance + equipment_chance:
 		var weapon_choices: Array[String] = []
 		for definition: GameDefinition in catalog.definitions.get("weapons", []):
@@ -2105,10 +2107,11 @@ func _roll_enemy_item_drop(position: Vector2) -> void:
 			var loot_id := loot_choices[rng.randi_range(0, loot_choices.size() - 1)]
 			var loot_node := Sprite2D.new()
 			loot_node.texture = load("res://assets/weapons/category.svg") if loot_type == "weapon" else load("res://assets/relics/category.svg")
-			loot_node.scale = Vector2(0.17, 0.17)
-			loot_node.position = _drop_spawn_position(position)
+			loot_node.scale = Vector2(22.0 / 32.0, 22.0 / 32.0)
+			var drop_position := _drop_spawn_position(position)
+			loot_node.position = drop_position
 			arena.add_child(loot_node)
-			drops.append({"node": loot_node, "type": loot_type, "id": loot_id, "life": lifetime})
+			drops.append({"node": loot_node, "position": drop_position, "phase": rng.randf_range(0.0, TAU), "type": loot_type, "id": loot_id, "life": lifetime})
 
 func _update_drops(delta: float) -> void:
 	var bomb_combo_pickups := 0
@@ -2120,12 +2123,24 @@ func _update_drops(delta: float) -> void:
 			continue
 		if not global_pickup:
 			drop.life -= delta
-		var distance: float = player.position.distance_to(node.position)
+		var drop_position: Vector2 = drop.get("position", node.position)
+		var distance: float = player.position.distance_to(drop_position)
+		var pulled := false
 		if distance > 22.0 and (distance < pickup_range or global_pickup):
 			var pull_speed := player.move_speed * movement_multiplier * equipment_speed * 1.2
 			var step := minf(distance, pull_speed * delta)
-			node.position += node.position.direction_to(player.position) * step
-		if player.position.distance_to(node.position) <= 22.0:
+			var previous_position := drop_position
+			drop_position += drop_position.direction_to(player.position) * step
+			pulled = step > 0.0
+			if pulled:
+				var trail_start := drop_position - previous_position.direction_to(drop_position) * 15.0
+				var trail_end := drop_position - previous_position.direction_to(drop_position) * 7.0
+				var trail_color := Color("d9a2ff") if str(drop.get("type", "xp")) == "xp" else Color("d6c184")
+				_add_combat_effect({"kind": "drop_trail", "from": trail_start, "to": trail_end, "tint": trail_color, "life": 0.12, "max_life": 0.12})
+		drop.position = drop_position
+		var bob := sin(float(Time.get_ticks_msec()) / 180.0 + float(drop.get("phase", 0.0))) * 3.0 if not pulled else 0.0
+		node.position = drop_position + Vector2(0.0, bob)
+		if player.position.distance_to(drop_position) <= 22.0:
 			if global_pickup:
 				bomb_combo_pickups += 1
 			if str(drop.get("type", "xp")) == "weapon":

@@ -54,6 +54,13 @@ func _draw_effect(effect: Dictionary) -> void:
 	var max_life := maxf(0.001, float(effect.get("max_life", effect.life)))
 	var progress := clampf(1.0 - life / max_life, 0.0, 1.0)
 	match kind:
+		"drop_trail":
+			var from: Vector2 = effect.from
+			var to: Vector2 = effect.to
+			var tint: Color = effect.tint
+			var alpha := clampf(life / max_life, 0.0, 1.0)
+			draw_line(from, to, _with_alpha(tint, alpha * 0.28), 5.0, true)
+			draw_line(from, to, _with_alpha(tint, alpha * 0.68), 2.0, true)
 		"hammer_wave":
 			if not bool(effect.get("full_circle", false)):
 				return
