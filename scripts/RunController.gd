@@ -1202,13 +1202,13 @@ func _fire_enemy_fan(enemy: ValombreEnemy, count: int, spread: float, speed: flo
 	for shot in count:
 		var angle := base_angle + (float(shot) - float(count - 1) * 0.5) * spread
 		var direction := Vector2(cos(angle), sin(angle))
-		var sprite := Sprite2D.new()
-		sprite.texture = load("res://assets/xp.svg")
-		sprite.scale = Vector2(0.18, 0.18)
-		sprite.modulate = Color(tint)
-		sprite.position = enemy.position
-		arena.add_child(sprite)
-		projectiles.append({"node": sprite, "team": "enemy", "velocity": direction * speed * float(difficulty.projectileSpeed), "damage": damage, "radius": projectile_radius, "life": lifetime, "source": enemy.kind})
+		var visual := ValombreProjectileVisual.new()
+		visual.radius = projectile_radius
+		visual.tint = Color(tint)
+		visual.rotation = angle
+		visual.position = enemy.position
+		arena.add_child(visual)
+		projectiles.append({"node": visual, "team": "enemy", "velocity": direction * speed * float(difficulty.projectileSpeed), "damage": damage, "radius": projectile_radius, "life": lifetime, "source": enemy.kind})
 
 func _advance_enemy_dash(enemy: ValombreEnemy, delta: float) -> void:
 	var step_length := minf(enemy.dash_distance_left, enemy.dash_distance_left * delta / maxf(enemy.dash_time_left, delta))
@@ -1472,7 +1472,7 @@ func _process_weapon_effects(delta: float) -> void:
 func _update_projectiles(delta: float) -> void:
 	for index in range(projectiles.size() - 1, -1, -1):
 		var projectile: Dictionary = projectiles[index]
-		var node: Sprite2D = projectile.node
+		var node: Node2D = projectile.node
 		if projectile.get("team", "player") == "enemy":
 			node.position += projectile.velocity * delta
 			projectile.life -= delta
