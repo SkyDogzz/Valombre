@@ -1356,16 +1356,27 @@ func _distance_to_segment(point: Vector2, start: Vector2, finish: Vector2) -> fl
 	return point.distance_to(start + segment * t)
 
 func _move_enemy_around_obstacles(enemy: ValombreEnemy, step: Vector2) -> void:
-	var candidate := enemy.position + step
-	if _position_blocked(candidate, enemy.radius):
-		candidate = enemy.position + Vector2(step.x, 0.0)
-		if _position_blocked(candidate, enemy.radius):
-			candidate = enemy.position + Vector2(0.0, step.y)
-	if not _position_blocked(candidate, enemy.radius):
-		enemy.position = candidate
+	var distance := step.length()
+	var angle := step.angle()
+	var avoid_side := float(enemy.get_meta("avoid_side", 0.0))
+	if is_zero_approx(avoid_side):
+		avoid_side = -1.0 if rng.randf() < 0.5 else 1.0
+		enemy.set_meta("avoid_side", avoid_side)
+	var offsets := [0.0]
+	for amount in [0.38, 0.78, 1.2, 1.62, 2.2]:
+		offsets.append(amount * avoid_side)
+		offsets.append(-amount * avoid_side)
+	offsets.append(PI)
+	for offset in offsets:
+		var candidate := enemy.position + Vector2(cos(angle + float(offset)), sin(angle + float(offset))) * distance
+		candidate.x = clampf(candidate.x, 60.0, WORLD_SIZE.x - 60.0)
+		candidate.y = clampf(candidate.y, 60.0, WORLD_SIZE.y - 60.0)
+		if not _position_blocked(candidate, enemy.radius):
+			enemy.position = candidate
+			return
 
 func _position_blocked(position: Vector2, radius: float) -> bool:
-	if position.x < 35.0 + radius or position.y < 35.0 + radius or position.x > WORLD_SIZE.x - 35.0 - radius or position.y > WORLD_SIZE.y - 35.0 - radius:
+	if position.x < 60.0 + radius or position.y < 60.0 + radius or position.x > WORLD_SIZE.x - 60.0 - radius or position.y > WORLD_SIZE.y - 60.0 - radius:
 		return true
 	for obstacle in OBSTACLES:
 		if position.distance_to(Vector2(obstacle.x, obstacle.y)) < obstacle.z + radius:
