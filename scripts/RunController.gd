@@ -128,7 +128,7 @@ var sound_generator: AudioStreamGenerator
 var sound_playback: AudioStreamGeneratorPlayback
 var sound_phase := 0.0
 var held_weapon_sprite: Sprite2D
-var manual_attack_from_mouse := false
+var mouse_aim_active := false
 var touch_controls: ValombreTouchControls
 var particle_layer: ValombreParticleLayer
 var combat_effects: ValombreCombatEffects
@@ -194,9 +194,9 @@ func _add_gamepad_button(action: String, button: int) -> void:
 	InputMap.action_add_event(action, event)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("attack") and state == "playing":
-		manual_attack_from_mouse = event is InputEventMouseButton
-	elif event.is_action_pressed("pause"):
+	if event is InputEventMouseMotion or event is InputEventMouseButton:
+		mouse_aim_active = true
+	if event.is_action_pressed("pause"):
 		if state == "playing":
 			inventory_open = false
 			inventory_panel.visible = false
@@ -811,6 +811,7 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 	hp = max_hp
 	player.position = WORLD_SIZE * 0.5
 	player.run_active = true
+	mouse_aim_active = false
 	player.move_speed = hero.speed
 	player.movement_multiplier = 1.0
 	player.equipment_speed = 1.0
@@ -1388,7 +1389,7 @@ func _update_auto_attack() -> void:
 		if ((not target or nearest > reach) and not manual_melee) or (float(weapon_cooldowns.get(id, 0.0)) > 0.0 and not manual):
 			continue
 		var aim := player.facing
-		if manual_melee and manual_attack_from_mouse:
+		if manual and mouse_aim_active:
 			var mouse_direction := player.get_global_mouse_position() - player.global_position
 			if mouse_direction.length() > 5.0:
 				aim = mouse_direction.normalized()
@@ -1463,7 +1464,6 @@ func _update_auto_attack() -> void:
 			for enemy in enemies.duplicate():
 				if enemy.position.distance_to(player.position) <= reach * 1.08:
 					_damage_enemy(enemy, float(weapon.ghoulDamage) * damage_scale * (0.32 + released * 0.42), id)
-	manual_attack_from_mouse = false
 
 func _weapon_base_damage(weapon: Dictionary, enemy: ValombreEnemy) -> float:
 	return float(weapon.get("bruteDamage", 25) if enemy.kind == "brute" else weapon.get("ghoulDamage", 32))
