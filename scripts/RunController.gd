@@ -1031,10 +1031,17 @@ func _spawn_enemy(kind: String, is_elite: bool, boss_id: String) -> void:
 		enemy_stats.sprite = "boss" if boss_id == "guardian" else boss_id
 	var enemy := ENEMY_SCRIPT.new() as ValombreEnemy
 	enemy.configure(kind, enemy_stats, is_elite)
+	if kind == "leaper":
+		enemy.landing_radius = float(base.get("landingRadius", 54.0))
+	elif kind == "charger":
+		enemy.telegraph_range = float(base.get("range", 330.0))
+	elif kind == "shaman":
+		enemy.telegraph_range = float(base.get("range", 270.0))
 	if is_elite:
 		enemy.elite_id = elite_id
 		enemy.elite_name = str(elite_stats.get("name", "Élite"))
 		enemy.elite_color = Color(str(elite_stats.get("color", "#e4c978")))
+		enemy.update_elite_label()
 	enemy.attack_timer = rng.randf_range(0.3, 1.3)
 	enemy.heal_on_hit = float(base.get("healOnHit", 0.0))
 	if kind == "boss":
@@ -1044,6 +1051,12 @@ func _spawn_enemy(kind: String, is_elite: bool, boss_id: String) -> void:
 		enemy.boss_id = boss_id
 		enemy.boss_behavior = str(base.get("behavior", "guardian"))
 		enemy.attack_mode = "volley" if enemy.boss_behavior == "volley" else "slam"
+		enemy.boss_slam_radius = float(base.get("slamRadius", 138.0))
+		enemy.boss_charge_distance = float(base.get("chargeDistance", 250.0))
+		enemy.boss_dash_distance = float(base.get("dashDistance", 320.0))
+		enemy.boss_dash_stop_distance = float(base.get("dashStopDistance", 75.0))
+		enemy.boss_dash_width = float(base.get("dashWidth", 44.0))
+		enemy.boss_charge_width = float(base.get("chargeWidth", 38.0))
 		enemy.approach_cooldown = rng.randf_range(0.8, 2.0)
 		enemy.set_meta("boss_id", boss_id)
 		enemy.set_meta("display_name", str(base.get("name", boss_id)))
@@ -1086,6 +1099,7 @@ func _update_enemies(delta: float) -> void:
 		enemy.slow_time = maxf(0.0, enemy.slow_time - delta)
 		if enemy.slow_time <= 0.0:
 			enemy.slow_factor = 1.0
+		enemy.visual_phase += delta
 		enemy.queue_redraw()
 		enemy.attack_timer -= delta * attack_speed
 		if enemy.dash_time_left > 0.0:
