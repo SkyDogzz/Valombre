@@ -87,6 +87,7 @@ var menu_panel: PanelContainer
 var overlay_backdrop: ColorRect
 var title_label: Label
 var status_label: Label
+var loot_preview: TextureRect
 var picker_labels: Array[Label] = []
 var hero_picker: OptionButton
 var weapon_picker: OptionButton
@@ -396,6 +397,12 @@ func _create_interface() -> void:
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(status_label)
+	loot_preview = TextureRect.new()
+	loot_preview.custom_minimum_size = Vector2(48.0, 48.0)
+	loot_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	loot_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	loot_preview.visible = false
+	column.add_child(loot_preview)
 	pause_catalog = ScrollContainer.new()
 	pause_catalog.custom_minimum_size = Vector2(520, 330)
 	pause_catalog.visible = false
@@ -2098,10 +2105,17 @@ func _show_loot_choices(item_name: String, description: String, group: String, i
 			previous_synergies.append(str(synergy.id))
 	_set_state("loot")
 	status_label.text = "%s : %s. Choisissez un objet à remplacer, ou passez." % [item_name, description]
+	var asset_group := "weapons" if group == "weapons" else "relics"
+	var incoming_icon := "res://assets/%s/%s.svg" % [asset_group, str(item.id)]
+	loot_preview.texture = load(incoming_icon) if ResourceLoader.exists(incoming_icon) else null
+	loot_preview.visible = loot_preview.texture != null
 	var items := weapon_inventory if group == "weapons" else relic_inventory
 	for candidate in candidates:
 		var item_id := str(candidate.id)
 		var button := Button.new()
+		var candidate_icon := "res://assets/%s/%s.svg" % [asset_group, item_id]
+		if ResourceLoader.exists(candidate_icon):
+			button.icon = load(candidate_icon)
 		if group == "weapons":
 			var definition := _find_definition("weapons", item_id)
 			var synergy_detail := _synergy_description(item_id)
@@ -2138,6 +2152,8 @@ func _show_loot_choices(item_name: String, description: String, group: String, i
 		loot_buttons.append(button)
 	var pass_button := Button.new()
 	pass_button.text = "Passer cet équipement"
+	if loot_preview.texture:
+		pass_button.icon = loot_preview.texture
 	pass_button.pressed.connect(func() -> void:
 		_set_state("playing")
 		_clear_loot_buttons()
@@ -2658,7 +2674,8 @@ func _set_state(next_state: String) -> void:
 			new_run_button.visible = state == "title" and (profile.get("run") is Dictionary)
 	if state in ["levelUp", "loot"]:
 		for child in menu_column.get_children():
-			child.visible = child == title_label or child == status_label or child == start_button or (state == "levelUp" and child in upgrade_buttons) or (state == "loot" and child in loot_buttons)
+			child.visible = child == title_label or child == status_label or (state == "loot" and child == loot_preview) or child == start_button or (state == "levelUp" and child in upgrade_buttons) or (state == "loot" and child in loot_buttons)
+	loot_preview.visible = state == "loot" and loot_preview.texture != null
 	call_deferred("_focus_state_action", state)
 
 func _focus_state_action(target_state: String) -> void:
