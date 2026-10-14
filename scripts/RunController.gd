@@ -2209,12 +2209,13 @@ func _chain_lightning(first: ValombreEnemy, projectile: Dictionary) -> void:
 	var max_bounces := int(projectile.get("chain_targets", 1))
 	for _bounce in max_bounces:
 		var nearest: ValombreEnemy
-		var nearest_distance := float(projectile.get("chain_range", 190.0))
+		var chain_range := float(projectile.get("chain_range", 190.0))
+		var nearest_distance := chain_range
 		for enemy in enemies:
 			if hit.has(enemy):
 				continue
 			var distance := current.position.distance_to(enemy.position)
-			if distance <= nearest_distance:
+			if distance <= chain_range and (nearest == null or distance < nearest_distance):
 				nearest = enemy
 				nearest_distance = distance
 		if not nearest:
