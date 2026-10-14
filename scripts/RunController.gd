@@ -1516,6 +1516,7 @@ func _update_projectiles(delta: float) -> void:
 				var hit_targets: Array = projectile.get("hit_targets", [])
 				hit_targets.append(hit_target)
 				projectile.hit_targets = hit_targets
+				projectile.damage = float(projectile.damage) * 1.18
 				continue
 			_remove_projectile(index)
 			continue
