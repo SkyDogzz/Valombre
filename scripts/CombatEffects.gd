@@ -57,12 +57,12 @@ func advance(delta: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
+	for arc in lightning_arcs:
+		_draw_lightning_arc(arc)
 	for effect in effects:
 		if float(effect.get("delay", 0.0)) > 0.0:
 			continue
 		_draw_effect(effect)
-	for arc in lightning_arcs:
-		_draw_lightning_arc(arc)
 
 func _draw_effect(effect: Dictionary) -> void:
 	var kind := str(effect.kind)
