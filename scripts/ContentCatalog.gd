@@ -175,7 +175,7 @@ func _validate_definition(group_name: String, definition: GameDefinition) -> voi
 				validation_errors.append("relics.%s has an invalid effect or value" % id)
 		"upgrades":
 			var upgrade := definition as UpgradeDefinition
-			if not (upgrade.source_data.get("maxRanks") is int) or upgrade.max_ranks <= 0 or not _is_finite_number(upgrade.bonus) or upgrade.kind.is_empty():
+			if not _is_positive_integer(upgrade.source_data.get("maxRanks")) or upgrade.max_ranks <= 0 or not _is_finite_number(upgrade.bonus) or upgrade.kind.is_empty():
 				validation_errors.append("upgrades.%s has invalid rank data" % id)
 		"synergies":
 			var synergy := definition as SynergyDefinition
@@ -183,7 +183,7 @@ func _validate_definition(group_name: String, definition: GameDefinition) -> voi
 				validation_errors.append("synergies.%s has missing prerequisites" % id)
 		"waves":
 			var wave := definition as WaveDefinition
-			var source_groups: Variant = wave.source_data.get("groups", [])
+			var source_groups: Array[Dictionary] = wave.groups
 			if not (source_groups is Array) or source_groups.is_empty():
 				validation_errors.append("waves[%s] is empty" % id)
 			for group in source_groups:
@@ -253,7 +253,7 @@ func _require_positive_number(label: String, record: Dictionary, field: String) 
 		validation_errors.append("%s must be positive and finite" % label)
 
 func _is_positive_integer(value: Variant) -> bool:
-	return value is int and value > 0
+	return _is_finite_number(value) and float(value) > 0.0 and is_equal_approx(float(value), roundf(float(value)))
 
 func _is_finite_number(value: Variant) -> bool:
 	return (value is int or value is float) and is_finite(float(value))

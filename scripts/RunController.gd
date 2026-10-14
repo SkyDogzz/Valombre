@@ -167,6 +167,9 @@ var particle_layer: ValombreParticleLayer
 var combat_effects: ValombreCombatEffects
 
 func _ready() -> void:
+	call_deferred("_initialize_run_controller")
+
+func _initialize_run_controller() -> void:
 	_configure_gamepad_inputs()
 	damage_number_font = SystemFont.new()
 	damage_number_font.font_names = PackedStringArray(["Georgia", "Times New Roman"])
