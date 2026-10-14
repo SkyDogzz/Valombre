@@ -370,9 +370,9 @@ func _create_interface() -> void:
 	pause_catalog_list = VBoxContainer.new()
 	pause_catalog_list.custom_minimum_size.x = 520
 	pause_catalog.add_child(pause_catalog_list)
-	shield_bar = _create_hud_bar(Vector2(18, 18), Vector2(220, 6), Color("8cb7c5"))
-	health_bar = _create_hud_bar(Vector2(18, 27), Vector2(220, 8), Color("c44c3b"))
-	xp_bar = _create_hud_bar(Vector2(18, 38), Vector2(220, 6), Color("b686c8"))
+	shield_bar = _create_hud_bar(Vector2(18, 18), Vector2(130, 5), Color("8cb7c5"))
+	health_bar = _create_hud_bar(Vector2(18, 27), Vector2(130, 5), Color("c44c3b"))
+	xp_bar = _create_hud_bar(Vector2(18, 36), Vector2(130, 5), Color("b686c8"))
 	hud = Label.new()
 	hud.position = Vector2(18, 52)
 	hud.add_theme_font_size_override("font_size", 11)
@@ -433,7 +433,15 @@ func _create_hud_bar(bar_position: Vector2, bar_size: Vector2, tint: Color) -> P
 	bar.position = bar_position
 	bar.size = bar_size
 	bar.show_percentage = false
-	bar.modulate = tint
+	var background := StyleBoxFlat.new()
+	var shield_style := tint.g > 0.65 and tint.b > 0.65
+	background.bg_color = Color("111d27") if shield_style else Color("282821")
+	background.border_color = Color("315c75") if shield_style else Color("464438")
+	background.set_border_width_all(1)
+	bar.add_theme_stylebox_override("background", background)
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = tint
+	bar.add_theme_stylebox_override("fill", fill)
 	layer.add_child(bar)
 	return bar
 
