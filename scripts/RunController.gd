@@ -130,6 +130,7 @@ var held_weapon_sprite: Sprite2D
 var manual_attack_from_mouse := false
 
 func _ready() -> void:
+	_configure_gamepad_inputs()
 	main = get_parent()
 	arena = main.get_node("Arena")
 	player = arena.get_node("Player")
@@ -151,6 +152,32 @@ func _ready() -> void:
 	_create_cheat_button()
 	_update_player_visuals()
 	player.run_active = false
+
+func _configure_gamepad_inputs() -> void:
+	_add_gamepad_axis("move_left", JOY_AXIS_LEFT_X, -1.0)
+	_add_gamepad_axis("move_right", JOY_AXIS_LEFT_X, 1.0)
+	_add_gamepad_axis("move_up", JOY_AXIS_LEFT_Y, -1.0)
+	_add_gamepad_axis("move_down", JOY_AXIS_LEFT_Y, 1.0)
+	_add_gamepad_button("move_left", JOY_BUTTON_DPAD_LEFT)
+	_add_gamepad_button("move_right", JOY_BUTTON_DPAD_RIGHT)
+	_add_gamepad_button("move_up", JOY_BUTTON_DPAD_UP)
+	_add_gamepad_button("move_down", JOY_BUTTON_DPAD_DOWN)
+	_add_gamepad_button("attack", JOY_BUTTON_A)
+	_add_gamepad_button("special", JOY_BUTTON_Y)
+	_add_gamepad_button("dodge", JOY_BUTTON_LEFT_SHOULDER)
+	_add_gamepad_button("pause", JOY_BUTTON_START)
+	_add_gamepad_button("inventory", JOY_BUTTON_RIGHT_SHOULDER)
+
+func _add_gamepad_axis(action: String, axis: int, direction: float) -> void:
+	var event := InputEventJoypadMotion.new()
+	event.axis = axis
+	event.axis_value = direction
+	InputMap.action_add_event(action, event)
+
+func _add_gamepad_button(action: String, button: int) -> void:
+	var event := InputEventJoypadButton.new()
+	event.button_index = button
+	InputMap.action_add_event(action, event)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("attack") and state == "playing":
