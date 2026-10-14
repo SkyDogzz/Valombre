@@ -761,6 +761,8 @@ func _update_cheat_button() -> void:
 		cheat_button.text = "VIE INFINIE · %s" % ("ON" if cheat_infinite_life else "OFF")
 
 func _update_player_visuals() -> void:
+	player.hammer_swing_progress = -1.0
+	player.queue_redraw()
 	var avatar := player.get_node_or_null("Sprite2D") as Sprite2D
 	if is_instance_valid(avatar):
 		avatar.texture = load("res://assets/%s.svg" % ("sentinel" if hero_id == "sentinel" else "hero"))
@@ -791,6 +793,8 @@ func _update_player_visuals() -> void:
 		var frequency := maxf(0.1, float(definition.speed) * attack_speed_multiplier * (1.0 + 0.08 * (int(owned.get("level", 1)) - 1)) * float(synergy.get("attackSpeedMultiplier", 1.0)) * (1.2 if bool(owned.get("special", false)) else 1.0))
 		var attack_duration := 0.26 / frequency
 		var progress := clampf(1.0 - attack_timer / attack_duration, 0.0, 1.0)
+		if weapon_id == "marteau":
+			player.hammer_swing_progress = progress
 		var recovery := 1.0 - clampf(progress / 0.32, 0.0, 1.0)
 		match weapon_id:
 			"sabre":
@@ -808,9 +812,11 @@ func _update_player_visuals() -> void:
 	held_weapon_sprite.position = sprite_position
 	held_weapon_sprite.rotation = sprite_rotation
 	held_weapon_sprite.scale = weapon_sprite_scale
+	player.queue_redraw()
 	_update_secondary_weapon_visuals(forward)
 
 func _update_secondary_weapon_visuals(forward: Vector2) -> void:
+	var secondary_hammer_progress := -1.0
 	for owned in weapon_inventory:
 		var id := str(owned.id)
 		if id == weapon_id:
@@ -836,6 +842,8 @@ func _update_secondary_weapon_visuals(forward: Vector2) -> void:
 		var owned_synergy := _synergy_data(id)
 		var frequency := maxf(0.1, float(definition.get("speed", 1.0)) * attack_speed_multiplier * (1.0 + 0.08 * (int(owned.get("level", 1)) - 1)) * float(owned_synergy.get("attackSpeedMultiplier", 1.0)) * (1.2 if bool(owned.get("special", false)) else 1.0))
 		var progress := clampf(1.0 - attack_timer / (0.26 / frequency), 0.0, 1.0)
+		if id == "marteau":
+			secondary_hammer_progress = progress
 		var recovery := 1.0 - clampf(progress / 0.32, 0.0, 1.0)
 		var position := forward * 7.0
 		var rotation := forward.angle()
@@ -850,6 +858,8 @@ func _update_secondary_weapon_visuals(forward: Vector2) -> void:
 		sprite.position = position
 		sprite.rotation = rotation
 		sprite.visible = true
+	if secondary_hammer_progress >= 0.0:
+		player.hammer_swing_progress = secondary_hammer_progress
 
 func _play_tone(frequency: float, duration := 0.08, waveform := "sine") -> void:
 	if bool(profile.muted) or float(profile.volume) <= 0.0 or not is_instance_valid(audio_player):
