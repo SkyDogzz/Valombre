@@ -6,7 +6,7 @@ var joystick_finger := -1
 var action_fingers: Dictionary = {}
 
 func _ready() -> void:
-	mouse_filter = Control.MOUSE_FILTER_STOP
+	mouse_filter = Control.MOUSE_FILTER_PASS
 	focus_mode = Control.FOCUS_NONE
 	queue_redraw()
 
@@ -38,6 +38,31 @@ func _gui_input(event: InputEvent) -> void:
 				action_fingers.erase(event.index)
 			accept_event()
 	elif event is InputEventScreenDrag and event.index == joystick_finger:
+		_update_joystick(event.position)
+		accept_event()
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			if joystick_finger < 0 and _is_joystick_region(event.position):
+				joystick_finger = -2
+				_update_joystick(event.position)
+				accept_event()
+			else:
+				var action := _action_at(event.position)
+				if not action.is_empty():
+					action_fingers[-1] = action
+					_send_action(action, true)
+					accept_event()
+		else:
+			if joystick_finger == -2:
+				joystick_finger = -1
+				player.touch_move_vector = Vector2.ZERO
+				queue_redraw()
+				accept_event()
+			elif action_fingers.has(-1):
+				_send_action(str(action_fingers[-1]), false)
+				action_fingers.erase(-1)
+				accept_event()
+	elif event is InputEventMouseMotion and joystick_finger == -2:
 		_update_joystick(event.position)
 		accept_event()
 

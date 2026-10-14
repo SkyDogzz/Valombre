@@ -240,6 +240,9 @@ func _add_gamepad_button(action: String, button: int) -> void:
 	event.button_index = button
 	InputMap.action_add_event(action, event)
 
+func _should_show_touch_controls() -> bool:
+	return DisplayServer.is_touchscreen_available() or DisplayServer.window_get_size().x <= 760
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion or event is InputEventMouseButton:
 		mouse_aim_active = true
@@ -259,6 +262,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		_use_hero_skill()
 
 func _process(delta: float) -> void:
+	if is_instance_valid(touch_controls):
+		var touch_ui_visible := state == "playing" and _should_show_touch_controls()
+		if touch_controls.visible != touch_ui_visible:
+			touch_controls.visible = touch_ui_visible
 	if state == "levelUp" and auto_pick_remaining >= 0.0:
 		auto_pick_remaining -= delta
 		if auto_pick_remaining <= 0.0 and not upgrade_choices.is_empty():
@@ -3114,7 +3121,7 @@ func _set_state(next_state: String) -> void:
 	if is_instance_valid(touch_controls):
 		if state != "playing":
 			touch_controls.release_all()
-		touch_controls.visible = state == "playing" and DisplayServer.is_touchscreen_available()
+		touch_controls.visible = state == "playing" and _should_show_touch_controls()
 	player.run_active = state == "playing"
 	if is_instance_valid(cheat_button):
 		cheat_button.visible = state == "playing"
