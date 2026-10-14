@@ -1450,17 +1450,23 @@ func _damage_enemy(enemy: ValombreEnemy, amount: float, _weapon: String) -> void
 	var damage := roundf(amount)
 	var dealt := minf(damage, maxf(0.0, enemy.hp))
 	enemy.hp -= damage
-	enemy.hit_flash = 0.18
 	if equipment_lifesteal > 0.0 and dealt > 0.0 and is_instance_valid(player):
 		hp = minf(max_hp, hp + dealt * equipment_lifesteal)
+	enemy.hit_flash = 0.18
 	if enemy.hp <= 0.0:
+		var death_position := enemy.position
+		var is_boss := enemy.kind == "boss"
 		defeated += 1
 		_record_bestiary_kill(enemy)
+		enemy.queue_free()
+		enemies.erase(enemy)
+		_progress_objective("kills")
+		if enemy.elite:
+			_progress_objective("elite")
 		_on_enemy_killed(enemy, _weapon)
-		if enemy.kind == "boss":
-			_enemy_drop_xp(enemy.position, 1.0, false)
-			enemy.queue_free()
-			enemies.erase(enemy)
+		var weapon_xp_multiplier := float(_synergy_data(_weapon).get("experienceMultiplier", 1.0)) if not _weapon.is_empty() else 1.0
+		if is_boss:
+			_enemy_drop_xp(death_position, 1.0, weapon_xp_multiplier)
 			if mode == "infinite":
 				profile.shards = int(profile.shards) + 1
 				_save_checkpoint(wave + 1)
@@ -1468,12 +1474,8 @@ func _damage_enemy(enemy: ValombreEnemy, amount: float, _weapon: String) -> void
 			else:
 				_finish_run("victory")
 		else:
-			_enemy_drop_xp(enemy.position, 1.5 if enemy.elite else 1.0)
-			_progress_objective("kills")
-			if enemy.elite:
-				_progress_objective("elite")
-			enemy.queue_free()
-			enemies.erase(enemy)
+			_roll_enemy_item_drop(death_position)
+			_enemy_drop_xp(death_position, 1.5 if enemy.elite else 1.0, weapon_xp_multiplier)
 
 func _weapon_scale(id: String) -> float:
 	var owned := _owned_weapon(id)
@@ -1507,17 +1509,17 @@ func _on_enemy_killed(enemy: ValombreEnemy, weapon: String) -> void:
 			target.slow_factor = 0.35
 			_damage_enemy(target, float(catalog.content.weapons.givre.ghoulDamage) * _weapon_scale("givre") * 1.35, "")
 
-func _enemy_drop_xp(position: Vector2, value: float, allow_item_drop := true) -> void:
+func _enemy_drop_xp(position: Vector2, value: float, weapon_xp_multiplier := 1.0) -> void:
 	var node := Sprite2D.new()
 	node.texture = load("res://assets/xp.svg")
 	node.scale = Vector2(0.18, 0.18)
 	node.position = position + Vector2(rng.randf_range(-15, 15), rng.randf_range(-15, 15))
 	arena.add_child(node)
-	var xp_multiplier := equipment_xp * float(_synergy_data("foudre").get("experienceMultiplier", 1.0))
+	var xp_multiplier := equipment_xp * weapon_xp_multiplier
 	drops.append({"node": node, "type": "xp", "value": value * xp_multiplier, "life": 18.0})
+
+func _roll_enemy_item_drop(position: Vector2) -> void:
 	var difficulty: Dictionary = catalog.content.difficulties.get(difficulty_id, {})
-	if not allow_item_drop:
-		return
 	var drop_roll := rng.randf()
 	var potion_chance := float(catalog.content.config.drops.get("potionChance", 0.08)) * float(difficulty.get("itemDrop", 1.0))
 	var equipment_chance := float(catalog.content.config.drops.get("relicChance", 0.22)) * float(difficulty.get("itemDrop", 1.0))
