@@ -2434,6 +2434,9 @@ func _update_drops(delta: float) -> void:
 func _make_upgrade_choice_button(title: String, detail: String) -> Button:
 	var button := Button.new()
 	button.text = ""
+	button.focus_mode = Control.FOCUS_ALL
+	button.accessibility_name = title
+	button.accessibility_description = detail
 	button.custom_minimum_size.y = 68.0
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var normal := StyleBoxFlat.new()
@@ -2563,6 +2566,9 @@ func _clear_loot_buttons() -> void:
 func _make_loot_choice_button(title: String, detail: String, incoming_path: String, outgoing_path := "") -> Button:
 	var button := Button.new()
 	button.text = ""
+	button.focus_mode = Control.FOCUS_ALL
+	button.accessibility_name = title
+	button.accessibility_description = detail
 	button.custom_minimum_size.y = 60.0
 	var row := HBoxContainer.new()
 	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
