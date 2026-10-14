@@ -1936,6 +1936,7 @@ func _update_auto_attack() -> void:
 					enemy.set_meta("sabre_combo_marks", marks % 5)
 					sabre_burst = marks >= 5
 				if id == "lance" and _synergy_active(id):
+					_mark_discovered("discoveredSynergies", "lance-seal")
 					player_shield = minf(max_hp * 0.5, player_shield + 8.0)
 				var hit_scale := 1.45 if id == "lance" and special_finisher else 1.0
 				_damage_enemy(enemy, _weapon_base_damage(weapon, enemy) * damage_scale * hit_scale, id)
@@ -1944,6 +1945,7 @@ func _update_auto_attack() -> void:
 				if id == "dagues" and special_finisher and is_instance_valid(enemy) and enemies.has(enemy):
 					enemy.set_meta("dagger_bleed", {"remaining": 1.8, "tick": 0.45, "damage": _weapon_base_damage(weapon, enemy) * damage_scale * 0.24})
 				if sabre_burst:
+					_mark_discovered("discoveredSynergies", "sabre-talisman")
 					_add_combat_effect({"kind": "sabre_burst", "position": enemy.position, "radius": 104.0, "life": 0.34, "max_life": 0.34})
 					for nearby in enemies.duplicate():
 						if nearby.position.distance_to(enemy.position) <= 104.0:
@@ -1965,6 +1967,8 @@ func _update_auto_attack() -> void:
 				_add_combat_effect({"kind": "hammer_wave", "delay": 0.16, "position": player.position, "outer": reach + 34.0, "full_circle": true, "life": 0.3, "max_life": 0.3})
 		if id == "faux" and (special_finisher or (_synergy_active(id) and scythe_souls > 0)):
 			var released := scythe_souls if _synergy_active(id) else 0
+			if released > 0:
+				_mark_discovered("discoveredSynergies", "faux-heart")
 			scythe_souls -= released
 			_add_combat_effect({"kind": "scythe_wave", "position": player.position, "radius": reach * 1.08, "souls": released, "life": 0.42, "max_life": 0.42})
 			_play_tone(190.0, 0.1, "sawtooth")
@@ -2012,6 +2016,7 @@ func _launch_projectile(weapon: Dictionary, target: ValombreEnemy, damage_scale:
 		weapon_effects.append({"kind": "ranged_charge", "delay": 0.14, "shot": shot, "fan": fan, "visual": charge_visual, "weapon": id})
 		return
 	if fan:
+		_mark_discovered("discoveredSynergies", "arc-quiver")
 		var offsets := [-0.2, 0.0, 0.2]
 		var damage_scales := [0.72, 1.0, 0.72]
 		for index in offsets.size():
@@ -2096,6 +2101,7 @@ func _process_weapon_effects(delta: float) -> void:
 			continue
 		var shot: Dictionary = effect.shot
 		if bool(effect.fan):
+			_mark_discovered("discoveredSynergies", "arc-quiver")
 			var offsets := [-0.2, 0.0, 0.2]
 			var damage_scales := [0.72, 1.0, 0.72]
 			for shot_index in offsets.size():
@@ -2184,6 +2190,8 @@ func _chain_lightning(first: ValombreEnemy, projectile: Dictionary) -> void:
 				nearest_distance = distance
 		if not nearest:
 			break
+		if str(projectile.weapon) == "foudre" and _synergy_active("foudre"):
+			_mark_discovered("discoveredSynergies", "foudre-relic")
 		hit.append(nearest)
 		if is_instance_valid(combat_effects):
 			combat_effects.add_lightning_arc(current.position, nearest.position)
@@ -2338,6 +2346,8 @@ func _on_enemy_killed(enemy: ValombreEnemy, weapon: String) -> void:
 			if candidate != enemy and candidate.position.distance_to(death_position) <= 300.0:
 				targets.append(candidate)
 		targets.sort_custom(func(a: ValombreEnemy, b: ValombreEnemy) -> bool: return a.position.distance_to(death_position) < b.position.distance_to(death_position))
+		if not targets.is_empty():
+			_mark_discovered("discoveredSynergies", "dagues-boots")
 		for target in targets.slice(0, mini(3, targets.size())):
 			var dagger := ValombreProjectileVisual.new()
 			dagger.z_index = 1
@@ -2349,6 +2359,7 @@ func _on_enemy_killed(enemy: ValombreEnemy, weapon: String) -> void:
 			arena.add_child(dagger)
 			projectiles.append({"node": dagger, "direction": death_position.direction_to(target.position), "speed": 620.0, "radius": 6.0, "damage": float(catalog.content.weapons.dagues.ghoulDamage) * _weapon_scale("dagues") * 1.4, "weapon": "", "remaining": 620.0 * 1.4, "homing_target": target, "explosive": false, "lightning": false, "frost": false, "hit_targets": []})
 	if weapon == "givre" and enemy.slow_time > 0.0 and _synergy_active("givre"):
+		_mark_discovered("discoveredSynergies", "givre-vampire")
 		_add_combat_effect({"kind": "frost_nova", "position": death_position, "radius": 124.0, "life": 0.42, "max_life": 0.42})
 		for target in enemies.duplicate():
 			if target == enemy or target.position.distance_to(death_position) > 124.0:
@@ -2868,7 +2879,6 @@ func _refresh_relic_stats() -> void:
 		var owned_relic := _owned_relic(str(synergy.relicId))
 		if not owned_weapon.is_empty() and int(owned_weapon.level) == 5 and bool(owned_weapon.special) and not owned_relic.is_empty() and int(owned_relic.level) == 5 and bool(synergy.get("globalPickup", false)):
 			global_pickup = true
-			_mark_discovered("discoveredSynergies", str(synergy.id))
 	max_hp = base_hp * (1.0 + (level - 1) * 0.01) + bonus_max_hp + health_bonus
 	hp = minf(max_hp, hp)
 	pickup_range = 90.0 * pickup_range_multiplier * pickup_mult
@@ -2881,7 +2891,6 @@ func _synergy_active(weapon: String) -> bool:
 		var owned_weapon := _owned_weapon(weapon)
 		var owned_relic := _owned_relic(str(synergy.relicId))
 		if not owned_weapon.is_empty() and int(owned_weapon.level) == 5 and bool(owned_weapon.special) and not owned_relic.is_empty() and int(owned_relic.level) == 5:
-			_mark_discovered("discoveredSynergies", str(synergy.id))
 			return true
 	return false
 
