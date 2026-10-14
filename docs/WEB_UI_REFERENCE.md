@@ -54,4 +54,4 @@ Les écrans d’état sont définis dans `game.js` : titre « La nuit se lève �
 - À `max-width:380px` : joystick 72 × 72 px, stick 24 × 24 px; boutons 38 × 38 px et écart 4 px.
 - Le CSS contient une ancienne règle mobile donnant au canvas une hauteur `clamp(360px,70svh,560px)`, mais la règle finale la remplace par `height:auto; aspect-ratio:16/9`. La page entière ne défile pas; les panneaux overlay et inventaire ont leur propre défilement.
 
-Le relevé ne prétend pas valider visuellement la parité Godot : la comparaison de captures reste une tâche distincte de la Phase 7.
+Le port borne désormais le panneau d’inventaire à 300 px sur ordinateur et 125 px en fenêtre étroite, avec une hauteur maximale de 65 % de la fenêtre ou 520 px. Le catalogue de pause suit aussi une largeur de 520 px au plus, réduite aux marges disponibles. Le relevé ne prétend pas valider visuellement la parité Godot : la comparaison de captures reste une tâche distincte de la Phase 7.

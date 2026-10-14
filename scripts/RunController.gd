@@ -529,7 +529,7 @@ func _create_interface() -> void:
 	pause_catalog.visible = false
 	column.add_child(pause_catalog)
 	pause_catalog_list = VBoxContainer.new()
-	pause_catalog_list.custom_minimum_size.x = 520
+	pause_catalog_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pause_catalog.add_child(pause_catalog_list)
 	hero_hud_card = Panel.new()
 	hero_hud_card.position = Vector2(16.0, 14.0)
@@ -660,10 +660,11 @@ func _create_interface() -> void:
 	inventory_panel.visible = false
 	layer.add_child(inventory_panel)
 	var inventory_scroll := ScrollContainer.new()
-	inventory_scroll.custom_minimum_size = Vector2(320, 360)
+	inventory_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inventory_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	inventory_panel.add_child(inventory_scroll)
 	inventory_list = VBoxContainer.new()
-	inventory_list.custom_minimum_size.x = 300
+	inventory_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	inventory_scroll.add_child(inventory_list)
 	touch_controls = ValombreTouchControls.new()
 	touch_controls.name = "TouchControls"
@@ -775,9 +776,26 @@ func _update_hud_layout() -> void:
 	boss_bar.position = Vector2((logical_width - boss_width) * 0.5, 70.0 * scale_factor if compact else 100.0)
 	boss_bar.size.x = boss_width
 	if is_instance_valid(inventory_panel):
-		inventory_panel.position = Vector2(maxf(8.0, logical_width - 340.0), 74.0 if compact else 90.0)
+		var window_height := float(DisplayServer.window_get_size().y)
+		var inventory_width := minf(125.0, window_width - 24.0) if compact else minf(300.0, window_width - 24.0)
+		var inventory_height := minf(window_height * 0.65, 520.0)
+		inventory_panel.custom_minimum_size = Vector2(inventory_width, 0.0)
+		inventory_panel.custom_maximum_size = Vector2(inventory_width, inventory_height)
+		inventory_panel.position = Vector2(maxf(8.0, logical_width - inventory_width - (7.0 if compact else 16.0)), 74.0 if compact else 90.0)
 		if compact:
 			inventory_panel.position *= scale_factor
+		var inventory_scroll := inventory_panel.get_child(0) as ScrollContainer
+		if is_instance_valid(inventory_scroll):
+			inventory_scroll.custom_minimum_size.x = inventory_width
+			inventory_scroll.custom_maximum_size = Vector2(inventory_width, inventory_height)
+			var inventory_list_control := inventory_scroll.get_child(0) as Control
+			if is_instance_valid(inventory_list_control):
+				inventory_list_control.custom_minimum_size.x = inventory_width - (20.0 if compact else 16.0)
+	if is_instance_valid(pause_catalog):
+		var pause_width := minf(520.0, get_viewport_rect().size.x - 32.0)
+		pause_catalog.custom_minimum_size = Vector2(maxf(0.0, pause_width), minf(330.0, get_viewport_rect().size.y - 24.0))
+		if is_instance_valid(pause_catalog_list):
+			pause_catalog_list.custom_minimum_size.x = maxf(0.0, pause_width - 16.0)
 
 func _style_hud_button(button: Button) -> void:
 	var normal := StyleBoxFlat.new()
