@@ -552,7 +552,7 @@ func _create_interface() -> void:
 	start_button.pressed.connect(_on_start_pressed)
 	column.add_child(start_button)
 	new_run_button = Button.new()
-	new_run_button.text = "Nouvelle run"
+	new_run_button.text = "Abandonner et recommencer"
 	new_run_button.pressed.connect(_on_new_run_pressed)
 	column.add_child(new_run_button)
 	status_label = Label.new()
@@ -1294,6 +1294,9 @@ func _on_start_pressed() -> void:
 	_start_run()
 
 func _on_new_run_pressed() -> void:
+	if state in ["victory", "defeat"]:
+		_set_state("title")
+		return
 	profile.run = null
 	hero_id = str(profile.hero)
 	weapon_id = str(profile.weapon)
@@ -1349,13 +1352,13 @@ func _start_run(checkpoint: Dictionary = {}) -> void:
 	_update_player_visuals()
 	player.facing = Vector2.DOWN
 	xp = 0.0
-	next_xp = 5.0
+	next_xp = float(catalog.content.config.player.get("firstUpgradeXp", 5.0))
 	level = 1
 	defeated = 0
 	damage_multiplier = 1.0
 	movement_multiplier = 1.0
 	level_defense = 0.0
-	pickup_range = 90.0
+	pickup_range = float(catalog.content.config.drops.get("pickupRange", 90.0))
 	weapon_cooldown = 0.0
 	spawn_clock = 1.0
 	swarm_timer = -1.0
@@ -1990,7 +1993,7 @@ func _update_auto_attack() -> void:
 		if aim != Vector2.ZERO:
 			player.facing = aim
 		var synergy := _synergy_data(id)
-		var damage_scale := damage_multiplier * equipment_damage * level_scale * float(synergy.get("damageMultiplier", 1.0)) * (1.5 if bool(owned.special) else 1.0) * (1.0 + (level - 1) * 0.005)
+		var damage_scale := damage_multiplier * equipment_damage * level_scale * float(synergy.get("damageMultiplier", 1.0)) * (1.5 if bool(owned.special) else 1.0) * _level_damage_multiplier()
 		var frequency := maxf(0.1, float(weapon.speed) * attack_speed_multiplier * (1.0 + 0.08 * (int(owned.level) - 1)) * float(synergy.get("attackSpeedMultiplier", 1.0)) * (1.2 if bool(owned.special) else 1.0))
 		weapon_cooldowns[id] = 0.26 / frequency
 		weapon_attack_timers[id] = 0.26 / frequency
@@ -2091,7 +2094,7 @@ func _update_manual_attack() -> void:
 			if mouse_aim_active and mouse_direction.length() > 5.0:
 				player.facing = mouse_direction.normalized()
 		var level_scale := 1.0 + 0.18 * (int(owned.level) - 1)
-		var damage_scale := damage_multiplier * equipment_damage * level_scale * float(synergy.get("damageMultiplier", 1.0)) * (1.5 if bool(owned.special) else 1.0) * (1.0 + (level - 1) * 0.005)
+		var damage_scale := damage_multiplier * equipment_damage * level_scale * float(synergy.get("damageMultiplier", 1.0)) * (1.5 if bool(owned.special) else 1.0) * _level_damage_multiplier()
 		var frequency := maxf(0.1, float(weapon.speed) * attack_speed_multiplier * (1.0 + 0.08 * (int(owned.level) - 1)) * float(synergy.get("attackSpeedMultiplier", 1.0)) * (1.2 if bool(owned.special) else 1.0))
 		var swing_count := int(weapon_swing_counts.get(id, 0)) + 1
 		var special_finisher := bool(owned.special) and swing_count % 3 == 0
@@ -2528,11 +2531,14 @@ func _update_damage_numbers(delta: float) -> void:
 func _weapon_scale(id: String) -> float:
 	var owned := _owned_weapon(id)
 	if owned.is_empty():
-		return damage_multiplier * equipment_damage * (1.0 + (level - 1) * 0.005)
-	return damage_multiplier * equipment_damage * (1.0 + 0.18 * (int(owned.level) - 1)) * (1.5 if bool(owned.special) else 1.0) * float(_synergy_data(id).get("damageMultiplier", 1.0)) * (1.0 + (level - 1) * 0.005)
+		return damage_multiplier * equipment_damage * _level_damage_multiplier()
+	return damage_multiplier * equipment_damage * (1.0 + 0.18 * (int(owned.level) - 1)) * (1.5 if bool(owned.special) else 1.0) * float(_synergy_data(id).get("damageMultiplier", 1.0)) * _level_damage_multiplier()
+
+func _level_damage_multiplier() -> float:
+	return 1.0 + (level - 1) * float(catalog.content.config.player.get("levelDamageBonus", 0.005))
 
 func _player_damage_scale(weapon: String) -> float:
-	return damage_multiplier * equipment_damage * (1.0 + (level - 1) * 0.005) * float(_synergy_data(weapon).get("damageMultiplier", 1.0))
+	return damage_multiplier * equipment_damage * _level_damage_multiplier() * float(_synergy_data(weapon).get("damageMultiplier", 1.0))
 
 func _on_enemy_killed(enemy: ValombreEnemy, weapon: String) -> void:
 	var death_position := enemy.position
@@ -2692,11 +2698,11 @@ func _update_drops(delta: float) -> void:
 				while xp >= next_xp:
 					xp -= next_xp
 					level += 1
-					next_xp += 3.0
+					next_xp += float(catalog.content.config.player.get("xpPerLevel", 3.0))
 					pending_upgrades += 1
 					leveled_up = true
 				if leveled_up:
-					max_hp = base_hp * (1.0 + (level - 1) * 0.01) + bonus_max_hp + _relic_health()
+					max_hp = base_hp * (1.0 + (level - 1) * float(catalog.content.config.player.get("levelHealthBonus", 0.01))) + bonus_max_hp + _relic_health()
 					hp = minf(max_hp, hp + max_hp - previous_max_hp)
 				if pending_upgrades > 0:
 					_show_level_up()
@@ -3087,9 +3093,9 @@ func _refresh_relic_stats() -> void:
 		var owned_relic := _owned_relic(str(synergy.relicId))
 		if not owned_weapon.is_empty() and int(owned_weapon.level) == 5 and bool(owned_weapon.special) and not owned_relic.is_empty() and int(owned_relic.level) == 5 and bool(synergy.get("globalPickup", false)):
 			global_pickup = true
-	max_hp = base_hp * (1.0 + (level - 1) * 0.01) + bonus_max_hp + health_bonus
+	max_hp = base_hp * (1.0 + (level - 1) * float(catalog.content.config.player.get("levelHealthBonus", 0.01))) + bonus_max_hp + health_bonus
 	hp = minf(max_hp, hp)
-	pickup_range = 90.0 * pickup_range_multiplier * pickup_mult
+	pickup_range = float(catalog.content.config.drops.get("pickupRange", 90.0)) * pickup_range_multiplier * pickup_mult
 	player.equipment_speed = equipment_speed
 
 func _synergy_active(weapon: String) -> bool:
