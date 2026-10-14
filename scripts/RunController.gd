@@ -2095,6 +2095,8 @@ func _update_manual_attack() -> void:
 		if id == "marteau" and bool(owned.special):
 			var full_circle := _synergy_active(id)
 			weapon_effects.append({"kind": "hammer_wave", "delay": 0.16, "position": player.position, "angle": player.facing.angle(), "arc": float(weapon.get("arc", -1.0)), "outer": reach + 34.0, "full_circle": full_circle, "weapon": id, "damage_scale": damage_scale * (1.05 if full_circle else 0.55)})
+			if full_circle:
+				_add_combat_effect({"kind": "hammer_wave", "delay": 0.16, "position": player.position, "outer": reach + 34.0, "full_circle": true, "life": 0.3, "max_life": 0.3})
 		if id == "faux" and (special_finisher or (_synergy_active(id) and scythe_souls > 0)):
 			var released := scythe_souls if _synergy_active(id) else 0
 			if released > 0:
