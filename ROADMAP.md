@@ -2,7 +2,7 @@
 
 Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le guide du dépôt [`README.md`](README.md). L’objectif est une version Godot jouable dont le contenu et les règles reproduisent le snapshot web, puis dont la présentation et les contrôles atteignent la même expérience. Les tâches marquées « parité » doivent suivre le code JavaScript exporté, y compris les comportements qui ne sont pas décrits dans le JSON.
 
-**Avancement global : 30/70 tâches terminées (42,9 %).**
+**Avancement global : 31/70 tâches terminées (44,3 %).**
 
 ## Principes de portage
 
@@ -99,7 +99,7 @@ Ce plan utilise comme référence le dump extrait dans [`dump/`](dump/) et le gu
 
 - [x] Porter XP, seuil initial 5, incrément de 3, pause sur montée de niveau et choix de trois améliorations sans doublons.
 - [x] Implémenter les neuf améliorations (valeurs, maximum 10, textes, rangs, soins et stacking tels que codés).
-- [ ] Porter la sélection automatique de première carte après 3 s si l’option est activée.
+- [x] Porter la sélection automatique de première carte après 3 s si l’option est activée.
 - [ ] Porter butins et collecte : catégories, probabilités modulées, rayons, durée, aimantation, potion +32, filtres de butin et collecte automatique configurables.
 - [ ] Créer les sacs armes/reliques à 5 emplacements, progression niveau 1–5 et arme spéciale, verrouillage, arme unique, inventaire illimité, remplacer ou passer.
 - [x] Porter les neuf reliques et les calculs composés de leurs rangs. Afficher les valeurs effectives au bon format.

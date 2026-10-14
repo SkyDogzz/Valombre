@@ -97,6 +97,10 @@ var inventory_list: VBoxContainer
 var inventory_open := false
 var pause_catalog: ScrollContainer
 var pause_catalog_list: VBoxContainer
+var auto_pick_toggle: CheckBox
+var auto_pick_remaining := -1.0
+var upgrade_choices: Array[GameDefinition] = []
+var upgrade_buttons: Array[Button] = []
 var menu_column: VBoxContainer
 var boss_bar: ProgressBar
 var boss_name_label: Label
@@ -135,8 +139,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("special") and state == "playing":
 		_use_hero_skill()
+	elif state == "levelUp" and ((event is InputEventKey and event.pressed) or event is InputEventMouseMotion or event is InputEventMouseButton):
+		auto_pick_remaining = 3.0
 
 func _process(delta: float) -> void:
+	if state == "levelUp" and auto_pick_remaining >= 0.0:
+		auto_pick_remaining -= delta
+		if auto_pick_remaining <= 0.0 and not upgrade_choices.is_empty():
+			_apply_upgrade(upgrade_choices[0])
+			return
 	if state != "playing":
 		return
 	elapsed += delta
@@ -207,6 +218,11 @@ func _create_interface() -> void:
 	custom_drops_toggle.button_pressed = custom_drops
 	custom_drops_toggle.toggled.connect(_on_custom_drops_toggled)
 	column.add_child(custom_drops_toggle)
+	auto_pick_toggle = CheckBox.new()
+	auto_pick_toggle.text = "Choisir la première amélioration après 3 s"
+	auto_pick_toggle.button_pressed = bool(profile.get("autoPickUpgrade", true))
+	auto_pick_toggle.toggled.connect(_on_auto_pick_toggled)
+	column.add_child(auto_pick_toggle)
 	drop_filter_row = HBoxContainer.new()
 	column.add_child(drop_filter_row)
 	weapon_drop_menu = _add_drop_menu(drop_filter_row, "Armes autorisées", "weapons", selected_drop_weapons)
@@ -333,6 +349,12 @@ func _on_custom_drops_toggled(enabled: bool) -> void:
 	_update_drop_filter_controls()
 	_save_profile()
 
+func _on_auto_pick_toggled(enabled: bool) -> void:
+	profile.autoPickUpgrade = enabled
+	if state == "levelUp":
+		auto_pick_remaining = 3.0 if enabled else -1.0
+	_save_profile()
+
 func _update_drop_filter_controls() -> void:
 	if is_instance_valid(weapon_drop_menu):
 		weapon_drop_menu.disabled = not custom_drops
@@ -375,6 +397,7 @@ func _on_start_pressed() -> void:
 		single_weapon_toggle.set_pressed_no_signal(single_weapon)
 		uncapped_inventory_toggle.set_pressed_no_signal(uncapped_inventory)
 		custom_drops_toggle.set_pressed_no_signal(custom_drops)
+		auto_pick_toggle.set_pressed_no_signal(bool(profile.get("autoPickUpgrade", true)))
 		_refresh_drop_popup_checks()
 		_update_drop_filter_controls()
 		hero_picker.select(1 if hero_id == "sentinel" else 0)
@@ -1278,9 +1301,10 @@ func _update_drops(delta: float) -> void:
 func _show_level_up() -> void:
 	_set_state("levelUp")
 	var column: VBoxContainer = menu_panel.get_child(0)
-	for child in column.get_children():
-		if child is Button and child != start_button and child != new_run_button:
-			child.queue_free()
+	for button in upgrade_buttons:
+		if is_instance_valid(button):
+			button.queue_free()
+	upgrade_buttons.clear()
 	var choices: Array[GameDefinition] = []
 	var pool: Array = catalog.definitions.upgrades.filter(func(item: GameDefinition) -> bool: return int(upgrade_ranks.get(str(item.id), 0)) < int(item.values.get("maxRanks", 10)))
 	if pool.is_empty():
@@ -1290,13 +1314,19 @@ func _show_level_up() -> void:
 	while choices.size() < 3 and not pool.is_empty():
 		var index := rng.randi_range(0, pool.size() - 1)
 		choices.append(pool.pop_at(index))
+	upgrade_choices = choices.duplicate()
+	auto_pick_remaining = 3.0 if bool(profile.get("autoPickUpgrade", true)) else -1.0
 	for definition in choices:
 		var button := Button.new()
 		button.text = "%s · %s\nRang %d/%d · prochain bonus %s" % [definition.display_name, definition.values.get("description", ""), upgrade_ranks.get(str(definition.id), 0), definition.values.get("maxRanks", 10), _format_upgrade_bonus(definition)]
 		button.pressed.connect(_apply_upgrade.bind(definition))
+		button.focus_entered.connect(_restart_auto_pick_timer)
+		button.mouse_entered.connect(_restart_auto_pick_timer)
 		column.add_child(button)
+		upgrade_buttons.append(button)
 
 func _apply_upgrade(definition: GameDefinition) -> void:
+	auto_pick_remaining = -1.0
 	var values: Dictionary = definition.values
 	var rank := int(upgrade_ranks.get(str(definition.id), 0))
 	var bonus := float(values.get("bonus", 0.0)) / float(rank + 1)
@@ -1324,6 +1354,10 @@ func _apply_upgrade(definition: GameDefinition) -> void:
 		_show_level_up()
 	else:
 		_set_state("playing")
+
+func _restart_auto_pick_timer() -> void:
+	if state == "levelUp" and bool(profile.get("autoPickUpgrade", true)):
+		auto_pick_remaining = 3.0
 
 func _owned_weapon(id: String) -> Dictionary:
 	for item in weapon_inventory:
@@ -1757,30 +1791,29 @@ func _set_state(next_state: String) -> void:
 		single_weapon_toggle.visible = show_setup
 		uncapped_inventory_toggle.visible = show_setup
 		custom_drops_toggle.visible = show_setup
+		auto_pick_toggle.visible = show_setup
 		drop_filter_row.visible = show_setup
 		new_run_button.visible = state == "title" and (profile.get("run") is Dictionary)
 		status_label.visible = state != "playing"
 		for picker_label in picker_labels:
 			picker_label.visible = show_setup
-		for child in menu_panel.get_child(0).get_children():
-			if child is Button and child != start_button and child != new_run_button:
-				child.queue_free()
 	if is_instance_valid(pause_catalog):
 		pause_catalog.visible = state == "paused"
 		if state == "paused":
 			start_button.visible = true
 			for child in menu_column.get_children():
-				child.visible = child == pause_catalog or child == title_label or child == start_button or child == status_label
+				child.visible = child == pause_catalog or child == title_label or child == start_button
 			_build_pause_catalog()
 		else:
 			for child in menu_column.get_children():
 				child.visible = true
 			title_label.visible = true
 			status_label.visible = state != "playing"
+			start_button.visible = state in ["title", "paused", "victory", "defeat"]
 			var show_setup_after_pause := state == "title" and not (profile.get("run") is Dictionary)
 			for picker_label in picker_labels:
 				picker_label.visible = show_setup_after_pause
-			for control in [hero_picker, weapon_picker, mode_picker, difficulty_picker, single_weapon_toggle, uncapped_inventory_toggle, custom_drops_toggle, drop_filter_row]:
+			for control in [hero_picker, weapon_picker, mode_picker, difficulty_picker, single_weapon_toggle, uncapped_inventory_toggle, custom_drops_toggle, auto_pick_toggle, drop_filter_row]:
 				control.visible = show_setup_after_pause
 			new_run_button.visible = state == "title" and (profile.get("run") is Dictionary)
 
@@ -1889,6 +1922,9 @@ func _load_profile() -> void:
 		return
 	if int(saved.get("schema_version", 1)) != 1:
 		return
+	var auto_pick: Variant = saved.get("autoPickUpgrade", true)
+	if auto_pick is bool:
+		profile.autoPickUpgrade = auto_pick
 	for key in ["wins", "bestKills", "shards"]:
 		var value: Variant = saved.get(key, 0)
 		if value is int and value >= 0:
