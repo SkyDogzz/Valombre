@@ -138,7 +138,10 @@ func advance(delta: float) -> void:
 		return
 	invulnerability = maxf(0.0, invulnerability - delta)
 	dodge_cooldown = maxf(0.0, dodge_cooldown - delta)
-	var keyboard_direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	var keyboard_direction := Vector2(
+		Input.get_axis("move_left", "move_right"),
+		Input.get_axis("move_up", "move_down")
+	)
 	var direction := keyboard_direction + touch_move_vector
 	if direction.length_squared() > 1.0:
 		direction = direction.normalized()
