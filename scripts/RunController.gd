@@ -85,6 +85,7 @@ var notice_timer := 0.0
 var layer: CanvasLayer
 var menu_panel: PanelContainer
 var overlay_backdrop: ColorRect
+var overlay_scroll: ScrollContainer
 var eyebrow_label: Label
 var title_label: Label
 var status_label: Label
@@ -330,10 +331,15 @@ func _create_interface() -> void:
 	dialog_style.shadow_offset = Vector2(0.0, 12.0)
 	menu_panel.add_theme_stylebox_override("panel", dialog_style)
 	layer.add_child(menu_panel)
+	overlay_scroll = ScrollContainer.new()
+	overlay_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	overlay_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	overlay_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	menu_panel.add_child(overlay_scroll)
 	var column := VBoxContainer.new()
 	menu_column = column
 	column.add_theme_constant_override("separation", 12)
-	menu_panel.add_child(column)
+	overlay_scroll.add_child(column)
 	eyebrow_label = Label.new()
 	eyebrow_label.text = "UN CONTE DES TERRES BRISÉES"
 	eyebrow_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -658,7 +664,9 @@ func _create_interface() -> void:
 	_set_state("title")
 	_update_hud()
 	get_viewport().size_changed.connect(_update_hud_layout)
+	get_viewport().size_changed.connect(_update_overlay_layout)
 	_update_hud_layout()
+	_update_overlay_layout()
 
 func _create_hud_bar(bar_position: Vector2, bar_size: Vector2, tint: Color, gradient_start: Color, gradient_end: Color) -> ProgressBar:
 	var bar := ProgressBar.new()
@@ -686,6 +694,14 @@ func _make_hud_label(label_position: Vector2, label_size: Vector2, font_size: in
 	label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.9))
 	label.add_theme_constant_override("shadow_offset_y", 1)
 	return label
+
+func _update_overlay_layout() -> void:
+	if not is_instance_valid(menu_panel) or not is_instance_valid(overlay_scroll):
+		return
+	var viewport_height := get_viewport_rect().size.y
+	var maximum_height := maxf(160.0, viewport_height - 24.0)
+	menu_panel.custom_maximum_size.y = maximum_height
+	overlay_scroll.custom_maximum_size.y = maximum_height
 
 func _update_hud_layout() -> void:
 	if not is_instance_valid(hero_hud_card) or not is_instance_valid(wave_hud_card):
@@ -2462,7 +2478,7 @@ func _make_upgrade_choice_button(title: String, detail: String) -> Button:
 func _show_level_up() -> void:
 	_play_tone(460.0, 0.12, "sine")
 	_set_state("levelUp")
-	var column: VBoxContainer = menu_panel.get_child(0)
+	var column := menu_column
 	for button in upgrade_buttons:
 		if is_instance_valid(button):
 			button.queue_free()
