@@ -133,9 +133,8 @@ func _draw_scythe_swing(progress: float, reach: float) -> void:
 	draw_arc(Vector2.ZERO, radius, sweep_start, sweep_end, 64, Color(0.66, 0.87, 0.54, alpha * 0.32), 10.0, true)
 	draw_arc(Vector2.ZERO, radius, sweep_start, sweep_end, 64, Color(0.75, 0.9, 0.61, alpha), 5.0 + 3.0 * pulse, true)
 
-func _physics_process(delta: float) -> void:
+func advance(delta: float) -> void:
 	if not run_active:
-		velocity = Vector2.ZERO
 		return
 	invulnerability = maxf(0.0, invulnerability - delta)
 	dodge_cooldown = maxf(0.0, dodge_cooldown - delta)
@@ -150,13 +149,12 @@ func _physics_process(delta: float) -> void:
 		dodge_started.emit(global_position)
 	if dodge_time > 0.0:
 		var step := minf(delta, dodge_time)
-		velocity = dodge_direction * dodge_speed * movement_multiplier * equipment_speed * step / delta
+		global_position += dodge_direction * dodge_speed * movement_multiplier * equipment_speed * step
 		dodge_time -= step
 	else:
-		velocity = direction * move_speed * movement_multiplier * equipment_speed
+		global_position += direction * move_speed * movement_multiplier * equipment_speed * delta
 		if direction != Vector2.ZERO:
 			facing = direction
-	move_and_slide()
 	global_position.x = clampf(global_position.x, world_edge, world_size.x - world_edge)
 	global_position.y = clampf(global_position.y, world_edge, world_size.y - world_edge)
 	queue_redraw()

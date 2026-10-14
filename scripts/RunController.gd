@@ -172,6 +172,7 @@ func _ready() -> void:
 	main = get_parent()
 	arena = main.get_node("Arena")
 	player = arena.get_node("Player")
+	player.set_physics_process(false)
 	particle_layer = ValombreParticleLayer.new()
 	particle_layer.name = "CombatParticles"
 	particle_layer.z_index = 10
@@ -180,7 +181,7 @@ func _ready() -> void:
 	combat_effects = ValombreCombatEffects.new()
 	combat_effects.name = "CombatEffects"
 	combat_effects.z_index = 2
-	combat_effects.set_process(true)
+	combat_effects.set_process(false)
 	arena.add_child(combat_effects)
 	player.dodge_started.connect(func(position: Vector2) -> void: _spawn_burst(position, Color("d9c18a"), 8))
 	catalog = main.catalog
@@ -303,14 +304,16 @@ func _process(delta: float) -> void:
 			return
 	if state != "playing":
 		return
-	notice_timer = maxf(0.0, notice_timer - delta)
-	weapon_cooldown = maxf(0.0, weapon_cooldown - delta)
+	var simulation_delta := minf(delta, 0.04) * (1.25 if mode == "infinite" else 1.0)
+	player.advance(simulation_delta)
+	notice_timer = maxf(0.0, notice_timer - simulation_delta)
+	weapon_cooldown = maxf(0.0, weapon_cooldown - simulation_delta)
 	for id in weapon_cooldowns.keys():
-		weapon_cooldowns[id] = maxf(0.0, float(weapon_cooldowns[id]) - delta)
+		weapon_cooldowns[id] = maxf(0.0, float(weapon_cooldowns[id]) - simulation_delta)
 	for id in weapon_attack_timers.keys():
-		weapon_attack_timers[id] = maxf(0.0, float(weapon_attack_timers[id]) - delta)
-	contact_cooldown = maxf(0.0, contact_cooldown - delta)
-	skill_cooldown = maxf(0.0, skill_cooldown - delta)
+		weapon_attack_timers[id] = maxf(0.0, float(weapon_attack_timers[id]) - simulation_delta)
+	contact_cooldown = maxf(0.0, contact_cooldown - simulation_delta)
+	skill_cooldown = maxf(0.0, skill_cooldown - simulation_delta)
 	_update_auto_attack()
 	if state == "playing" and (manual_attack_requested or Input.is_action_pressed("attack")):
 		_update_manual_attack()
@@ -318,22 +321,26 @@ func _process(delta: float) -> void:
 	if state != "playing":
 		return
 	if intermission > 0.0:
-		intermission -= delta
+		intermission -= simulation_delta
 		if intermission <= 0.0:
 			_start_wave(wave + 1)
 	else:
-		_update_spawns(delta)
-		_update_enemies(delta)
+		_update_spawns(simulation_delta)
+		_update_enemies(simulation_delta)
 		if state != "playing":
 			return
-	_process_weapon_effects(delta)
-	_update_damage_zones(delta)
-	_update_projectiles(delta)
+	_process_weapon_effects(simulation_delta)
+	_update_damage_zones(simulation_delta)
+	_update_projectiles(simulation_delta)
 	if state != "playing":
 		return
 	_update_player_visuals()
-	_update_drops(delta)
-	_update_damage_numbers(delta)
+	_update_drops(simulation_delta)
+	if is_instance_valid(particle_layer):
+		particle_layer.advance(simulation_delta)
+	if is_instance_valid(combat_effects):
+		combat_effects.advance(simulation_delta)
+	_update_damage_numbers(simulation_delta)
 	_update_hud()
 	if inventory_open:
 		_refresh_inventory_panel()
@@ -3423,9 +3430,9 @@ func _set_state(next_state: String) -> void:
 	menu_panel.visible = is_overlay
 	overlay_backdrop.visible = is_overlay
 	if is_instance_valid(particle_layer):
-		particle_layer.set_process(state == "playing")
+		particle_layer.set_process(false)
 	if is_instance_valid(combat_effects):
-		combat_effects.set_process(state == "playing")
+		combat_effects.set_process(false)
 	if is_instance_valid(touch_controls):
 		if state != "playing":
 			touch_controls.release_all()

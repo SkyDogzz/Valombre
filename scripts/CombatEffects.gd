@@ -34,7 +34,7 @@ func clear() -> void:
 	lightning_arcs.clear()
 	queue_redraw()
 
-func _process(delta: float) -> void:
+func advance(delta: float) -> void:
 	for index in range(effects.size() - 1, -1, -1):
 		var effect: Dictionary = effects[index]
 		if float(effect.get("delay", 0.0)) > 0.0:

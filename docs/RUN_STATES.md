@@ -11,6 +11,6 @@ Le contrôleur utilise les sept états de `dump/project/src/config.js`: `title`,
 | `loot` | Remplacement ou passage vers `playing` | Gelée |
 | `victory` / `defeat` | Rejouer ou retour au titre via les contrôles de résultat | Gelée |
 
-`RunController._set_state` pilote la visibilité des overlays et des contrôles, arrête/reprend le joueur et les couches d’effets. La simulation principale retourne immédiatement hors de `playing`; les minuteries du joueur s’arrêtent aussi quand `run_active` est faux. La touche Échap ne fait que passer de `playing` à `paused` ou reprendre de `paused`; elle ne quitte pas directement les écrans de résultat.
+`RunController._set_state` pilote la visibilité des overlays et des contrôles, arrête/reprend le joueur et les couches d’effets. La simulation principale retourne immédiatement hors de `playing`; les minuteries du joueur s’arrêtent aussi quand `run_active` est faux. Le pas source est plafonné à `0,04 s` par frame et multiplié par `1,25` en mode infini. Le mouvement, l’esquive, les délais de combat, les particules et les effets Godot utilisent le même pas; le choix automatique après montée de niveau reste une minuterie réelle de 3 s. La touche Échap ne fait que passer de `playing` à `paused` ou reprendre de `paused`; elle ne quitte pas directement les écrans de résultat.
 
-Références d’implémentation : `scripts/RunController.gd` (`_process`, `_set_state`, `_unhandled_input`, `_finish_run`) et `scripts/Player.gd` (`_physics_process`).
+Références d’implémentation : `scripts/RunController.gd` (`_process`, `_set_state`, `_unhandled_input`, `_finish_run`) et `scripts/Player.gd` (`advance`).

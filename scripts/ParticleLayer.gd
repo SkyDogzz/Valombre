@@ -19,7 +19,7 @@ func clear() -> void:
 	particles.clear()
 	queue_redraw()
 
-func _process(delta: float) -> void:
+func advance(delta: float) -> void:
 	for index in range(particles.size() - 1, -1, -1):
 		var particle: Dictionary = particles[index]
 		particle.life = float(particle.life) - delta
